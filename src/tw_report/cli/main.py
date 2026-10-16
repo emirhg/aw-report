@@ -75,6 +75,7 @@ from tw_report.core.timeslot_builder import build_timeslot_timeline
 
 # generate_untracked_gap_events removed in Phase 2 refactor — builder handles gaps
 from tw_report.pipeline.presenters import HierarchicalReport, TimelineReport
+from tw_report.pipeline.processors import compute_productivity_breakdown
 from tw_report.pipeline.processors import (
     aggregate_hierarchy_from_slots,
     build_context,
@@ -652,6 +653,13 @@ def main():
     if args.exclude_afk:
         all_slot_entries = [g for g in all_slot_entries if g.get("type") != "afk"]
 
+    # Snapshot single-state slots for the productivity split BEFORE consolidation merges
+    # online/AFK/offline states into one slot (consolidated spans dilute window coverage)
+    productivity_source_slots = None
+    if not args.no_productivity:
+        from tw_report.core.report_slot import ReportTimelineSlot
+        productivity_source_slots = [ReportTimelineSlot.from_dict(g) for g in all_slot_entries]
+
     # Apply session consolidation to timeline slots if --consolidate flag is set
     # This merges multiple work sessions with same (date, project, task) into one entry
     if args.consolidate:
@@ -767,6 +775,17 @@ def main():
         metrics=metrics,
     )
 
+    # Productivity split uses the same filtered slots as TOTALS (filter before metrics)
+    productivity_breakdown = None
+    if not args.no_productivity:
+        productivity_breakdown = compute_productivity_breakdown(
+            productivity_source_slots,
+            window_events,
+            cat_score_map,
+            active_total=slot_active_time,
+            afk_total=slot_afk_time,
+        )
+
     # Convert slots back to dicts for rendering (use raw builder output, NO filtering)
     # IMPORTANT: Rendering shows ALL slots (including AFK) while metrics can be filtered.
     # This is by design — the report shows complete timeline, but summary metrics respect filters.
@@ -798,6 +817,7 @@ def main():
             distracting_time=context.metrics.distracting_time,
             unscored_time=context.metrics.unscored_time,
             current_session_start=context.metrics.current_session_start,
+            productivity=productivity_breakdown,
             current_session_end=context.metrics.current_session_end,
             current_session_duration=context.metrics.current_session_duration,
             last_break_start=context.metrics.last_break_start,
@@ -844,6 +864,7 @@ def main():
             last_event_time=last_event_time,
             distracting_time=context.metrics.distracting_time,
             unscored_time=context.metrics.unscored_time,
+            productivity=productivity_breakdown,
             sort_by_duration=args.sort_by_duration,
             sort_by_score=not args.sort_alphabetically,
             current_session_start=context.metrics.current_session_start,

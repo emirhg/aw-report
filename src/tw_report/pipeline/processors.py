@@ -1,9 +1,11 @@
 from copy import deepcopy
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
 
 from aw_core.models import Event
 
+from tw_report.core.categories import build_categories_from_window_events, get_category_score
 from tw_report.core.filtering import EventFilter
 from tw_report.pipeline.models import ReportContext, ReportMetrics
 
@@ -381,3 +383,138 @@ def merge_overlapping_afk_periods(afk_events: List[Event]) -> List[Event]:
     merged.append(current_event)
 
     return sorted(merged, key=lambda e: e.timestamp)
+
+
+@dataclass
+class ProductivityBreakdown:
+    """Active and AFK time split by category productivity score.
+
+    Score > 0 is productive, score < 0 is unproductive, and score 0 (or no
+    category data) is undefined. Each pair of parts sums to the matching
+    TOTALS figure (Active Time, AFK time).
+    """
+
+    active_productive: timedelta = timedelta(0)
+    active_unproductive: timedelta = timedelta(0)
+    active_undefined: timedelta = timedelta(0)
+    afk_productive: timedelta = timedelta(0)
+    afk_unproductive: timedelta = timedelta(0)
+    afk_undefined: timedelta = timedelta(0)
+
+
+def _score_bucket(score: Optional[float]) -> str:
+    """Map a category score to 'productive', 'unproductive' or 'undefined'."""
+    if not score:
+        return "undefined"
+    return "productive" if score > 0 else "unproductive"
+
+
+def _split_by_window_categories(
+    start,
+    end,
+    duration: timedelta,
+    window_events: List,
+    cat_score_map: Dict[str, float],
+) -> Dict[str, timedelta]:
+    """Split duration across buckets using window-category coverage of [start, end].
+
+    Window time with a scored category goes to that bucket; window-uncovered
+    time is undefined. Shares are proportional to coverage, so the returned
+    parts always sum to duration.
+    """
+    span = (end - start).total_seconds()
+    shares = {"productive": 0.0, "unproductive": 0.0, "undefined": 0.0}
+    if span <= 0:
+        shares["undefined"] = 1.0
+    else:
+        covered = 0.0
+        for cat in build_categories_from_window_events(window_events, start, end):
+            seconds = cat["duration"].total_seconds()
+            shares[_score_bucket(get_category_score(cat["category"], cat_score_map))] += seconds
+            covered += seconds
+        shares["undefined"] += max(span - covered, 0.0)
+
+    total = sum(shares.values())
+    parts = {
+        bucket: duration * (value / total) if total else timedelta(0)
+        for bucket, value in shares.items()
+    }
+    # Undefined takes the remainder so the parts sum exactly to duration
+    parts["undefined"] = duration - parts["productive"] - parts["unproductive"]
+    return parts
+
+
+def _fit_to_total(parts: Dict[str, timedelta], target: timedelta) -> Dict[str, timedelta]:
+    """Rescale productive/unproductive so the three parts sum exactly to target.
+
+    Undefined takes the remainder. If the raw parts sum to zero, the whole
+    target is undefined.
+    """
+    raw_total = sum(parts.values(), timedelta(0))
+    if raw_total <= timedelta(0):
+        return {"productive": timedelta(0), "unproductive": timedelta(0), "undefined": target}
+    scale = target / raw_total
+    fitted = {
+        "productive": parts["productive"] * scale,
+        "unproductive": parts["unproductive"] * scale,
+    }
+    fitted["undefined"] = target - fitted["productive"] - fitted["unproductive"]
+    return fitted
+
+
+def compute_productivity_breakdown(
+    filtered_slots: List["ReportTimelineSlot"],
+    window_events: List,
+    cat_score_map: Dict[str, float],
+    active_total: Optional[timedelta] = None,
+    afk_total: Optional[timedelta] = None,
+) -> ProductivityBreakdown:
+    """Split Active and AFK time into productive / unproductive / undefined.
+
+    Pass single-state (non-consolidated) slots: window coverage is measured over
+    each slot's span, so a consolidated slot that also covers offline time would
+    dilute the split. Offline-tagged slots are not skipped: they contribute only
+    the online/AFK time they actually carry.
+
+    AFK amounts mirror compute_afk_offline_totals(): afk_duration when slots
+    are consolidated, otherwise the duration of is_afk_only slots.
+
+    If active_total / afk_total are given, each group is rescaled so its parts
+    sum exactly to the displayed TOTALS figure (this absorbs micro-slots dropped
+    by consolidation).
+    """
+    active_parts = {"productive": timedelta(0), "unproductive": timedelta(0), "undefined": timedelta(0)}
+    afk_parts = {"productive": timedelta(0), "unproductive": timedelta(0), "undefined": timedelta(0)}
+    has_consolidated_afk = any(s.afk_duration is not None for s in filtered_slots)
+
+    def add(parts: Dict[str, timedelta], split: Dict[str, timedelta]) -> None:
+        for bucket, amount in split.items():
+            parts[bucket] += amount
+
+    for slot in filtered_slots:
+        active = slot.actual_duration or timedelta(0)
+        if active > timedelta(0):
+            add(active_parts, _split_by_window_categories(
+                slot.start, slot.end, active, window_events, cat_score_map))
+
+        if has_consolidated_afk:
+            afk = slot.afk_duration or timedelta(0)
+        else:
+            afk = (slot.actual_duration or slot.duration) if slot.is_afk_only else timedelta(0)
+        if afk > timedelta(0):
+            add(afk_parts, _split_by_window_categories(
+                slot.start, slot.end, afk, window_events, cat_score_map))
+
+    if active_total is not None:
+        active_parts = _fit_to_total(active_parts, active_total)
+    if afk_total is not None:
+        afk_parts = _fit_to_total(afk_parts, afk_total)
+
+    return ProductivityBreakdown(
+        active_productive=active_parts["productive"],
+        active_unproductive=active_parts["unproductive"],
+        active_undefined=active_parts["undefined"],
+        afk_productive=afk_parts["productive"],
+        afk_unproductive=afk_parts["unproductive"],
+        afk_undefined=afk_parts["undefined"],
+    )

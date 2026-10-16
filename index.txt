@@ -98,6 +98,8 @@ Aggregate Hierarchy   → pipeline/processors.py:142 (groups filtered slots by p
 ├── docs/                         # DOCUMENTATION
 │   ├── ARCHITECTURE.md           # Full architecture (Phases 1-12 complete)
 │   ├── FORMATTING_BUG_PHASE5.md  # Phase 5 regression analysis
+│   ├── OPTIMIZATION_OPPORTUNITIES.md # Documented but unimplemented optimizations (lazy window fetch)
+│   ├── EXTRA_BUCKETS_FINDINGS.md  # Browser/vim/tmux bucket findings (parked: browser data unreliable)
 │   ├── FORMATTING_FIX_VERIFICATION.md # Binary diff verification report
 │   ├── specs/                    # Technical specifications
 │   │   ├── SPECIFICATION_CHRONOLOGICAL_CONSISTENCY.md
@@ -187,6 +189,7 @@ DOCUMENTATION (docs/):
                                    - Module organization
                                    - Type safety and error handling strategy
   FORMATTING_BUG_PHASE5.md        → Comprehensive analysis of timeline rendering regression
+  OPTIMIZATION_OPPORTUNITIES.md    → Known optimization ideas not yet implemented (lazy window-bucket fetching)
   FORMATTING_FIX_VERIFICATION.md  → Binary diff verification (output identical to 69aeca3)
   specs/                          → Technical specifications
   analysis/                       → Design analysis and findings

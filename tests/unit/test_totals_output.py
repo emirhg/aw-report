@@ -368,3 +368,45 @@ class TestTimelineReportTotalsInvariants:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestTotalsLayout:
+    """TOTALS prints top-down: each child is indented one level deeper than its parent."""
+
+    def test_order_and_indent_levels(self, capsys):
+        from datetime import timedelta
+        from tw_report.pipeline.processors import ProductivityBreakdown
+        from tw_report.pipeline.report_render import print_report_totals
+
+        breakdown = ProductivityBreakdown(
+            active_productive=timedelta(minutes=10),
+            active_unproductive=timedelta(minutes=20),
+            active_undefined=timedelta(minutes=30),
+            afk_undefined=timedelta(minutes=5),
+        )
+        print_report_totals(
+            total_time_all=timedelta(hours=3),
+            total_non_afk=timedelta(hours=2),
+            total_afk=timedelta(minutes=5),
+            total_break=timedelta(hours=1),
+            productivity=breakdown,
+        )
+        lines = [l for l in capsys.readouterr().out.splitlines() if l.strip()]
+        labels = [l.strip().split("  ")[0] for l in lines if l.strip() and not l.startswith(("─", "=", "TOTALS"))]
+
+        assert labels == [
+            "Total Time", "Worked Time", "Online", "Active Time",
+            "Productive", "Unproductive", "Undefined",
+            "AFK time", "Productive", "Unproductive", "Undefined",
+            "Break Time",
+        ]
+
+        def indent(line):
+            return len(line) - len(line.lstrip(" "))
+
+        levels = {"Total Time": 0, "Worked Time": 2, "Online": 4, "Active Time": 6,
+                  "AFK time": 6, "Break Time": 2}
+        for line in lines:
+            label = line.strip().split("  ")[0]
+            if label in levels:
+                assert indent(line) == levels[label], label

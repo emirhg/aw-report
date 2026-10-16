@@ -574,6 +574,7 @@ def print_timeline_report(
     day_start_hour: int = 4,
     total_break: Optional[timedelta] = None,
     tracked_activity: Optional[timedelta] = None,
+    productivity: Optional["ProductivityBreakdown"] = None,
 ):
     """Print a timeline report showing activity as continuous time slots with date/week headers and cumulative totals.
 
@@ -1412,4 +1413,5 @@ def print_timeline_report(
         tracked_activity=tracked_activity_span,
         first_event_time=first_event_time,
         last_event_time=last_event_time,
+        productivity=productivity,
     )

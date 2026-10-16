@@ -115,6 +115,11 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "--include-afk", action="store_true", help="Include AFK time in the report."
     )
     parser.add_argument(
+        "--no-productivity",
+        action="store_true",
+        help="Skip the productive/unproductive/undefined split of Active and AFK time in TOTALS.",
+    )
+    parser.add_argument(
         "--exclude-afk",
         action="store_true",
         help="Exclude AFK periods from the timeline report (default: shown as AFK slots).",

@@ -455,6 +455,8 @@ For profiling: Use `python -m cProfile -s cumtime -m tw_report.cli.main [args]` 
 
 3. **UTC assumption**: All time handling assumes UTC; local time zones are not supported (by design, to match ActivityWatch behavior).
 
+4. **Window bucket always fetched**: Window events are fetched for every report, even when only AFK/online totals are needed. Lazy fetching is documented but not implemented; see `docs/OPTIMIZATION_OPPORTUNITIES.md`.
+
 ## References & Links
 
 - **README.md** — Full feature documentation and examples

@@ -196,7 +196,36 @@ tw-report :today --exclude-afk
 
 # Show only productive activities (hide communication, social media, etc.)
 tw-report :today --min-score 5
+
+# Skip the productive / unproductive / undefined split in TOTALS
+tw-report :today --no-productivity
 ```
+
+TOTALS splits Active Time and AFK time by productivity. Each window is classified by its category's
+score: a positive score is productive, a negative score is unproductive, and zero or no score is
+undefined. Three indented lines appear under Active Time and under AFK time. Offline time is not split,
+because offline work has no window data. The three parts sum to the figure above them:
+
+```
+TOTALS
+────────────────────────────────────────────────────────────────────────────────
+Total Time                                      11:24:54
+  Worked Time                                     07:36:42
+    Online                                          07:36:42
+      Active Time                                     07:12:26
+        Productive                                      00:30:36
+        Unproductive                                    02:05:19
+        Undefined                                       04:36:30
+      AFK time                                        00:24:16
+        Productive                                      00:00:00
+        Unproductive                                    00:00:00
+        Undefined                                       00:24:16
+  Break Time                                      03:48:12
+```
+
+The split is computed from single-state slots (before `--consolidate` merges them), with each slot's
+time divided by window category coverage. Each group is then scaled so the three parts sum exactly to
+the Active Time or AFK time shown above it. It is an estimate per slot, not an exact per-window attribution.
 
 ### Common Patterns
 

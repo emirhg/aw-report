@@ -28,6 +28,7 @@ def _to_local_time(dt: datetime) -> datetime:
         return dt.astimezone()
     return dt
 from tw_report.pipeline.models import ReportTotals
+from tw_report.pipeline.processors import ProductivityBreakdown
 from tw_report.utils.formatting import (
     format_duration,
     format_duration_tracked_prod,
@@ -229,6 +230,19 @@ def print_report_summary(
     print("-" * width)
 
 
+TOTALS_LABEL_WIDTH = 48
+TOTALS_INDENT_STEP = 2
+
+
+def print_totals_line(level: int, label: str, value_str: str) -> None:
+    """Print one TOTALS line. Level 0 is the root; each deeper level indents by TOTALS_INDENT_STEP.
+
+    The value is indented to the same column as its label, so the pair shifts as a unit.
+    """
+    indent = " " * (level * TOTALS_INDENT_STEP)
+    print(f"{(indent + label).ljust(TOTALS_LABEL_WIDTH)}{indent}{value_str}")
+
+
 def print_report_totals(
     total_time_all: Union[timedelta, ReportTotals],
     total_productive_all: Optional[timedelta] = None,
@@ -239,6 +253,7 @@ def print_report_totals(
     tracked_activity: Optional[timedelta] = None,
     first_event_time: Optional[datetime] = None,
     last_event_time: Optional[datetime] = None,
+    productivity: Optional[ProductivityBreakdown] = None,
 ) -> None:
     """Print TOTALS section with hierarchical breakdown of time composition.
 
@@ -293,49 +308,12 @@ def print_report_totals(
         active_time = total_non_afk
 
     width = get_terminal_width()
-    label_width = 48
 
     print()
     print("TOTALS")
     print("─" * width)
 
-    # Helper to print indented labels with indented values
-    def print_indented_total(indent_spaces, label, value_str):
-        """Print label with indentation, value also indented to match label."""
-        label_with_indent = " " * indent_spaces + label
-        # Value indentation = label indent + separator spacing
-        value_with_indent = " " * indent_spaces + value_str
-        print(f"{label_with_indent.ljust(label_width)}{value_with_indent}")
-
-    # Breakdown of online: Active (non-AFK) and AFK (indented 6 spaces)
-    if active_time and active_time > timedelta(0):
-        active_str = format_duration(active_time)
-        print_indented_total(6, "Active Time", active_str)
-
-    if afk_time and afk_time > timedelta(0):
-        afk_str = format_duration(afk_time)
-        print_indented_total(6, "AFK time", afk_str)
-
-    # Online (indented 4 spaces)
-    online_time_str = format_duration_tracked_prod(online_time, productive_time)
-    print_indented_total(4, "Online", online_time_str)
-
-    # Offline (indented 4 spaces) - only if present and significant (> 1 second)
-    if offline_time and offline_time > timedelta(seconds=1):
-        offline_str = format_duration(offline_time)
-        print_indented_total(4, "Offline", offline_str)
-
-    # Worked Time section (Online + Offline combined, indented 2 spaces)
-    worked_time = online_time + (offline_time if offline_time else timedelta(0))
-    worked_time_str = format_duration_tracked_prod(worked_time, productive_time)
-    print_indented_total(2, "Worked Time", worked_time_str)
-
-    # Break time (gaps between work sessions, indented 2 spaces) - only if present
-    if total_break and total_break > timedelta(0):
-        break_str = format_duration(total_break)
-        print_indented_total(2, "Break Time", break_str)
-
-    # Total Time = Worked Time + Break Time (the two components already shown above).
+    # Total Time = Worked Time + Break Time (the two components already shown below).
     # NOTE: Do NOT use `last_event_time - first_event_time` here — that raw event-window
     # span includes idle time between logical days (which break_time correctly excludes,
     # per the per-day break calculation in core/report_slot.py), so it overcounts for any
@@ -345,8 +323,33 @@ def print_report_totals(
     break_time = total_break if total_break else timedelta(0)
     tracked_activity = worked_time + break_time
 
-    tracked_activity_str = format_duration_tracked_prod(tracked_activity, productive_time)
-    print_indented_total(0, "Total Time", tracked_activity_str)
+    # Top-down tree: each child is one level deeper than its parent
+    print_totals_line(0, "Total Time", format_duration_tracked_prod(tracked_activity, productive_time))
+    print_totals_line(1, "Worked Time", format_duration_tracked_prod(worked_time, productive_time))
+    print_totals_line(2, "Online", format_duration_tracked_prod(online_time, productive_time))
+
+    if active_time and active_time > timedelta(0):
+        print_totals_line(3, "Active Time", format_duration(active_time))
+        if productivity is not None:
+            print_totals_line(4, "Productive", format_duration(productivity.active_productive))
+            print_totals_line(4, "Unproductive", format_duration(productivity.active_unproductive))
+            print_totals_line(4, "Undefined", format_duration(productivity.active_undefined))
+
+    if afk_time and afk_time > timedelta(0):
+        print_totals_line(3, "AFK time", format_duration(afk_time))
+        if productivity is not None:
+            print_totals_line(4, "Productive", format_duration(productivity.afk_productive))
+            print_totals_line(4, "Unproductive", format_duration(productivity.afk_unproductive))
+            print_totals_line(4, "Undefined", format_duration(productivity.afk_undefined))
+
+    # Offline: only if present and significant (> 1 second)
+    if offline_time and offline_time > timedelta(seconds=1):
+        print_totals_line(2, "Offline", format_duration(offline_time))
+
+    # Break time (gaps between work sessions) - only if present
+    if total_break and total_break > timedelta(0):
+        print_totals_line(1, "Break Time", format_duration(total_break))
+
     print("=" * width)
 
 
@@ -565,6 +568,7 @@ def print_report(
     last_event_time: Optional[datetime] = None,
     distracting_time: Optional[timedelta] = None,
     unscored_time: Optional[timedelta] = None,
+    productivity: Optional[ProductivityBreakdown] = None,
     sort_by_duration: bool = False,
     sort_by_score: bool = True,
     current_session_start: Optional[datetime] = None,
@@ -798,4 +802,5 @@ def print_report(
         total_break=calculated_break_time,
         first_event_time=first_event_time,
         last_event_time=last_event_time,
+        productivity=productivity,
     )

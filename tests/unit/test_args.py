@@ -186,6 +186,11 @@ class TestParseArgs:
         assert args.include_afk is True
         assert args.exclude_afk is False
 
+    def test_no_productivity_flag(self):
+        """Productivity split is on by default; --no-productivity turns it off."""
+        assert parse_args([]).no_productivity is False
+        assert parse_args(["--no-productivity"]).no_productivity is True
+
     def test_exact_matching(self):
         """--exact flag for case-insensitive exact matching."""
         args = parse_args(["--exact", "--project", "Climb"])
