@@ -16,6 +16,8 @@ from typing import List, Optional
 
 from aw_core.models import Event
 
+from tw_report.core.filtering import normalize_project, normalize_task
+
 
 class WindowEvent(Event):
     """Event from the window/desktop-activity bucket."""
@@ -76,12 +78,16 @@ class TaskWarriorEvent(Event):
 
     @property
     def project(self) -> str:
-        """Project name."""
-        return self.data.get("project", "No project")
+        """Project name; untracked spellings are normalized to NO_PROJECT."""
+        return normalize_project(self.data.get("project"))
 
     @property
     def task(self) -> str:
-        """Task name/identifier: explicit task field, else title (AW), else UUID (short), else 'No task'."""
+        """Task name/identifier; untracked spellings are normalized to NO_TASK."""
+        return normalize_task(self._resolved_task())
+
+    def _resolved_task(self) -> str:
+        """Explicit task field, else title (AW), else UUID (short), else 'No task'."""
         # Prefer explicit 'task' field if present (some workflows may set this)
         if "task" in self.data and self.data["task"]:
             return self.data["task"]

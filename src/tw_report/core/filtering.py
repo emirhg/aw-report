@@ -16,15 +16,30 @@ from typing import Any, Dict, List, Optional
 NO_PROJECT = "No project assigned"
 NO_TASK = "No task assigned"
 
-# Project values that mean "no project tracked". NO_PROJECT is our sentinel;
-# "No project" is the default TaskWarriorEvent.project (aw_events.py) and
-# None/"" come from slots rebuilt via ReportTimelineSlot.from_dict.
-_UNASSIGNED_PROJECTS = {NO_PROJECT.lower(), "no project", ""}
+# Raw spellings that mean "untracked" and map to the standard sentinels.
+# "No project" is the TaskWarriorEvent.project fallback; "No task" and
+# "No task tracked" are written by the taskwarrior watcher.
+_UNASSIGNED_PROJECT_SPELLINGS = {"", "no project", NO_PROJECT.lower()}
+_UNASSIGNED_TASK_SPELLINGS = {"", "no task", "no task tracked", NO_TASK.lower()}
+
+
+def normalize_project(value: Optional[str]) -> Optional[str]:
+    """Map every untracked project spelling (and None) to NO_PROJECT; keep real names unchanged."""
+    if value is None or str(value).strip().lower() in _UNASSIGNED_PROJECT_SPELLINGS:
+        return NO_PROJECT
+    return value
+
+
+def normalize_task(value: Optional[str]) -> Optional[str]:
+    """Map every untracked task spelling (and None) to NO_TASK; keep real names unchanged."""
+    if value is None or str(value).strip().lower() in _UNASSIGNED_TASK_SPELLINGS:
+        return NO_TASK
+    return value
 
 
 def _is_unassigned_project(value: Optional[str]) -> bool:
     """True if a project value means no project was tracked."""
-    return value is None or str(value).strip().lower() in _UNASSIGNED_PROJECTS
+    return normalize_project(value) == NO_PROJECT
 
 
 class EventFilter:
@@ -131,7 +146,7 @@ class EventFilter:
                 # For gaps/breaks, only exclude if completely untracked
                 # (both project and task are unassigned or empty)
                 # ISSUE #3 FIX: Now treat OFFLINE gaps same as AFK gaps
-                task_unassigned = task in (NO_TASK, "No task", "", None)
+                task_unassigned = normalize_task(task) == NO_TASK
                 if _is_unassigned_project(project) and task_unassigned:
                     return False
 

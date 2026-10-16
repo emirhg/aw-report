@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
 from aw_core.models import Event
 
 from tw_report.core.categories import build_categories_from_window_events, get_category_score
-from tw_report.core.filtering import EventFilter
+from tw_report.core.filtering import NO_TASK, EventFilter
 from tw_report.pipeline.models import ReportContext, ReportMetrics
 
 if TYPE_CHECKING:
@@ -102,7 +102,7 @@ def aggregate_hierarchy_from_slots(
                     {"total_duration": timedelta(0), "tasks": {}, "prod_score": 0.0},
                 )
                 task_node = proj_node["tasks"].setdefault(
-                    slot.task or "No task",
+                    slot.task or NO_TASK,
                     {"total_duration": timedelta(0), "categories": {}, "prod_score": 0.0},
                 )
                 cat_node = task_node["categories"].setdefault(

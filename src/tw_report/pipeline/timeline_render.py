@@ -585,7 +585,7 @@ def print_timeline_report(
       - Online Time: Total time from first to last activity (AFK + non-AFK combined)
       - Active Time: Total focused work time (non-AFK only)
       - AFK time: Total time away from keyboard
-      - Project Tracking: % of online time on tracked (non-"No project") tasks
+      - Project Tracking: % of online time on tracked (non-"No project assigned") tasks
       - Focus time: % time on high-priority tasks
       - Untracked productivity: % of untracked time on productive activities
       - Overall productivity: Total productive time / online time

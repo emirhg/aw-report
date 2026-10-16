@@ -340,3 +340,22 @@ Issues to Fix:
 - Issue #3: OFFLINE gaps not filtered like AFK gaps
 - Overall consistency: Filter applied uniformly to all entry types
 """
+
+
+class TestNormalizeUntracked:
+    """Every untracked spelling maps to the standard sentinels; real names are unchanged."""
+
+    @pytest.mark.parametrize("value", ["No project", "no project", " No project ", "", None])
+    def test_project_spellings_map_to_no_project(self, value):
+        from tw_report.core.filtering import NO_PROJECT, normalize_project
+        assert normalize_project(value) == NO_PROJECT
+
+    @pytest.mark.parametrize("value", ["No task", "No task tracked", "no task tracked", "", None])
+    def test_task_spellings_map_to_no_task(self, value):
+        from tw_report.core.filtering import NO_TASK, normalize_task
+        assert normalize_task(value) == NO_TASK
+
+    def test_real_names_unchanged(self):
+        from tw_report.core.filtering import normalize_project, normalize_task
+        assert normalize_project("Climb") == "Climb"
+        assert normalize_task("Merge vs Rebase") == "Merge vs Rebase"
