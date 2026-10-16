@@ -51,7 +51,7 @@ from tw_report.core.events import (
     get_bucket_id,
     get_events,
 )
-from tw_report.core.filtering import NO_PROJECT, EventFilter
+from tw_report.core.filtering import EventFilter, _is_unassigned_project
 
 # OfflineTaskProcessor removed in Phase 2 refactor — builder handles offline classification
 from tw_report.core.period import parse_period
@@ -645,7 +645,7 @@ def main():
         g
         for g in all_slot_entries
         if event_filter.should_include_entry(g, entry_type=g.get("type", "regular"))
-        and not (args.exclude_non_project and g.get("project") == NO_PROJECT)
+        and not (args.exclude_non_project and _is_unassigned_project(g.get("project")))
     ]
 
     # FIX: --exclude-afk removes AFK period slots from the timeline
@@ -701,7 +701,17 @@ def main():
 
     # Apply EventFilter to slots BEFORE any metrics calculation
     # Totals should only include entries that match the applied filters
-    # CRITICAL: Type computation must distinguish 'afk' for NO_PROJECT vs 'regular' for others
+    # The entry type must reflect the real slot kind so the AFK/offline/gap
+    # branch of should_include_entry is used for those slots
+    def _slot_entry_type(s: ReportTimelineSlot) -> str:
+        if s.is_afk_only:
+            return 'afk'
+        if s.is_offline_gap:
+            return 'offline'
+        if s.is_offline_task:
+            return 'offline_task'
+        return 'regular'
+
     filtered_slots = [
         s for s in report_slots
         if event_filter.should_include_entry(
@@ -709,9 +719,8 @@ def main():
                 'project': s.project,
                 'task': s.task,
                 'app': "|".join(_get_apps_from_slot(s)) or "",
-                'type': 'afk' if s.project == NO_PROJECT else 'regular',
             },
-            entry_type='regular'
+            entry_type=_slot_entry_type(s),
         )
     ]
 

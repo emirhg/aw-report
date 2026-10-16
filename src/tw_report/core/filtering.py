@@ -16,6 +16,16 @@ from typing import Any, Dict, List, Optional
 NO_PROJECT = "No project assigned"
 NO_TASK = "No task assigned"
 
+# Project values that mean "no project tracked". NO_PROJECT is our sentinel;
+# "No project" is the default TaskWarriorEvent.project (aw_events.py) and
+# None/"" come from slots rebuilt via ReportTimelineSlot.from_dict.
+_UNASSIGNED_PROJECTS = {NO_PROJECT.lower(), "no project", ""}
+
+
+def _is_unassigned_project(value: Optional[str]) -> bool:
+    """True if a project value means no project was tracked."""
+    return value is None or str(value).strip().lower() in _UNASSIGNED_PROJECTS
+
 
 class EventFilter:
     """
@@ -115,14 +125,14 @@ class EventFilter:
             if entry_type in ("regular", "offline_task"):
                 # For work entries, must have a tracked project
                 # ISSUE #1 FIX: Synthetic OFFLINE task slots now checked here
-                if project == NO_PROJECT:
+                if _is_unassigned_project(project):
                     return False
             elif entry_type in ("afk", "offline", "gap"):
                 # For gaps/breaks, only exclude if completely untracked
                 # (both project and task are unassigned or empty)
                 # ISSUE #3 FIX: Now treat OFFLINE gaps same as AFK gaps
-                task_unassigned = task == NO_TASK or task == "" or task is None
-                if project == NO_PROJECT and task_unassigned:
+                task_unassigned = task in (NO_TASK, "No task", "", None)
+                if _is_unassigned_project(project) and task_unassigned:
                     return False
 
         # --- STEP 3: Handle inclusion patterns ---

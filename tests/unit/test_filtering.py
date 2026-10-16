@@ -102,6 +102,35 @@ class TestExcludeNonProjectFilter:
         assert f.should_include_entry(entry, "offline_task") is False
 
 
+    @pytest.mark.parametrize("project", ["No project", "no project", "", None])
+    def test_exclude_non_project_removes_all_unassigned_spellings(self, project):
+        """Default TaskWarrior 'No project' and empty/None projects count as unassigned."""
+        from tw_report.core.filtering import EventFilter
+
+        f = EventFilter(exclude_non_project=True)
+        entry = {"project": project, "task": "Some task"}
+        assert f.should_include_entry(entry, "regular") is False
+        assert f.should_include_entry(entry, "offline_task") is False
+
+    @pytest.mark.parametrize("task", ["No task", "No task assigned", "", None])
+    def test_exclude_non_project_gap_with_unassigned_task_spellings(self, task):
+        """AFK gap with unassigned project and any unassigned task spelling is excluded."""
+        from tw_report.core.filtering import EventFilter
+
+        f = EventFilter(exclude_non_project=True)
+        entry = {"project": "No project", "task": task}
+        assert f.should_include_entry(entry, "afk") is False
+        assert f.should_include_entry(entry, "offline") is False
+
+    def test_exclude_non_project_keeps_afk_slot_with_real_task(self):
+        """AFK slot that has a tracked project is kept."""
+        from tw_report.core.filtering import EventFilter
+
+        f = EventFilter(exclude_non_project=True)
+        entry = {"project": "Climb", "task": "Task1"}
+        assert f.should_include_entry(entry, "afk") is True
+
+
 class TestProjectPatternFiltering:
     """Test --project filter pattern matching."""
 
