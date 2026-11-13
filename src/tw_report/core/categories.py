@@ -123,9 +123,6 @@ def compile_category_rules(
                 raise CategoryValidationError(
                     f"Invalid regex in category rule {rule_item}: {e}"
                 ) from e
-            except (ValueError, TypeError) as e:
-                logger.error(f"Invalid category rule structure: {rule_item}: {e}")
-                raise CategoryValidationError(f"Invalid category rule structure: {e}") from e
 
     return compiled_rules, cat_score_map
 
@@ -316,8 +313,6 @@ def build_categories_from_window_events(
                         title_data["start"] = overlap_start
                     if overlap_end > title_data["end"]:
                         title_data["end"] = overlap_end
-                    if "events" not in title_data:
-                        title_data["events"] = []
                     title_data["events"].append(window_event)
 
     # Convert categories dict to list format for consistency with regular slots
@@ -346,48 +341,39 @@ def build_categories_from_window_events(
             "start": cat_start,
             "end": cat_end,
         }
-        if cat_data["apps"]:
-            # Build apps list with recalculated start/end from title children
-            apps_list = []
-            for app_name, app_data in cat_data["apps"].items():
-                # Recalculate app start/end from title children's actual times
-                app_start = None
-                app_end = None
-                for title_data in app_data.get("titles", {}).values():
-                    title_start = title_data.get("start")
-                    title_end = title_data.get("end")
-                    if title_start and (app_start is None or title_start < app_start):
-                        app_start = title_start
-                    if title_end and (app_end is None or title_end > app_end):
-                        app_end = title_end
+        # Every category is created together with at least one app and every app with at least
+        # one title, so the apps list is always populated.
+        apps_list = []
+        for app_name, app_data in cat_data["apps"].items():
+            # Recalculate app start/end from title children's actual times
+            app_start = None
+            app_end = None
+            for title_data in app_data["titles"].values():
+                title_start = title_data.get("start")
+                title_end = title_data.get("end")
+                if title_start and (app_start is None or title_start < app_start):
+                    app_start = title_start
+                if title_end and (app_end is None or title_end > app_end):
+                    app_end = title_end
+            app_info = {
+                "app": app_name,
+                "duration": app_data["duration"],
+                "start": app_start,
+                "end": app_end,
+                "titles": [
+                    {
+                        "title": t,
+                        "duration": title_data["duration"],
+                        "start": title_data.get("start"),
+                        "end": title_data.get("end"),
+                        "events": title_data.get("events", []),
+                    }
+                    for t, title_data in app_data["titles"].items()
+                ],
+            }
+            apps_list.append(app_info)
 
-                # If no titles, use the app's existing start/end
-                if app_start is None:
-                    app_start = app_data.get("start")
-                if app_end is None:
-                    app_end = app_data.get("end")
-
-                app_info = {
-                    "app": app_name,
-                    "duration": app_data["duration"],
-                    "start": app_start,
-                    "end": app_end,
-                    "titles": [
-                        {
-                            "title": t,
-                            "duration": title_data["duration"],
-                            "start": title_data.get("start"),
-                            "end": title_data.get("end"),
-                            "events": title_data.get("events", []),
-                        }
-                        for t, title_data in app_data["titles"].items()
-                    ]
-                    if app_data["titles"]
-                    else [],
-                }
-                apps_list.append(app_info)
-
-            cat_info["apps"] = apps_list
+        cat_info["apps"] = apps_list
         merged_categories.append(cat_info)
 
     return merged_categories
