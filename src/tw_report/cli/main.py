@@ -64,6 +64,17 @@ from tw_report.utils.profiling import StageProfiler, enable_unbuffered_output
 logger = logging.getLogger(__name__)
 
 
+def _get_apps_from_slot(slot) -> List[str]:
+    """Extract all unique app names from slot's categories."""
+    apps = set()
+    for cat_entry in slot.categories or []:
+        for app_entry in cat_entry.get("apps", []):
+            app_name = app_entry.get("app", "")
+            if app_name:
+                apps.add(app_name)
+    return list(apps)
+
+
 def _matches_any(name: str, patterns: Optional[List[str]], exact: bool) -> bool:
     """Check if name matches any pattern (case-insensitive substring or exact)."""
     if not patterns:
@@ -367,41 +378,34 @@ def _run(profiler: StageProfiler):
 
     # For opt-out: fetch windows by default, skip only in constrained cases
     # AFK data is always needed for metrics and OFFLINE reconciliation
-    requires_afk_data = True
-
     # Fetch AFK events (always required for metrics and OFFLINE reconciliation)
-    if requires_afk_data:
-        from tw_report.core.aw_events import AFKEvent
+    from tw_report.core.aw_events import AFKEvent
 
-        if task_time_ranges:
-            # Smart optimization: only fetch AFK for times when tasks exist
-            # This dramatically reduces data volume for sparse task data (e.g., :year, :all)
-            afk_events = _fetch_events_for_ranges(
-                client, "afk", task_time_ranges, event_cls=AFKEvent
-            )
-        else:
-            # No task time ranges: fetch entire period
-            afk_bucket = get_bucket_id("afk")
-            profiler.checkpoint(
-                f"Fetching AFK events from {start_time.date()} to {end_time.date()}"
-            )
-            afk_events = get_events(client, afk_bucket, start_time, end_time, event_cls=AFKEvent)
-            profiler.checkpoint(f"Fetched {len(afk_events)} AFK events")
+    if task_time_ranges:
+        # Smart optimization: only fetch AFK for times when tasks exist
+        # This dramatically reduces data volume for sparse task data (e.g., :year, :all)
+        afk_events = _fetch_events_for_ranges(client, "afk", task_time_ranges, event_cls=AFKEvent)
+    else:
+        # No task time ranges: fetch entire period
+        afk_bucket = get_bucket_id("afk")
+        profiler.checkpoint(f"Fetching AFK events from {start_time.date()} to {end_time.date()}")
+        afk_events = get_events(client, afk_bucket, start_time, end_time, event_cls=AFKEvent)
+        profiler.checkpoint(f"Fetched {len(afk_events)} AFK events")
 
-        # Filter AFK to only events overlapping task time ranges (if available)
-        # CRITICAL: Only filter if task_time_ranges is non-empty. If no tasks exist,
-        # we still need all AFK events to display untracked time and detect system state.
-        if task_time_ranges:
-            filtered_afk = []
-            for afk_event in afk_events:
-                afk_start = afk_event.timestamp
-                afk_end = afk_start + afk_event.duration
-                for task_start, task_end in task_time_ranges:
-                    if afk_start < task_end and afk_end > task_start:
-                        filtered_afk.append(afk_event)
-                        break
-            afk_events = filtered_afk
-        # else: keep all AFK events if no tasks exist (showing untracked time)
+    # Filter AFK to only events overlapping task time ranges (if available)
+    # CRITICAL: Only filter if task_time_ranges is non-empty. If no tasks exist,
+    # we still need all AFK events to display untracked time and detect system state.
+    if task_time_ranges:
+        filtered_afk = []
+        for afk_event in afk_events:
+            afk_start = afk_event.timestamp
+            afk_end = afk_start + afk_event.duration
+            for task_start, task_end in task_time_ranges:
+                if afk_start < task_end and afk_end > task_start:
+                    filtered_afk.append(afk_event)
+                    break
+        afk_events = filtered_afk
+    # else: keep all AFK events if no tasks exist (showing untracked time)
 
     # ============================================================================
     # CRITICAL ARCHITECTURE: Window Bucket On-Demand Fetching (Phase 13)
@@ -488,11 +492,12 @@ def _run(profiler: StageProfiler):
             previous_end = max(non_overlapping_ends)
             current_start = last_event_start
 
-            # Break is the gap between previous end and current start
-            if current_start > previous_end:
-                last_break_start = previous_end.astimezone()
-                last_break_end = current_start.astimezone()
-                last_break_duration = current_start - previous_end
+            # Break is the gap between previous end and current start. Not-afk periods were
+            # merged above (touching or overlapping periods are joined), so the previous end is
+            # always strictly before the current start.
+            last_break_start = previous_end.astimezone()
+            last_break_end = current_start.astimezone()
+            last_break_duration = current_start - previous_end
 
     task_events = task_events_early  # Use pre-fetched task events if available
     is_task_based_report = not args.no_taskwarrior
@@ -560,15 +565,6 @@ def _run(profiler: StageProfiler):
     # This ensures both report modes see identical data and metrics.
 
     # Extract apps helper (needed for app-level filtering)
-    def _get_apps_from_slot(slot):
-        """Extract all unique app names from slot's categories."""
-        apps = set()
-        for cat_entry in slot.categories or []:
-            for app_entry in cat_entry.get("apps", []):
-                app_name = app_entry.get("app", "")
-                if app_name:
-                    apps.add(app_name)
-        return list(apps)
 
     # PHASE 14 OPTIMIZATION: App-level time range filtering (composite-aware, with Phase 3B
     # hardening)
@@ -593,12 +589,11 @@ def _run(profiler: StageProfiler):
             # Re-fetch AFK events using app-bounded time ranges (PHASE 14 optimization)
             # This reduces AFK data volume when filtering by app, whether alone or combined
             # with project/task filters. Bounding envelope preserves AFK context for gaps.
-            if app_time_ranges:
-                from tw_report.core.aw_events import AFKEvent
+            from tw_report.core.aw_events import AFKEvent
 
-                afk_events = _fetch_events_for_ranges(
-                    client, "afk", app_time_ranges, event_cls=AFKEvent
-                )
+            afk_events = _fetch_events_for_ranges(
+                client, "afk", app_time_ranges, event_cls=AFKEvent
+            )
 
     # Tracked Activity from event times (includes all buckets: AFK + window + task)
     tracked_activity_from_slots = None
@@ -626,8 +621,6 @@ def _run(profiler: StageProfiler):
         an upstream merge step fails to collapse them. Group by (uuid, timestamp)
         when a uuid is available, and keep only the longest-duration event per group.
         """
-        if not events:
-            return events
         groups = {}
         for event in events:
             uuid = getattr(event, "uuid", None)
@@ -659,8 +652,6 @@ def _run(profiler: StageProfiler):
     def _infer_slot_type(slot):
         if slot.is_afk_only:
             return "afk"
-        elif slot.is_offline_gap:
-            return "offline"
         elif slot.is_offline_task:
             return "offline_task"
         else:
@@ -746,8 +737,6 @@ def _run(profiler: StageProfiler):
     def _slot_entry_type(s: ReportTimelineSlot) -> str:
         if s.is_afk_only:
             return "afk"
-        if s.is_offline_gap:
-            return "offline"
         if s.is_offline_task:
             return "offline_task"
         return "regular"

@@ -325,3 +325,30 @@ def test_very_wide_date_change_uses_full_width_separator(very_wide_terminal, cap
     out = render(capsys, [regular(D1, 9, 10), regular(D2, 9, 10, task="Other")],
                  end_time=D2 + h(23))
     assert out.count("Day total:") == 2
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "Known bug: the detail-level-1 task suppression (NO_TASK) was guarded by a dict check "
+        "that can never pass after slots are converted, so --detail-level 1 still prints task "
+        "names. Documented intent: level 1 shows projects only. Fix in Phase 3."
+    ),
+)
+def test_detail_level_one_hides_task_names(capsys):
+    out = render(capsys, [regular(D1, 9, 10, project="Platform", task="Code Review")], detail_level=1)
+    assert "Platform" in out
+    assert "Code Review" not in out
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "Known bug: offline-task rows were meant to show a '*' before the task name (per the "
+        "removed display block's comment), but that block could never run after slot "
+        "conversion. Fix in Phase 3."
+    ),
+)
+def test_offline_task_rows_are_prefixed_with_an_asterisk(capsys):
+    out = render(capsys, [offline(D1, 10, 12)])
+    assert "*Writing" in out

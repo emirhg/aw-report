@@ -59,4 +59,4 @@ source = ["src/tw_report"]
 show_missing = true
 skip_covered = true
 # Ratchet: raised after each phase, must reach 100 at the end of Phase 2.
-fail_under = 82
+fail_under = 100
