@@ -126,14 +126,15 @@ class DisplayColumns:
 
     Empty columns are left blank (no offset) when data doesn't exist.
     """
-    time_range: str       # "HH:MM - HH:MM" (11 chars)
-    project: str          # "▶ Project name" (variable width, truncated)
-    task: str             # "▶▶ Task name" (variable width, truncated)
-    break_time: str       # "HH:MM:SS" if present, else blank (8 chars)
-    offline_time: str     # "(HH:MM:SS)" if present, else blank (12 chars)
-    afk_time: str         # "(HH:MM:SS)" if present, else blank (12 chars)
-    active_time: str      # "HH:MM:SS" (8 chars)
-    productivity: str     # "[prod XXX%]" if present, else blank (12 chars)
+
+    time_range: str  # "HH:MM - HH:MM" (11 chars)
+    project: str  # "▶ Project name" (variable width, truncated)
+    task: str  # "▶▶ Task name" (variable width, truncated)
+    break_time: str  # "HH:MM:SS" if present, else blank (8 chars)
+    offline_time: str  # "(HH:MM:SS)" if present, else blank (12 chars)
+    afk_time: str  # "(HH:MM:SS)" if present, else blank (12 chars)
+    active_time: str  # "HH:MM:SS" (8 chars)
+    productivity: str  # "[prod XXX%]" if present, else blank (12 chars)
 
     def format(self, terminal_width: int = 120) -> str:
         """Format columns into a single line with dynamic project/task sizing.
@@ -225,7 +226,9 @@ class DisplayColumns:
         offline_col = ljust_display(self.offline_time, 12)
         afk_col = ljust_display(self.afk_time, 12)
         active_col = ljust_display(self.active_time, 12)
-        productivity_col = ljust_display("  " + self.productivity, 14) if self.productivity else " " * 14
+        productivity_col = (
+            ljust_display("  " + self.productivity, 14) if self.productivity else " " * 14
+        )
 
         right_section = f"{break_col}{offline_col}{afk_col}{active_col}{productivity_col}"
         right_section_width = 62  # BREAK(12) + OFFLINE(12) + AFK(12) + ACTIVE(12) + PROD(14)
@@ -247,11 +250,17 @@ class DisplayColumns:
         return full_line
 
     @classmethod
-    def from_slot_dict(cls, slot: Union[Dict[str, Any], "ReportTimelineSlot"], start_time: datetime, end_time: datetime) -> "DisplayColumns":
-        """Create DisplayColumns from a dict-based or ReportTimelineSlot (from timeline rendering pipeline).
+    def from_slot_dict(
+        cls,
+        slot: Union[Dict[str, Any], "ReportTimelineSlot"],
+        start_time: datetime,
+        end_time: datetime,
+    ) -> "DisplayColumns":
+        """Create DisplayColumns from a dict or ReportTimelineSlot (timeline rendering pipeline).
 
         Args:
-            slot: Dictionary or ReportTimelineSlot with keys like type, project, task, duration, afk_duration, etc.
+            slot: Dictionary or ReportTimelineSlot with keys like type, project, task, duration,
+            afk_duration, etc.
             start_time: Start time (local timezone)
             end_time: End time (local timezone)
 
@@ -278,7 +287,7 @@ class DisplayColumns:
         # Use abbreviate_project_path for consistent formatting
         abbrev_project = abbreviate_project_path(
             project_name.replace(".", " > ") if project_name != NO_PROJECT else NO_PROJECT,
-            task_name
+            task_name,
         )
         # Project display (no truncation cap)
         project_display = f"▶ {abbrev_project}" if abbrev_project else ""
@@ -332,11 +341,15 @@ class DisplayColumns:
         # Productivity metric
         productivity = ""
         prod_dur = get_field("productive_duration")
-        if prod_dur:
-            if isinstance(prod_dur, timedelta) and isinstance(active_duration, timedelta):
-                if active_duration.total_seconds() > 0 and prod_dur.total_seconds() > 0:
-                    pct = (prod_dur.total_seconds() / active_duration.total_seconds()) * 100
-                    productivity = f"[prod {pct:>3.0f}%]"
+        if (
+            prod_dur
+            and isinstance(prod_dur, timedelta)
+            and isinstance(active_duration, timedelta)
+            and active_duration.total_seconds() > 0
+            and prod_dur.total_seconds() > 0
+        ):
+            pct = (prod_dur.total_seconds() / active_duration.total_seconds()) * 100
+            productivity = f"[prod {pct:>3.0f}%]"
 
         return cls(
             time_range=time_range,
@@ -410,13 +423,16 @@ class ReportTimelineSlot:
                 f"Zero-duration slots (start==end) are degenerate and invalid."
             )
         # Ensure timezone consistency: if times have tzinfo, they should match
-        if self.start.tzinfo is not None and self.end.tzinfo is not None:
-            if self.start.tzinfo != self.end.tzinfo:
-                raise ValueError(
-                    f"ReportTimelineSlot has mismatched timezones: "
-                    f"start={self.start.tzinfo}, end={self.end.tzinfo}. "
-                    f"Both must have same timezone."
-                )
+        if (
+            self.start.tzinfo is not None
+            and self.end.tzinfo is not None
+            and self.start.tzinfo != self.end.tzinfo
+        ):
+            raise ValueError(
+                f"ReportTimelineSlot has mismatched timezones: "
+                f"start={self.start.tzinfo}, end={self.end.tzinfo}. "
+                f"Both must have same timezone."
+            )
 
     @property
     def project(self) -> str:
@@ -438,7 +454,10 @@ class ReportTimelineSlot:
         """
         if self.task_event is None:
             return False
-        has_offline_ext = self.offline_extension_duration is not None and self.offline_extension_duration > timedelta(0)
+        has_offline_ext = (
+            self.offline_extension_duration is not None
+            and self.offline_extension_duration > timedelta(0)
+        )
         has_event_dur = self.event_duration is not None and self.event_duration > timedelta(0)
         return has_offline_ext or has_event_dur
 
@@ -465,7 +484,10 @@ class ReportTimelineSlot:
 
     @property
     def is_offline_gap(self) -> bool:
-        """True if this is an OFFLINE gap from AFK false positive: no task, no activity, offline_extension set."""
+        """True if this is an OFFLINE gap from an AFK false positive.
+
+        No task, no activity, offline_extension set.
+        """
         return (
             self.task_event is None
             and self.actual_duration == timedelta(0)
@@ -540,7 +562,7 @@ class ReportTimelineSlot:
                     "project": slot.project,
                     "task": slot.task,
                     "tags": slot.tags if slot.tags else [],
-                }
+                },
             )
 
         # For backward compat with tests that check source_slots, we need to track
@@ -607,7 +629,7 @@ class ReportTimelineSlot:
                     # Restore UUID and description from consolidation
                     "uuid": d.get("task_uuid"),
                     "description": d.get("task_description"),
-                }
+                },
             )
 
         return cls(
@@ -667,12 +689,14 @@ class ReportTimelineSlot:
         if not group:
             raise ValueError("Cannot merge empty slot list")
 
-        # Validate project consistency (collapse_to_project intentionally spans tasks, so don't check that)
+        # Validate project consistency (collapse_to_project intentionally spans tasks, so don't
+        # check that)
         if not allow_mixed_types:
             projects = set(s.project for s in group)
             if len(projects) > 1:
                 raise TimelineSlotValidationError(
-                    f"Cannot merge slots with differing projects {projects} unless allow_mixed_types=True. "
+                    f"Cannot merge slots with differing projects {projects} unless "
+                    f"allow_mixed_types=True. "
                     f"Mixed-project merges likely indicate a grouping logic error."
                 )
 
@@ -683,9 +707,7 @@ class ReportTimelineSlot:
 
         # Accumulate durations (true sums)
         actual_duration = sum((s.actual_duration for s in group), timedelta(0))
-        productive_duration = sum(
-            (s.productive_duration for s in group), timedelta(0)
-        )
+        productive_duration = sum((s.productive_duration for s in group), timedelta(0))
 
         # AFK duration: sum afk_duration field directly across all slots
         # (no type filter; slots can have afk_duration from multiple sources)
@@ -698,23 +720,31 @@ class ReportTimelineSlot:
         merged_categories = _merge_categories_full(group)
 
         # event_duration: NEVER sum across slots (only used for split_at_boundaries)
-        # After consolidation: if there's offline_extension_duration, set event_duration=0 for TimelineSlot validation.
-        # TimelineSlot requires event_duration to be non-None when is_offline_task (i.e., has offline_extension_duration).
-        # CRITICAL: Must be set even if 0, otherwise TimelineSlot validation fails for merged offline tasks.
-        has_offline_gap = any((s.offline_extension_duration or timedelta(0)) > timedelta(0) for s in group)
+        # After consolidation: if there's offline_extension_duration, set event_duration=0 for
+        # TimelineSlot validation.
+        # TimelineSlot requires event_duration to be non-None when is_offline_task (i.e., has
+        # offline_extension_duration).
+        # CRITICAL: Must be set even if 0, otherwise TimelineSlot validation fails for merged
+        # offline tasks.
+        has_offline_gap = any(
+            (s.offline_extension_duration or timedelta(0)) > timedelta(0) for s in group
+        )
         event_duration = timedelta(0) if has_offline_gap else None
 
         # offline_extension_duration: sum directly across all slots (no type filter)
         # This field is added by AFK-false-positive detection and represents system-off time
-        offline_extension_duration = sum(
-            (s.offline_extension_duration or timedelta(0) for s in group), timedelta(0)
-        ) if any(s.offline_extension_duration is not None for s in group) else None
+        offline_extension_duration = (
+            sum((s.offline_extension_duration or timedelta(0) for s in group), timedelta(0))
+            if any(s.offline_extension_duration is not None for s in group)
+            else None
+        )
 
         # Extract task_event from the first slot's project/task fields if present
         task_event = None
         first_slot = group[0]
         if first_slot.project != NO_PROJECT or first_slot.task != NO_TASK:
             from tw_report.core.aw_events import TaskWarriorEvent
+
             task_event = TaskWarriorEvent(
                 timestamp=start,
                 duration=duration,
@@ -722,7 +752,7 @@ class ReportTimelineSlot:
                     "project": first_slot.project,
                     "task": first_slot.task,
                     "tags": tags_union if tags_union else [],
-                }
+                },
             )
 
         # Build the merged ReportTimelineSlot directly (no intermediate TimelineSlot)
@@ -745,7 +775,9 @@ class ReportTimelineSlot:
         )
 
     @staticmethod
-    def bucket_start(dt: datetime, mode: Literal["day", "week", "month", "year"], day_start_hour: int = 4) -> date:
+    def bucket_start(
+        dt: datetime, mode: Literal["day", "week", "month", "year"], day_start_hour: int = 4
+    ) -> date:
         """
         Get the start date of the period bucket containing dt, for the given mode.
 
@@ -773,7 +805,9 @@ class ReportTimelineSlot:
         else:
             raise ValueError(f"Unknown bucket mode: {mode}")
 
-    def bucket_key(self, mode: Literal["day", "week", "month", "year"], day_start_hour: int = 4) -> date:
+    def bucket_key(
+        self, mode: Literal["day", "week", "month", "year"], day_start_hour: int = 4
+    ) -> date:
         """
         Get this slot's bucket key for the given mode.
 
@@ -813,7 +847,9 @@ class ReportTimelineSlot:
         """
         # Fast path: slot stays within one bucket
         start_bucket = ReportTimelineSlot.bucket_start(self.start, mode, day_start_hour)
-        end_bucket = ReportTimelineSlot.bucket_start(self.end - timedelta(seconds=1), mode, day_start_hour)
+        end_bucket = ReportTimelineSlot.bucket_start(
+            self.end - timedelta(seconds=1), mode, day_start_hour
+        )
         if start_bucket == end_bucket:
             self_copy = ReportTimelineSlot(
                 start=self.start,
@@ -841,7 +877,14 @@ class ReportTimelineSlot:
         span = (end_bucket - start_bucket).days
         if mode == "day" and span > 100:
             return [self]  # Skip splitting
-        elif mode == "week" and span // 7 > 100 or mode == "month" and span // 30 > 100 or mode == "year" and span // 365 > 100:
+        elif (
+            mode == "week"
+            and span // 7 > 100
+            or mode == "month"
+            and span // 30 > 100
+            or mode == "year"
+            and span // 365 > 100
+        ):
             return [self]
 
         pieces = []
@@ -859,7 +902,11 @@ class ReportTimelineSlot:
             # bucket_start returns a date in local timezone context
             # Convert it to UTC datetime using local timezone first, then to current_dt's timezone
             bucket_end_local = day_boundary(next_bucket_start, day_start_hour, local_tz)
-            bucket_end = bucket_end_local.astimezone(current_dt.tzinfo) if local_tz and current_dt.tzinfo else bucket_end_local
+            bucket_end = (
+                bucket_end_local.astimezone(current_dt.tzinfo)
+                if local_tz and current_dt.tzinfo
+                else bucket_end_local
+            )
 
             # Calculate overlap with this bucket
             piece_start = current_dt
@@ -873,9 +920,7 @@ class ReportTimelineSlot:
                 ratio = 0
 
             # Calculate prorated durations
-            piece_actual_duration = timedelta(
-                seconds=self.actual_duration.total_seconds() * ratio
-            )
+            piece_actual_duration = timedelta(seconds=self.actual_duration.total_seconds() * ratio)
             piece_productive_duration = timedelta(
                 seconds=self.productive_duration.total_seconds() * ratio
             )
@@ -883,9 +928,7 @@ class ReportTimelineSlot:
             # Conditionally prorate optional duration fields (guard against None)
             piece_afk_duration = None
             if self.afk_duration is not None and self.afk_duration.total_seconds() > 0:
-                piece_afk_duration = timedelta(
-                    seconds=self.afk_duration.total_seconds() * ratio
-                )
+                piece_afk_duration = timedelta(seconds=self.afk_duration.total_seconds() * ratio)
 
             piece_event_duration = None
             if self.event_duration is not None:
@@ -893,10 +936,14 @@ class ReportTimelineSlot:
                     seconds=self.event_duration.total_seconds() * ratio
                 )
 
-            # offline_extension_duration must be calculated from split piece duration - event_duration
+            # offline_extension_duration must be calculated from split piece duration -
+            # event_duration
             # to avoid rounding error accumulation when both are prorated independently
             piece_offline_extension_duration = None
-            if self.offline_extension_duration is not None and self.offline_extension_duration.total_seconds() > 0:
+            if (
+                self.offline_extension_duration is not None
+                and self.offline_extension_duration.total_seconds() > 0
+            ):
                 piece_event_dur = piece_event_duration or timedelta(0)
                 piece_offline_ext = piece_duration - piece_event_dur
                 if piece_offline_ext > timedelta(0):
@@ -973,7 +1020,7 @@ class ReportTimelineSlot:
                     "project": work_slot.project,
                     "title": work_slot.task,
                     "tags": work_slot.tags if work_slot.tags else [],
-                }
+                },
             )
 
         return cls(
@@ -994,7 +1041,6 @@ class ReportTimelineSlot:
             source_slots=[work_slot] + afk_slots,  # Traceability: all contributors
             is_consolidated=False,  # Not a merge (different data sources)
         )
-
 
 
 @dataclass
@@ -1050,18 +1096,14 @@ class ReportEntries:
         # First, merge overlapping work slots for the same (project, task)
         # Regular slots: NOT is_afk_only and NOT is_offline_task
         work_slots_raw = [
-            rs for rs in self.slots_list
-            if not rs.is_afk_only and not rs.is_offline_task
+            rs for rs in self.slots_list if not rs.is_afk_only and not rs.is_offline_task
         ]
         work_slots = self._merge_overlapping_work_slots(work_slots_raw)
 
         # AFK slots: is_afk_only predicate
         afk_slots = [rs for rs in self.slots_list if rs.is_afk_only]
         # Other slots: offline_task and any other types
-        other_slots = [
-            rs for rs in self.slots_list
-            if rs.is_offline_task
-        ]
+        other_slots = [rs for rs in self.slots_list if rs.is_offline_task]
 
         result_report_slots = []
 
@@ -1148,7 +1190,9 @@ class ReportEntries:
 
         return ReportEntries(slots_list=result_report_slots)
 
-    def _merge_overlapping_work_slots(self, work_slots_raw: List["ReportTimelineSlot"]) -> List["ReportTimelineSlot"]:
+    def _merge_overlapping_work_slots(
+        self, work_slots_raw: List["ReportTimelineSlot"]
+    ) -> List["ReportTimelineSlot"]:
         """
         Merge overlapping work slots for the same (project, task).
 
@@ -1192,7 +1236,7 @@ class ReportEntries:
             groups[key].append(rs)
 
         result = []
-        for key, slot_group in groups.items():
+        for _key, slot_group in groups.items():
             # Within each (project, task) group, merge overlapping slots
             if len(slot_group) <= 1:
                 result.extend(slot_group)
@@ -1212,7 +1256,8 @@ class ReportEntries:
                     merged_duration = merged_end - current.start
 
                     # When merging overlapping slots, use the union of times, not sum
-                    # The merged slot represents the entire time span covered by both overlapping slots
+                    # The merged slot represents the entire time span covered by both overlapping
+                    # slots
 
                     # Merge afk_duration: take max (they overlap)
                     curr_afk = current.afk_duration or timedelta(0)
@@ -1227,7 +1272,9 @@ class ReportEntries:
                     # Merge event_duration: take sum (online time represents disjoint periods)
                     curr_event = current.event_duration or timedelta(0)
                     rs_event = rs.event_duration or timedelta(0)
-                    merged_event_duration = (curr_event + rs_event) if (curr_event or rs_event) else None
+                    merged_event_duration = (
+                        (curr_event + rs_event) if (curr_event or rs_event) else None
+                    )
 
                     # Create merged ReportTimelineSlot directly
                     # CRITICAL: Use merged_duration for actual_duration
@@ -1235,11 +1282,21 @@ class ReportEntries:
                     # Calculate proportional productive duration based on merged duration
                     curr_prod = current.productive_duration or timedelta(0)
                     rs_prod = rs.productive_duration or timedelta(0)
-                    curr_productive_ratio = curr_prod.total_seconds() / max(current.duration.total_seconds(), 1)
-                    rs_productive_ratio = rs_prod.total_seconds() / max(rs.duration.total_seconds(), 1)
+                    curr_productive_ratio = curr_prod.total_seconds() / max(
+                        current.duration.total_seconds(), 1
+                    )
+                    rs_productive_ratio = rs_prod.total_seconds() / max(
+                        rs.duration.total_seconds(), 1
+                    )
                     avg_productive_ratio = (curr_productive_ratio + rs_productive_ratio) / 2
-                    merged_productive_seconds = merged_duration.total_seconds() * avg_productive_ratio
-                    merged_productive_duration = timedelta(seconds=merged_productive_seconds) if merged_productive_seconds > 0 else timedelta(0)
+                    merged_productive_seconds = (
+                        merged_duration.total_seconds() * avg_productive_ratio
+                    )
+                    merged_productive_duration = (
+                        timedelta(seconds=merged_productive_seconds)
+                        if merged_productive_seconds > 0
+                        else timedelta(0)
+                    )
 
                     current = ReportTimelineSlot(
                         start=current.start,
@@ -1306,7 +1363,8 @@ class ReportEntries:
             same_project_task_date = (
                 report_slot.project == current_group[0].project
                 and report_slot.task == current_group[0].task
-                and logical_date(report_slot.start, day_start_hour) == logical_date(current_group[0].start, day_start_hour)
+                and logical_date(report_slot.start, day_start_hour)
+                == logical_date(current_group[0].start, day_start_hour)
             )
 
             if same_project_task_date:
@@ -1314,7 +1372,8 @@ class ReportEntries:
             else:
                 # Different task — merge current group and start new one
                 if current_group:
-                    # Convert ReportTimelineSlots to TimelineSlots for from_timeline_slots compatibility
+                    # Convert ReportTimelineSlots to TimelineSlots for from_timeline_slots
+                    # compatibility
                     from tw_report.core.timeline import TimelineSlot
 
                     group_ts = [
@@ -1400,7 +1459,10 @@ class ReportEntries:
         current_date = None
         current_group = []
 
-        for report_slot in sorted(self.slots_list, key=lambda s: (s.project, logical_date(s.start, day_start_hour), s.start)):
+        for report_slot in sorted(
+            self.slots_list,
+            key=lambda s: (s.project, logical_date(s.start, day_start_hour), s.start),
+        ):
             project = report_slot.project
             date_key = logical_date(report_slot.start, day_start_hour)
 
@@ -1418,9 +1480,12 @@ class ReportEntries:
 
         return groups
 
-    def bucket(self, mode: Literal["day", "week", "month", "year"], day_start_hour: int = 4) -> "ReportEntries":
+    def bucket(
+        self, mode: Literal["day", "week", "month", "year"], day_start_hour: int = 4
+    ) -> "ReportEntries":
         """
-        Period bucketing: split all slots at boundaries, then global-groupby (bucket, project, task).
+        Period bucketing: split all slots at boundaries, then global-groupby (bucket, project,
+        task).
 
         Replaces consolidate_by_period(). Bare type=="offline" gap markers are excluded
         from output (only consumed as continuity signals).
@@ -1452,7 +1517,7 @@ class ReportEntries:
 
         # Merge each bucket group
         bucketed = []
-        for (bucket_date, project, task), slot_group in sorted(bucket_groups.items()):
+        for (bucket_date, _project, _task), slot_group in sorted(bucket_groups.items()):
             # Convert ReportTimelineSlots to TimelineSlots for from_timeline_slots compatibility
             # This is a temporary bridge during migration
             from tw_report.core.timeline import TimelineSlot
@@ -1477,14 +1542,16 @@ class ReportEntries:
                 for s in slot_group
             ]
 
-            # Allow mixed types in period consolidation (e.g., 'regular' + 'afk' in same period/project/task)
+            # Allow mixed types in period consolidation (e.g., 'regular' + 'afk' in same
+            # period/project/task)
             merged = ReportTimelineSlot.from_timeline_slots(slot_group_ts, allow_mixed_types=True)
             merged.bucket_start_date = bucket_date
             merged.bucket_mode = mode
             bucketed.append(merged)
 
         # Sort by (bucket_date, -project_duration_desc, -task_duration_desc)
-        # (simplified: just bucket_date for now; render layer can further sort by project/task if needed)
+        # (simplified: just bucket_date for now; render layer can further sort by project/task if
+        # needed)
         bucketed.sort(key=lambda s: s.bucket_start_date)
 
         return ReportEntries(slots_list=bucketed)
@@ -1509,7 +1576,7 @@ class ReportEntries:
             by_bucket_project[key].append(report_slot)
 
         collapsed = []
-        for (bucket_date, project), group in by_bucket_project.items():
+        for (bucket_date, _project), group in by_bucket_project.items():
             # Create a synthetic merged slot at the (bucket, project) level
             # Convert ReportTimelineSlots to TimelineSlots for from_timeline_slots compatibility
             from tw_report.core.timeline import TimelineSlot
@@ -1604,8 +1671,14 @@ class ReportEntries:
                 # Prefer the slot with the most useful information.
                 # Priority: offline_extension_duration (system was off) > other fields
                 existing = seen[key]
-                existing_has_offline = existing.offline_extension_duration is not None and existing.offline_extension_duration > timedelta(0)
-                new_has_offline = slot.offline_extension_duration is not None and slot.offline_extension_duration > timedelta(0)
+                existing_has_offline = (
+                    existing.offline_extension_duration is not None
+                    and existing.offline_extension_duration > timedelta(0)
+                )
+                new_has_offline = (
+                    slot.offline_extension_duration is not None
+                    and slot.offline_extension_duration > timedelta(0)
+                )
 
                 if new_has_offline and not existing_has_offline:
                     # New slot has offline info, existing doesn't - prefer new
@@ -1615,22 +1688,38 @@ class ReportEntries:
                     pass
                 else:
                     # Both have or both lack offline info - use field count as tiebreaker
-                    existing_fields = sum([
-                        1 for v in [existing.actual_duration, existing.afk_duration,
-                                   existing.offline_extension_duration, existing.event_duration]
-                        if v is not None and v > timedelta(0)
-                    ])
-                    new_fields = sum([
-                        1 for v in [slot.actual_duration, slot.afk_duration,
-                                   slot.offline_extension_duration, slot.event_duration]
-                        if v is not None and v > timedelta(0)
-                    ])
+                    existing_fields = sum(
+                        [
+                            1
+                            for v in [
+                                existing.actual_duration,
+                                existing.afk_duration,
+                                existing.offline_extension_duration,
+                                existing.event_duration,
+                            ]
+                            if v is not None and v > timedelta(0)
+                        ]
+                    )
+                    new_fields = sum(
+                        [
+                            1
+                            for v in [
+                                slot.actual_duration,
+                                slot.afk_duration,
+                                slot.offline_extension_duration,
+                                slot.event_duration,
+                            ]
+                            if v is not None and v > timedelta(0)
+                        ]
+                    )
                     if new_fields > existing_fields:
                         seen[key] = slot
 
         # Return deduplicated list in original order
         dedup_list = list(seen.values())
-        dedup_list.sort(key=lambda s: self.slots_list.index(s) if s in self.slots_list else float('inf'))
+        dedup_list.sort(
+            key=lambda s: self.slots_list.index(s) if s in self.slots_list else float("inf")
+        )
         return dedup_list
 
     def consolidate_by_task(self) -> "ReportEntries":
@@ -1668,7 +1757,7 @@ class ReportEntries:
         # Merge each group by converting to TimelineSlot bridge and using from_timeline_slots()
         consolidated = []
 
-        for (project, task), group_slots in groups.items():
+        for (_project, _task), group_slots in groups.items():
             # Sort by start time to maintain chronological order
             sorted_slots = sorted(group_slots, key=lambda s: s.start)
 
@@ -1678,7 +1767,8 @@ class ReportEntries:
             bridged_group = []
             for slot in sorted_slots:
                 ts = TimelineSlot(
-                    type="regular",  # Placeholder; type is ignored by field-driven from_timeline_slots()
+                    # Placeholder; type is ignored by field-driven from_timeline_slots()
+                    type="regular",
                     start=slot.start,
                     end=slot.end,
                     duration=slot.duration,
@@ -1738,9 +1828,7 @@ def _merge_categories_full(group: List[TimelineSlot]) -> List[Dict[str, Any]]:
                     not merged_cats[cat]["start"] or cat_start < merged_cats[cat]["start"]
                 ):
                     merged_cats[cat]["start"] = cat_start
-                if cat_end and (
-                    not merged_cats[cat]["end"] or cat_end > merged_cats[cat]["end"]
-                ):
+                if cat_end and (not merged_cats[cat]["end"] or cat_end > merged_cats[cat]["end"]):
                     merged_cats[cat]["end"] = cat_end
 
             merged_cats[cat]["duration"] += cat_info.get("duration", timedelta(0))
@@ -1770,9 +1858,7 @@ def _merge_categories_full(group: List[TimelineSlot]) -> List[Dict[str, Any]]:
                     ):
                         merged_cats[cat]["apps"][app]["end"] = app_end
 
-                merged_cats[cat]["apps"][app]["duration"] += app_info.get(
-                    "duration", timedelta(0)
-                )
+                merged_cats[cat]["apps"][app]["duration"] += app_info.get("duration", timedelta(0))
 
                 # Merge titles under this app
                 for title_info in app_info.get("titles", []):
@@ -1783,8 +1869,8 @@ def _merge_categories_full(group: List[TimelineSlot]) -> List[Dict[str, Any]]:
                             "duration": timedelta(0),
                             "events": [],
                         }
-                    merged_cats[cat]["apps"][app]["titles"][title]["duration"] += (
-                        title_info.get("duration", timedelta(0))
+                    merged_cats[cat]["apps"][app]["titles"][title]["duration"] += title_info.get(
+                        "duration", timedelta(0)
                     )
                     merged_cats[cat]["apps"][app]["titles"][title]["events"].extend(
                         title_info.get("events", [])
@@ -1792,7 +1878,7 @@ def _merge_categories_full(group: List[TimelineSlot]) -> List[Dict[str, Any]]:
 
     # Convert to list format
     result = []
-    for cat, cat_data in sorted(merged_cats.items()):
+    for _cat, cat_data in sorted(merged_cats.items()):
         cat_entry = {
             "category": cat_data["category"],
             "duration": cat_data["duration"],
@@ -1806,9 +1892,7 @@ def _merge_categories_full(group: List[TimelineSlot]) -> List[Dict[str, Any]]:
                     "duration": app_data["duration"],
                     "start": app_data.get("start"),
                     "end": app_data.get("end"),
-                    "titles": list(app_data["titles"].values())
-                    if app_data["titles"]
-                    else [],
+                    "titles": list(app_data["titles"].values()) if app_data["titles"] else [],
                 }
                 for app_data in cat_data["apps"].values()
             ]

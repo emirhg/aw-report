@@ -18,6 +18,7 @@ class BucketEvents:
         window: Events from the window/desktop-activity bucket
         taskwarrior: Events from the taskwarrior bucket
     """
+
     afk: list[Event] = field(default_factory=list)
     window: list[Event] = field(default_factory=list)
     taskwarrior: list[Event] = field(default_factory=list)
@@ -44,7 +45,8 @@ class TimeslotDuration:
     and other ambiguous naming patterns.
 
     Attributes:
-        online_duration: (Optional) Time when system was actively recording (AFK + non-AFK combined).
+        online_duration: (Optional) Time when system was actively recording (AFK + non-AFK
+        combined).
             This is the primary duration shown in timeline output.
             Comes from AFK bucket events or TaskWarrior activity times.
             Can be None in rare cases (e.g., task duration but no AFK/window recording).
@@ -386,7 +388,8 @@ class ReportContext:
     """Complete context for generating a report (Phase 2 refactor).
 
     Attributes:
-        bucket_events: Typed collection of raw bucket events (AFKEvent, WindowEvent, TaskWarriorEvent)
+        bucket_events: Typed collection of raw bucket events (AFKEvent, WindowEvent,
+        TaskWarriorEvent)
         consolidated_slots: Pre-consolidated timeline slots with categories and durations
         cat_score_map: Category productivity score mapping
         is_task_based_report: True if this is a task-based report
@@ -396,6 +399,7 @@ class ReportContext:
         task_events: List of TaskWarriorEvents (via bucket_events.taskwarrior)
         afk_events: List of AFKEvents (via bucket_events.afk)
     """
+
     bucket_events: BucketEvents
     consolidated_slots: list  # List[ReportTimelineSlot] - using list to avoid circular import
     cat_score_map: dict[str, float]

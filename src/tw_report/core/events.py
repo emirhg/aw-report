@@ -82,8 +82,7 @@ def get_events(
         return events
     except Exception as e:
         logger.warning(
-            f"Could not fetch events for bucket '{bucket_id}': {e} "
-            f"(continuing with partial data)",
+            f"Could not fetch events for bucket '{bucket_id}': {e} (continuing with partial data)",
             exc_info=True,
         )
         return []

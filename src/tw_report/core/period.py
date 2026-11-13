@@ -76,27 +76,35 @@ def parse_period(period_str: str, day_start_hour: int = 4) -> Tuple[datetime, da
     now = datetime.now().astimezone()
     logical_today = logical_date(now, day_start_hour)
     today_start = day_boundary(logical_today, day_start_hour, now.tzinfo)
-    today_end = day_boundary(logical_today + timedelta(days=1), day_start_hour, now.tzinfo) - timedelta(microseconds=1)
+    today_end = day_boundary(
+        logical_today + timedelta(days=1), day_start_hour, now.tzinfo
+    ) - timedelta(microseconds=1)
 
     period_str = period_str.lower()
 
     if period_str == ":today":
         start = today_start
-        end = day_boundary(logical_today + timedelta(days=1), day_start_hour, now.tzinfo) - timedelta(microseconds=1)
+        end = day_boundary(
+            logical_today + timedelta(days=1), day_start_hour, now.tzinfo
+        ) - timedelta(microseconds=1)
     elif period_str == ":yesterday":
         yesterday = logical_today - timedelta(days=1)
         start = day_boundary(yesterday, day_start_hour, now.tzinfo)
         end = today_start - timedelta(microseconds=1)
     elif period_str == ":week":
         monday_offset = logical_today.weekday()
-        start = day_boundary(logical_today - timedelta(days=monday_offset), day_start_hour, now.tzinfo)
+        start = day_boundary(
+            logical_today - timedelta(days=monday_offset), day_start_hour, now.tzinfo
+        )
         end = today_end
     elif period_str == ":lastweek":
         monday_offset = logical_today.weekday()
         start_of_last_week = logical_today - timedelta(days=monday_offset, weeks=1)
         end_of_last_week = start_of_last_week + timedelta(days=6)
         start = day_boundary(start_of_last_week, day_start_hour, now.tzinfo)
-        end = day_boundary(end_of_last_week + timedelta(days=1), day_start_hour, now.tzinfo) - timedelta(microseconds=1)
+        end = day_boundary(
+            end_of_last_week + timedelta(days=1), day_start_hour, now.tzinfo
+        ) - timedelta(microseconds=1)
     elif period_str == ":month":
         start = day_boundary(logical_today.replace(day=1), day_start_hour, now.tzinfo)
         end = today_end
@@ -105,7 +113,9 @@ def parse_period(period_str: str, day_start_hour: int = 4) -> Tuple[datetime, da
         last_of_last_month = first_of_this_month - timedelta(days=1)
         first_of_last_month = last_of_last_month.replace(day=1)
         start = day_boundary(first_of_last_month, day_start_hour, now.tzinfo)
-        end = day_boundary(first_of_this_month, day_start_hour, now.tzinfo) - timedelta(microseconds=1)
+        end = day_boundary(first_of_this_month, day_start_hour, now.tzinfo) - timedelta(
+            microseconds=1
+        )
     elif period_str == ":year":
         start = day_boundary(logical_today.replace(month=1, day=1), day_start_hour, now.tzinfo)
         end = today_end
@@ -114,7 +124,9 @@ def parse_period(period_str: str, day_start_hour: int = 4) -> Tuple[datetime, da
         last_of_last_year = first_of_this_year - timedelta(days=1)
         first_of_last_year = last_of_last_year.replace(month=1, day=1)
         start = day_boundary(first_of_last_year, day_start_hour, now.tzinfo)
-        end = day_boundary(first_of_this_year, day_start_hour, now.tzinfo) - timedelta(microseconds=1)
+        end = day_boundary(first_of_this_year, day_start_hour, now.tzinfo) - timedelta(
+            microseconds=1
+        )
     elif period_str == ":all":
         start = datetime(1970, 1, 1, tzinfo=now.tzinfo)
         end = now
@@ -125,7 +137,9 @@ def parse_period(period_str: str, day_start_hour: int = 4) -> Tuple[datetime, da
                 parsed_dt = datetime.fromisoformat(parts[0]).astimezone(now.tzinfo)
                 parsed_date = parsed_dt.date()
                 start = day_boundary(parsed_date, day_start_hour, now.tzinfo)
-                end = day_boundary(parsed_date + timedelta(days=1), day_start_hour, now.tzinfo) - timedelta(microseconds=1)
+                end = day_boundary(
+                    parsed_date + timedelta(days=1), day_start_hour, now.tzinfo
+                ) - timedelta(microseconds=1)
             elif len(parts) == 2:
                 start = datetime.fromisoformat(parts[0]).astimezone(now.tzinfo)
                 end = datetime.fromisoformat(parts[1]).astimezone(now.tzinfo)

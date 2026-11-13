@@ -5,28 +5,10 @@ Renders task-based or category-based hierarchical reports with productivity
 metrics, detail levels, and sorting options. Used by the --timesheet output mode.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Union
 
 from tw_report.core.filtering import NO_PROJECT
-
-
-def _to_local_time(dt: datetime) -> datetime:
-    """Convert UTC datetime to local timezone.
-
-    Fixes timezone display issue where UTC times were shown as local times.
-
-    Args:
-        dt: Datetime in UTC (typically from ActivityWatch)
-
-    Returns:
-        Datetime converted to local timezone, with timezone info preserved
-    """
-    if dt.tzinfo is None or dt.tzinfo == timezone.utc:
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone()
-    return dt
 from tw_report.pipeline.models import ReportTotals
 from tw_report.pipeline.processors import ProductivityBreakdown
 from tw_report.utils.formatting import (
@@ -34,6 +16,7 @@ from tw_report.utils.formatting import (
     format_duration_tracked_prod,
     get_terminal_width,
     sanitize_title,
+    to_local_time,
     truncate_title,
 )
 
@@ -85,7 +68,8 @@ def print_report_summary(
         end_time: End of report period
         total_duration: Total project-tracked time
         task_based: If True, show task-based metrics; if False, show category-based
-        non_afk_time: Total Active Time (non-AFK only; focused work periods, must be present for metric display)
+        non_afk_time: Total Active Time (non-AFK only; focused work periods, must be present for
+        metric display)
         productive_time: Total productive time
         productive_task_time: Productive time on tracked projects (task-based only)
         first_event_time: Time of first activity
@@ -112,8 +96,8 @@ def print_report_summary(
     # Build period line with elapsed window if available
     period_line = f"Period{' ' * (32 - 6)}{period}"
     if first_event_time and last_event_time:
-        first_str = _to_local_time(first_event_time).strftime("%H:%M:%S")
-        last_str = _to_local_time(last_event_time).strftime("%H:%M:%S")
+        first_str = to_local_time(first_event_time).strftime("%H:%M:%S")
+        last_str = to_local_time(last_event_time).strftime("%H:%M:%S")
         first_date = first_event_time.date()
         last_date = last_event_time.date()
         window_str = f"({first_date} {first_str} to {last_date} {last_str})"
@@ -125,10 +109,7 @@ def print_report_summary(
     if tracked_activity or (first_event_time and last_event_time):
         from tw_report.utils.formatting import format_duration
 
-        if tracked_activity:
-            tracked_duration = tracked_activity
-        else:
-            tracked_duration = last_event_time - first_event_time
+        tracked_duration = tracked_activity or last_event_time - first_event_time
 
         duration_str = format_duration(tracked_duration)
         print(f"Tracked Activity{' ' * (32 - 16)}{duration_str}")
@@ -164,9 +145,7 @@ def print_report_summary(
             task_productive_pct = 0
             if productive_task_time and total_duration.total_seconds() > 0:
                 task_productive_pct = (
-                    productive_task_time.total_seconds()
-                    / total_duration.total_seconds()
-                    * 100
+                    productive_task_time.total_seconds() / total_duration.total_seconds() * 100
                 )
             if task_time_pct > 0 and productive_task_time:
                 focus_str = f"{task_productive_pct:.1f}% ({format_duration(productive_task_time)})"
@@ -179,7 +158,10 @@ def print_report_summary(
                     if total_tracking_time
                     else 0
                 )
-                untracked_str = f"{untracked_productive_pct:.1f}% ({format_duration(untracked_productive_time)})"
+                untracked_str = (
+                    f"{untracked_productive_pct:.1f}% "
+                    f"({format_duration(untracked_productive_time)})"
+                )
                 print(f"Untracked productivity{' ' * (32 - 21)}{untracked_str}")
 
         # Calculate productivity percentage of total time
@@ -208,23 +190,28 @@ def print_report_summary(
 
         # Print current session and last break information
         if current_session_duration and current_session_start and current_session_end:
-            session_start_str = _to_local_time(current_session_start).strftime("%H:%M")
-            session_end_str = _to_local_time(current_session_end).strftime("%H:%M")
-            session_str = f"{format_duration(current_session_duration)} ({session_start_str} to {session_end_str})"
+            session_start_str = to_local_time(current_session_start).strftime("%H:%M")
+            session_end_str = to_local_time(current_session_end).strftime("%H:%M")
+            session_str = (
+                f"{format_duration(current_session_duration)} "
+                f"({session_start_str} to {session_end_str})"
+            )
             print(f"Current Session{' ' * (32 - len('Current Session'))}{session_str}")
 
         # Only show Last Break if it's not due to offline time
         if last_break_duration and last_break_start and last_break_end:
             # Check if the break gap is primarily due to offline time
             break_is_offline_gap = (
-                total_offline_time and
-                last_break_duration > timedelta(hours=1) and
-                total_offline_time > timedelta(0)
+                total_offline_time
+                and last_break_duration > timedelta(hours=1)
+                and total_offline_time > timedelta(0)
             )
             if not break_is_offline_gap:
-                break_start_str = _to_local_time(last_break_start).strftime("%H:%M")
-                break_end_str = _to_local_time(last_break_end).strftime("%H:%M")
-                break_str = f"{format_duration(last_break_duration)} ({break_start_str} to {break_end_str})"
+                break_start_str = to_local_time(last_break_start).strftime("%H:%M")
+                break_end_str = to_local_time(last_break_end).strftime("%H:%M")
+                break_str = (
+                    f"{format_duration(last_break_duration)} ({break_start_str} to {break_end_str})"
+                )
                 print(f"Last Break{' ' * (32 - 10)}{break_str}")
 
     print("-" * width)
@@ -284,11 +271,13 @@ def print_report_totals(
         print_report_totals(totals)
 
     Args:
-        total_time_all: Either a ReportTotals object (new) or Online Time timedelta (old, deprecated)
+        total_time_all: Either a ReportTotals object (new) or Online Time timedelta (old,
+        deprecated)
         total_productive_all: (Old API) Grand total productive time
         total_afk: (Old API) Total AFK time (for nested breakdown, shown only if non-zero)
         total_offline: (Old API) Time Worked While System Offline (shown only if non-zero)
-        total_non_afk: (Old API) Active Time — non-AFK time only (for nested breakdown, shown only if non-zero)
+        total_non_afk: (Old API) Active Time — non-AFK time only (for nested breakdown, shown only
+        if non-zero)
     """
     # Handle both old-style parameters and new ReportTotals object
     if isinstance(total_time_all, ReportTotals):
@@ -324,7 +313,9 @@ def print_report_totals(
     tracked_activity = worked_time + break_time
 
     # Top-down tree: each child is one level deeper than its parent
-    print_totals_line(0, "Total Time", format_duration_tracked_prod(tracked_activity, productive_time))
+    print_totals_line(
+        0, "Total Time", format_duration_tracked_prod(tracked_activity, productive_time)
+    )
     print_totals_line(1, "Worked Time", format_duration_tracked_prod(worked_time, productive_time))
     print_totals_line(2, "Online", format_duration_tracked_prod(online_time, productive_time))
 
@@ -370,7 +361,8 @@ def print_summary_total(
         total_score: Optional total productivity score (not used in output, for compatibility)
     """
     width = get_terminal_width()
-    summary_line = f"Total Time: {format_duration_tracked_prod(total_duration, productive_duration or timedelta(0))}"
+    prod_or_zero = productive_duration or timedelta(0)
+    summary_line = f"Total Time: {format_duration_tracked_prod(total_duration, prod_or_zero)}"
     print(summary_line.rjust(width))
 
 
@@ -442,8 +434,8 @@ def print_report_header(
         # Format time window from actual non-afk events
         first_date = first_event_time.date()
         last_date = last_event_time.date()
-        first_time_str = _to_local_time(first_event_time).strftime("%H:%M")
-        last_time_str = _to_local_time(last_event_time).strftime("%H:%M")
+        first_time_str = to_local_time(first_event_time).strftime("%H:%M")
+        last_time_str = to_local_time(last_event_time).strftime("%H:%M")
 
         time_window = f"{first_date} {first_time_str} to {last_date} {last_time_str}"
 
@@ -464,35 +456,32 @@ def print_report_header(
         task_productive_pct = 0
         if productive_task_time and total_duration.total_seconds() > 0:
             task_productive_pct = (
-                productive_task_time.total_seconds()
-                / total_duration.total_seconds()
-                * 100
+                productive_task_time.total_seconds() / total_duration.total_seconds() * 100
             )
 
         print(f"Active Time: {active_time_str} ({time_window})")
         if afk_str:
             print(f"  • AFK time: {afk_str}")
         if task_based:
-            print(
-                f"  • Project Tracking: {task_time_pct:.1f}% ({format_duration(total_duration)})"
-            )
+            print(f"  • Project Tracking: {task_time_pct:.1f}% ({format_duration(total_duration)})")
             if task_time_pct > 0:
                 print(
-                    f"  • Focus time: {task_productive_pct:.1f}% ({format_duration(productive_task_time)})"
+                    f"  • Focus time: {task_productive_pct:.1f}% "
+                    f"({format_duration(productive_task_time)})"
                 )
             if total_score is not None:
                 print(f"  • Task Productivity Score: {total_score:.2f}")
             untracked_productive_time = productive_time - productive_task_time
             untracked_productive_pct = (
-                (untracked_productive_time / non_afk_time * 100)
-                if non_afk_time
-                else 0
+                (untracked_productive_time / non_afk_time * 100) if non_afk_time else 0
             )
             print(
-                f"  • Untracked productivity: {untracked_productive_pct:.1f}% ({format_duration(untracked_productive_time)})"
+                f"  • Untracked productivity: {untracked_productive_pct:.1f}% "
+                f"({format_duration(untracked_productive_time)})"
             )
             print(
-                f"  • Overall productivity: {total_productive_pct:.1f}% ({format_duration(productive_time)})"
+                f"  • Overall productivity: {total_productive_pct:.1f}% "
+                f"({format_duration(productive_time)})"
             )
         else:
             # Non-task-based mode: show tracked projects as 0
@@ -501,24 +490,23 @@ def print_report_header(
                 print(f"  • Overall Productivity Score: {total_score:.2f}")
             untracked_productive_time = productive_time - productive_task_time
             untracked_productive_pct = (
-                (untracked_productive_time / non_afk_time * 100)
-                if non_afk_time
-                else 0
+                (untracked_productive_time / non_afk_time * 100) if non_afk_time else 0
             )
             print(
-                f"  • Untracked productivity: {untracked_productive_pct:.1f}% ({format_duration(untracked_productive_time)})"
+                f"  • Untracked productivity: {untracked_productive_pct:.1f}% "
+                f"({format_duration(untracked_productive_time)})"
             )
             print(
-                f"  • Overall productivity: {total_productive_pct:.1f}% ({format_duration(productive_time)})"
+                f"  • Overall productivity: {total_productive_pct:.1f}% "
+                f"({format_duration(productive_time)})"
             )
 
         # Print distracting and unscored time (common to both modes)
         if distracting_time:
-            distracting_pct = (
-                (distracting_time / non_afk_time * 100) if non_afk_time else 0
-            )
+            distracting_pct = (distracting_time / non_afk_time * 100) if non_afk_time else 0
             print(
-                f"  • Overall distracting time: {distracting_pct:.1f}% ({format_duration(distracting_time)})"
+                f"  • Overall distracting time: {distracting_pct:.1f}% "
+                f"({format_duration(distracting_time)})"
             )
         if unscored_time:
             unscored_pct = (unscored_time / non_afk_time * 100) if non_afk_time else 0
@@ -526,25 +514,25 @@ def print_report_header(
 
         # Print current session and last break information
         if current_session_duration and current_session_start and current_session_end:
-            session_start_str = _to_local_time(current_session_start).strftime("%H:%M")
-            session_end_str = _to_local_time(current_session_end).strftime("%H:%M")
+            session_start_str = to_local_time(current_session_start).strftime("%H:%M")
+            session_end_str = to_local_time(current_session_end).strftime("%H:%M")
             print(
-                f"Current Session: {format_duration(current_session_duration)} ({session_start_str} to {session_end_str})"
+                f"Current Session: {format_duration(current_session_duration)} "
+                f"({session_start_str} to {session_end_str})"
             )
 
         if last_break_duration and last_break_start and last_break_end:
             break_start_str = last_break_start.strftime("%H:%M")
             break_end_str = last_break_end.strftime("%H:%M")
             print(
-                f"Last Break: {format_duration(last_break_duration)} ({break_start_str} to {break_end_str})"
+                f"Last Break: {format_duration(last_break_duration)} ({break_start_str} to "
+                f"{break_end_str})"
             )
 
         print("-" * width)
     else:
         # Minimal header when detailed metrics unavailable
-        display_total = (
-            total_time_all if total_time_all is not None else total_duration
-        )
+        display_total = total_time_all if total_time_all is not None else total_duration
         header = f"Total Time: {format_duration(display_total)}"
         if total_score is not None:
             score_header = f"Productivity Score: {total_score:.2f}"
@@ -624,17 +612,11 @@ def print_report(
 
     # Only count real projects (exclude "No project assigned" sentinel)
     total_duration = sum(
-        (
-            data["total_duration"]
-            for project, data in report_data.items()
-            if project != NO_PROJECT
-        ),
+        (data["total_duration"] for project, data in report_data.items() if project != NO_PROJECT),
         timedelta(0),
     )
     total_score = sum(
-        data["prod_score"]
-        for project, data in report_data.items()
-        if project != NO_PROJECT
+        data["prod_score"] for project, data in report_data.items() if project != NO_PROJECT
     )
 
     # Print SUMMARY at top
@@ -698,10 +680,7 @@ def print_report(
                     c_duration = format_duration(c_data["total_duration"])
                     c_score = f"({c_data['prod_score']:.2f})"
                     c_line = f"    - {cat} {c_score}"
-                    print(
-                        c_line.ljust(width - len(c_duration) - 2, ".")
-                        + f" {c_duration}"
-                    )
+                    print(c_line.ljust(width - len(c_duration) - 2, ".") + f" {c_duration}")
 
                     if detail_level < 4:
                         continue
@@ -712,31 +691,19 @@ def print_report(
                         a_line = f"      - {app} {a_score}"
 
                         if "titles" in a_data and detail_level >= 5:
-                            print(
-                                a_line.ljust(width - len(a_duration) - 2, " ")
-                                + f" {a_duration}"
-                            )
-                            for title, title_data in sort_items(
-                                a_data["titles"].items()
-                            ):
-                                title_duration = format_duration(
-                                    title_data["total_duration"]
-                                )
+                            print(a_line.ljust(width - len(a_duration) - 2, " ") + f" {a_duration}")
+                            for title, title_data in sort_items(a_data["titles"].items()):
+                                title_duration = format_duration(title_data["total_duration"])
                                 title_score = f"({title_data['prod_score']:.2f})"
                                 clean_title = sanitize_title(title)
                                 clean_title = truncate_title(clean_title, 90)
                                 title_line = f"        - {title_score} {clean_title}"
                                 print(
-                                    title_line.ljust(
-                                        width - len(title_duration) - 2, " "
-                                    )
+                                    title_line.ljust(width - len(title_duration) - 2, " ")
                                     + f" {title_duration}"
                                 )
                         else:
-                            print(
-                                a_line.ljust(width - len(a_duration) - 2, " ")
-                                + f" {a_duration}"
-                            )
+                            print(a_line.ljust(width - len(a_duration) - 2, " ") + f" {a_duration}")
 
             if detail_level >= 2:
                 print()
@@ -758,16 +725,13 @@ def print_report(
 
                 if detail_level >= 3 and "titles" in a_data:
                     for title, title_data in sort_items(a_data["titles"].items()):
-                        title_duration = format_duration(
-                            title_data["total_duration"]
-                        )
+                        title_duration = format_duration(title_data["total_duration"])
                         title_score = f"({title_data['prod_score']:.2f})"
                         clean_title = sanitize_title(title)
                         clean_title = truncate_title(clean_title, 90)
                         title_line = f"      • {title_score} {clean_title}"
                         print(
-                            title_line.ljust(width - len(title_duration) - 2)
-                            + f" {title_duration}"
+                            title_line.ljust(width - len(title_duration) - 2) + f" {title_duration}"
                         )
 
             if detail_level >= 2:

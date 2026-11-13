@@ -48,12 +48,15 @@ def aggregate_hierarchy_from_slots(
 
     if event_filter:
         consolidated_slots = [
-            s for s in consolidated_slots
-            if event_filter.should_include_entry({
-                'project': s.project,
-                'task': s.task,
-                'type': 'afk' if s.project == NO_PROJECT else 'regular'
-            })
+            s
+            for s in consolidated_slots
+            if event_filter.should_include_entry(
+                {
+                    "project": s.project,
+                    "task": s.task,
+                    "type": "afk" if s.project == NO_PROJECT else "regular",
+                }
+            )
         ]
 
     report: Dict = {}
@@ -145,7 +148,7 @@ def aggregate_hierarchy_from_slots(
                         app_node["prod_score"] += prod_score
 
                         # Iterate over titles within this app entry
-                        for title_entry in (app_entry.get("titles") or []):
+                        for title_entry in app_entry.get("titles") or []:
                             title = title_entry.get("title", "No Title")
                             normalized_title = normalize_title(title)
                             title_duration = title_entry.get("duration", timedelta(0))
@@ -160,7 +163,8 @@ def aggregate_hierarchy_from_slots(
     else:
         # Group by: Category > App > Title (no project/task level)
         for slot in consolidated_slots:
-            # If slot has no categories, create a default "Uncategorized" entry with full slot duration
+            # If slot has no categories, create a default "Uncategorized" entry with full slot
+            # duration
             categories_to_process = slot.categories or [
                 {
                     "category": "Uncategorized",
@@ -188,7 +192,7 @@ def aggregate_hierarchy_from_slots(
                     {"total_duration": timedelta(0), "apps": {}, "prod_score": 0.0},
                 )
 
-                for app_entry in (cat_entry.get("apps") or []):
+                for app_entry in cat_entry.get("apps") or []:
                     app_name = app_entry.get("app", "Unknown App")
                     app_duration = app_entry.get("duration", timedelta(0))
                     prod_score = (app_duration.total_seconds() / 3600) * score
@@ -202,7 +206,7 @@ def aggregate_hierarchy_from_slots(
                     app_node["total_duration"] += app_duration
                     app_node["prod_score"] += prod_score
 
-                    for title_entry in (app_entry.get("titles") or []):
+                    for title_entry in app_entry.get("titles") or []:
                         title = title_entry.get("title", "No Title")
                         normalized_title = normalize_title(title)
                         title_duration = title_entry.get("duration", timedelta(0))
@@ -483,8 +487,16 @@ def compute_productivity_breakdown(
     sum exactly to the displayed TOTALS figure (this absorbs micro-slots dropped
     by consolidation).
     """
-    active_parts = {"productive": timedelta(0), "unproductive": timedelta(0), "undefined": timedelta(0)}
-    afk_parts = {"productive": timedelta(0), "unproductive": timedelta(0), "undefined": timedelta(0)}
+    active_parts = {
+        "productive": timedelta(0),
+        "unproductive": timedelta(0),
+        "undefined": timedelta(0),
+    }
+    afk_parts = {
+        "productive": timedelta(0),
+        "unproductive": timedelta(0),
+        "undefined": timedelta(0),
+    }
     has_consolidated_afk = any(s.afk_duration is not None for s in filtered_slots)
 
     def add(parts: Dict[str, timedelta], split: Dict[str, timedelta]) -> None:
@@ -494,16 +506,24 @@ def compute_productivity_breakdown(
     for slot in filtered_slots:
         active = slot.actual_duration or timedelta(0)
         if active > timedelta(0):
-            add(active_parts, _split_by_window_categories(
-                slot.start, slot.end, active, window_events, cat_score_map))
+            add(
+                active_parts,
+                _split_by_window_categories(
+                    slot.start, slot.end, active, window_events, cat_score_map
+                ),
+            )
 
         if has_consolidated_afk:
             afk = slot.afk_duration or timedelta(0)
         else:
             afk = (slot.actual_duration or slot.duration) if slot.is_afk_only else timedelta(0)
         if afk > timedelta(0):
-            add(afk_parts, _split_by_window_categories(
-                slot.start, slot.end, afk, window_events, cat_score_map))
+            add(
+                afk_parts,
+                _split_by_window_categories(
+                    slot.start, slot.end, afk, window_events, cat_score_map
+                ),
+            )
 
     if active_total is not None:
         active_parts = _fit_to_total(active_parts, active_total)

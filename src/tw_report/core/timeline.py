@@ -10,7 +10,10 @@ Timeline: Manages a sorted collection of TimelineSlots
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from tw_report.core.report_slot import ReportEntries
 
 
 class TimelineSlotValidationError(ValueError):
@@ -38,13 +41,15 @@ class TimelineSlot:
     All fields represent raw, unaggregated tracking data.
 
     Attributes:
-        type: Slot type. Valid values: 'regular', 'afk', 'offline', 'offline_extension', 'offline_task'
+        type: Slot type. Valid values: 'regular', 'afk', 'offline', 'offline_extension',
+        'offline_task'
         start: Slot start time (timezone-aware)
         end: Slot end time (timezone-aware)
         project: Project name
         task: Task name
         duration: Wall-clock duration of the slot (from start to end)
-        actual_duration: Time spent on actual activity (e.g., duration minus AFK time for regular slots).
+        actual_duration: Time spent on actual activity (e.g., duration minus AFK time for regular
+        slots).
                          Required field — must be explicitly set, never silently defaulted.
         productive_duration: Time spent on productive activities
         categories: List of category/app/title breakdown
@@ -168,7 +173,10 @@ class TimelineSlot:
 
         def _require(key: str):
             if key not in d or d[key] is None:
-                ctx = f"project={d.get('project')!r} task={d.get('task')!r} start={d.get('start')!r} type={d.get('type')!r}"
+                ctx = (
+                    f"project={d.get('project')!r} task={d.get('task')!r} "
+                    f"start={d.get('start')!r} type={d.get('type')!r}"
+                )
                 raise TimelineSlotValidationError(
                     f"TimelineSlot.from_dict: missing required key {key!r} ({ctx})"
                 )

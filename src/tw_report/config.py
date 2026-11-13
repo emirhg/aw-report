@@ -78,9 +78,7 @@ def load_user_config(path: Optional[Path] = None) -> Dict[str, Any]:
         with open(path, "rb") as f:
             return tomllib.load(f)
     except Exception as e:
-        raise ConfigParsingError(
-            f"Failed to parse config file {path}: {e}"
-        ) from e
+        raise ConfigParsingError(f"Failed to parse config file {path}: {e}") from e
 
 
 def resolve_settings(

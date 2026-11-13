@@ -11,7 +11,8 @@ Algorithm overview:
 1. Collect every event boundary (start/end of each event from all three sources)
 2. For each atomic interval between consecutive boundaries, determine which events
    are "active" (covering) that interval
-3. Classify each interval by priority rule (task > generic; AFK-bucket presence = online/offline ground truth)
+3. Classify each interval by priority rule (task > generic; AFK-bucket presence = online/offline
+ground truth)
 4. Run-length merge adjacent intervals with identical classification into consolidated slots
 5. Return guaranteed non-overlapping, properly-classified slots
 
@@ -31,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class _RunAccumulator:
-    """Accumulates adjacent atomic ticks with identical classification into one consolidated slot."""
+    """Accumulates adjacent atomic ticks with identical classification into one slot."""
 
     def __init__(
         self,
@@ -80,29 +81,39 @@ class _RunAccumulator:
         computed fresh for each tick and compared in the builder's run-length merge logic.
         """
         self.end = end
-        self.bucket = bucket  # Last tick's bucket determines the "dominant" sub-type for generic runs
+        self.bucket = (
+            bucket  # Last tick's bucket determines the "dominant" sub-type for generic runs
+        )
         self._add_tick(bucket, tick_duration)
 
     def finalize(self, window_events: List[WindowEvent]) -> ReportTimelineSlot:
         """Convert the accumulated run into a finalized ReportTimelineSlot.
 
         IMPORTANT: This creates ONE slot per run, but the classification key in the builder
-        ensures separate runs are created for different activity states (online/embedded_afk/offline).
+        ensures separate runs are created for different activity states
+        (online/embedded_afk/offline).
         This is why the chronological timeline feature works - state transitions are represented
         by different runs, not by merging different states into one slot.
         """
         total_duration = self.end - self.start
 
         if self.task_event is not None:
-            # Task-covered run: slots are kept separate by classification key in the sweep-line algorithm.
+            # Task-covered run: slots are kept separate by classification key in the sweep-line
+            # algorithm.
             # Each run represents one continuous time period with one primary activity state.
-            # When state changes (e.g., from online to embedded_afk), the sweep-line creates a new run.
+            # When state changes (e.g., from online to embedded_afk), the sweep-line creates a new
+            # run.
             # Thus this method receives runs that are already separated by state.
             # actual_duration is ONLY online time (not including embedded AFK)
             actual_duration = self.online_duration
-            afk_duration = self.embedded_afk_duration if self.embedded_afk_duration > timedelta(0) else None
-            offline_ext_duration = self.offline_duration if self.offline_duration > timedelta(0) else None
-            # event_duration represents online time (for offline/online split display in TimelineSlot)
+            afk_duration = (
+                self.embedded_afk_duration if self.embedded_afk_duration > timedelta(0) else None
+            )
+            offline_ext_duration = (
+                self.offline_duration if self.offline_duration > timedelta(0) else None
+            )
+            # event_duration represents online time (for offline/online split display in
+            # TimelineSlot)
             # CRITICAL: Must be set whenever offline_extension_duration is set, even if zero
             # This applies to chronological timeline where pure offline slots have event_duration=0
             event_duration = self.online_duration if offline_ext_duration is not None else None
@@ -186,12 +197,14 @@ def build_timeslot_timeline(
     Args:
         afk_events: AFK bucket events (status="afk" or "not-afk")
         window_events: Window bucket events (app, title, category)
-        task_events: TaskWarrior task events (project, task, tags, uuid) - can be TaskWarriorEvent or generic Event
+        task_events: TaskWarrior task events (project, task, tags, uuid) - can be TaskWarriorEvent
+        or generic Event
 
     Returns:
         List of ReportTimelineSlot objects, guaranteed:
         - Non-overlapping: no two slots share any common instant
-        - Properly classified: each slot carries correct project/task, duration breakdown (actual/afk/offline)
+        - Properly classified: each slot carries correct project/task, duration breakdown
+          (actual/afk/offline)
         - Complete: covers full wall-clock span implied by input events with no gaps
         - Chronological: separate slots for each activity state transition (ACTIVE ≠ AFK ≠ OFFLINE)
     """
@@ -235,10 +248,13 @@ def build_timeslot_timeline(
     for t_i, t_next in zip(cuts, cuts[1:]):
         tick_duration = t_next - t_i
 
-        # Find active events at t_i (coverage: event.timestamp <= t_i < event.timestamp + event.duration)
+        # Find active events at t_i (coverage: event.timestamp <= t_i < event.timestamp +
+        # event.duration)
         active_tasks = [e for e in task_by_start if e.timestamp <= t_i < e.timestamp + e.duration]
         active_afk = [e for e in afk_by_start if e.timestamp <= t_i < e.timestamp + e.duration]
-        active_window = [e for e in window_by_start if e.timestamp <= t_i < e.timestamp + e.duration]
+        active_window = [
+            e for e in window_by_start if e.timestamp <= t_i < e.timestamp + e.duration
+        ]
 
         # CRITICAL: Skip intervals with NO events from ANY source
         # Only create slots when there's real data to represent
@@ -249,11 +265,7 @@ def build_timeslot_timeline(
         if len(active_tasks) > 1:
             # Sort by (earliest start, longest duration, stable identity)
             active_tasks.sort(
-                key=lambda t: (
-                    t.timestamp,
-                    -(t.duration.total_seconds()),
-                    t.uuid or f"_id_{id(t)}"
-                )
+                key=lambda t: (t.timestamp, -(t.duration.total_seconds()), t.uuid or f"_id_{id(t)}")
             )
             logger.warning(
                 f"Multiple task events covering {t_i}: {[t.task for t in active_tasks]}. "
@@ -267,14 +279,17 @@ def build_timeslot_timeline(
             task_event = active_tasks[0]
             has_afk_coverage = len(active_afk) > 0
             afk_status = active_afk[0].status if active_afk else None
-            is_offline_task = task_event.tags and any(t.lower() == "offline" for t in task_event.tags)
+            is_offline_task = task_event.tags and any(
+                t.lower() == "offline" for t in task_event.tags
+            )
 
             # CRITICAL: Time partitioning for offline-tagged tasks
             # Offline tag means the task MAY include offline (non-computer) work,
             # but we still need to partition time by AFK/window coverage.
             #
             # PRIORITY ORDER (why this matters):
-            # 1. AFK coverage first - AFK events are the most reliable indicator of computer activity
+            # 1. AFK coverage first - AFK events are the most reliable indicator of computer
+            # activity
             # 2. Window events second - prove computer was on, even if AFK bucket has gaps
             # 3. Offline fallback - only if no AFK or window activity exists
             #
@@ -282,35 +297,42 @@ def build_timeslot_timeline(
             # when the computer was actually on (proven by window events).
             #
             # Classification flow:
-            # - Time WITH AFK events: classify by AFK status (online if not-afk, embedded_afk if afk)
+            # - Time WITH AFK events: classify by AFK status (online if not-afk, embedded_afk if
+            # afk)
             # - Time WITHOUT AFK events AND WITH window events: online (computer was provably on)
             # - Time WITHOUT AFK events AND WITHOUT window events: offline (computer was off)
 
             if has_afk_coverage:
-                # AFK bucket has events: classify by their status (applies to offline and non-offline alike)
-                if afk_status == "afk":
-                    bucket = "embedded_afk"  # Idle time → embedded AFK
-                else:
-                    bucket = "online"  # Active time (not-afk) → online
+                # AFK bucket has events: classify by their status (applies to offline and
+                # non-offline alike)
+                # Idle time (afk) -> embedded AFK; active time (not-afk) -> online
+                bucket = "embedded_afk" if afk_status == "afk" else "online"
             elif is_offline_task:
                 # Offline-tagged task with no AFK coverage: check for window events
                 has_window_activity = len(active_window) > 0
-                if has_window_activity:
-                    bucket = "online"  # Window activity proves system is powered on
-                else:
-                    bucket = "offline"  # No window activity → true offline gap
+                # Window activity proves system is powered on; none means a true offline gap
+                bucket = "online" if has_window_activity else "offline"
             else:
                 # Non-offline task: always online (task event is proof of activity)
                 # Even without AFK coverage, task event indicates work was happening
                 bucket = "online"
 
             # CRITICAL: Include bucket in key to create separate slots for each activity state.
-            # This enables chronological timeline view: when activity type changes (offline → online → afk),
+            # This enables chronological timeline view: when activity type changes (offline → online
+            # → afk),
             # a new slot is created, showing exactly when transitions occurred.
             # Example: 04:00-06:00 (offline) creates one slot, 06:00-07:00 (online) creates another.
-            # Adjacent slots with identical (task, uuid, project, task, bucket) still merge via run-length merging.
-            # This design gives chronological detail by default; --consolidate flag merges these slots back together.
-            key = ("task", task_event.uuid or f"_id_{id(task_event)}", task_event.project, task_event.task, bucket)
+            # Adjacent slots with identical (task, uuid, project, task, bucket) still merge via
+            # run-length merging.
+            # This design gives chronological detail by default; --consolidate flag merges these
+            # slots back together.
+            key = (
+                "task",
+                task_event.uuid or f"_id_{id(task_event)}",
+                task_event.project,
+                task_event.task,
+                bucket,
+            )
         else:
             # Generic (no-task) tick: classify purely by AFK status
             task_event = None
@@ -424,7 +446,8 @@ def _merge_adjacent_micro_slots_by_state_continuity(
             gap = next_slot.start - current.end
             # THRESHOLD: 1 second adjacency tolerance for rounding/timing artifacts.
             # This handles: system clock precision, sweep-line algorithm timing, event buffering.
-            # Actual adjacent slots have gap=0; gaps up to 1s are treated as adjacent for robustness.
+            # Actual adjacent slots have gap=0; gaps up to 1s are treated as adjacent for
+            # robustness.
             is_adjacent = gap <= timedelta(seconds=1)
 
             # Micro-slots = candidate AFK-bucket-stop-recording artifacts: small gap AND
@@ -438,21 +461,30 @@ def _merge_adjacent_micro_slots_by_state_continuity(
             # In production data: legitimate AFK periods are typically >1s; sub-100ms gaps indicate
             # timestamp precision issues rather than real activity boundaries. Calibrated on
             # ActivityWatch behavior: AFK bucket often has <1ms timing artifacts.
-            is_micro_slot = (gap < timedelta(milliseconds=100) and next_slot_duration <= 1.0)
+            is_micro_slot = gap < timedelta(milliseconds=100) and next_slot_duration <= 1.0
 
             # Check if same (project, task)
-            is_same_task = (next_slot.project == current.project and
-                           next_slot.task == current.task)
+            is_same_task = next_slot.project == current.project and next_slot.task == current.task
 
             # State flags for the previous (accumulated) slot
-            current_is_active = current.actual_duration and current.actual_duration.total_seconds() > 0
+            current_is_active = (
+                current.actual_duration and current.actual_duration.total_seconds() > 0
+            )
             current_is_afk = current.afk_duration and current.afk_duration.total_seconds() > 0
-            current_is_offline = current.offline_extension_duration and current.offline_extension_duration.total_seconds() > 0
+            current_is_offline = (
+                current.offline_extension_duration
+                and current.offline_extension_duration.total_seconds() > 0
+            )
 
             # State flags for the candidate next slot
-            next_is_active = next_slot.actual_duration and next_slot.actual_duration.total_seconds() > 0
+            next_is_active = (
+                next_slot.actual_duration and next_slot.actual_duration.total_seconds() > 0
+            )
             next_is_afk = next_slot.afk_duration and next_slot.afk_duration.total_seconds() > 0
-            next_is_offline = next_slot.offline_extension_duration and next_slot.offline_extension_duration.total_seconds() > 0
+            next_is_offline = (
+                next_slot.offline_extension_duration
+                and next_slot.offline_extension_duration.total_seconds() > 0
+            )
 
             # NARROW artifact case this function was originally built for: the AFK bucket
             # stopped recording but a window event fired once more, producing a tiny slot
@@ -470,30 +502,34 @@ def _merge_adjacent_micro_slots_by_state_continuity(
                 # the same real state-continuity check used for regular slots. Being small
                 # is no longer a free pass to merge.
                 is_state_continuous = (
-                    (current_is_active and next_is_active) or
-                    (current_is_afk and next_is_afk) or
-                    (current_is_offline and next_is_offline)
+                    (current_is_active and next_is_active)
+                    or (current_is_afk and next_is_afk)
+                    or (current_is_offline and next_is_offline)
                 )
 
             if is_adjacent and is_same_task and is_state_continuous:
-                if is_pure_offline_micro_artifact:
-                    # Reclassify the artifact's offline time as AFK time, folded into
-                    # whichever genuine state (active or embedded_afk) preceded it.
-                    # (Handles both current_is_active and current_is_afk, unlike before.)
-                    # CRITICAL: Only reclassify if the artifact has meaningful duration.
-                    # Degenerate zero-duration artifacts should NOT be reclassified as they
-                    # can cause subsequent AFK slots to merge incorrectly.
-                    #
-                    # THRESHOLD: 10ms minimum duration for reclassification.
-                    # Why 10ms? Artifacts from AFK bucket stop-recording are typically <1ms
-                    # (timestamp precision). The 10ms threshold filters out degenerate timing
-                    # artifacts while preserving legitimate short offline periods. This prevents
-                    # the bug where reclassifying a 0.001s artifact to AFK caused subsequent
-                    # AFK slots to merge incorrectly (afk-afk continuity matched on the artifact).
-                    if next_slot.offline_extension_duration and next_slot.offline_extension_duration > timedelta(milliseconds=10):
-                        next_slot.afk_duration = (next_slot.afk_duration or timedelta(0)) + \
-                                               next_slot.offline_extension_duration
-                        next_slot.offline_extension_duration = None
+                # Reclassify the artifact's offline time as AFK time, folded into
+                # whichever genuine state (active or embedded_afk) preceded it.
+                # (Handles both current_is_active and current_is_afk, unlike before.)
+                # CRITICAL: Only reclassify if the artifact has meaningful duration.
+                # Degenerate zero-duration artifacts should NOT be reclassified as they
+                # can cause subsequent AFK slots to merge incorrectly.
+                #
+                # THRESHOLD: 10ms minimum duration for reclassification.
+                # Why 10ms? Artifacts from AFK bucket stop-recording are typically <1ms
+                # (timestamp precision). The 10ms threshold filters out degenerate timing
+                # artifacts while preserving legitimate short offline periods. This prevents
+                # the bug where reclassifying a 0.001s artifact to AFK caused subsequent
+                # AFK slots to merge incorrectly (afk-afk continuity matched on the artifact).
+                if (
+                    is_pure_offline_micro_artifact
+                    and next_slot.offline_extension_duration
+                    and next_slot.offline_extension_duration > timedelta(milliseconds=10)
+                ):
+                    next_slot.afk_duration = (
+                        next_slot.afk_duration or timedelta(0)
+                    ) + next_slot.offline_extension_duration
+                    next_slot.offline_extension_duration = None
 
                 merge_group.append(next_slot)
                 current = next_slot
@@ -543,7 +579,9 @@ def _merge_slot_group(group: List[ReportTimelineSlot]) -> ReportTimelineSlot:
     # event_duration: sum online portions from merged slots
     # CRITICAL: Must be set when offline_extension_duration is set (for TimelineSlot validation)
     event_duration = sum((s.event_duration or timedelta(0) for s in group), timedelta(0))
-    event_duration = event_duration if (offline_ext > timedelta(0) or event_duration > timedelta(0)) else None
+    event_duration = (
+        event_duration if (offline_ext > timedelta(0) or event_duration > timedelta(0)) else None
+    )
 
     # Use first slot's metadata
     return ReportTimelineSlot(

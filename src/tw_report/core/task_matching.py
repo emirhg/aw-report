@@ -54,7 +54,7 @@ def get_task_info(active_task: "TaskWarriorEvent") -> Tuple[str, str]:
     from tw_report.core.filtering import NO_PROJECT, NO_TASK
 
     # Handle both TaskWarriorEvent (with properties) and plain Event (with .data dict)
-    if hasattr(active_task, 'task'):
+    if hasattr(active_task, "task"):
         # TaskWarriorEvent with properties
         return active_task.task, active_task.project
     else:
@@ -79,7 +79,7 @@ def task_has_offline_tag(task_event: "TaskWarriorEvent") -> bool:
         True if the event has an 'offline' tag (case-insensitive), False otherwise
     """
     # Handle both TaskWarriorEvent (with properties) and plain Event (with .data dict)
-    if hasattr(task_event, 'has_offline_tag'):
+    if hasattr(task_event, "has_offline_tag"):
         # TaskWarriorEvent with properties
         return task_event.has_offline_tag
     else:

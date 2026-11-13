@@ -157,17 +157,12 @@ class EventFilter:
         all_names = [project, task]
 
         # Check inclusion patterns (only if patterns specified)
-        if all_patterns:
-            if not self._matches_any(all_names, all_patterns):
-                return False
+        if all_patterns and not self._matches_any(all_names, all_patterns):
+            return False
 
         # Check app-specific filter (separate from project/task patterns)
-        if self.app_patterns:
-            if not self._matches_any([app], self.app_patterns):
-                return False
-
         # Passed all filters - include this entry
-        return True
+        return not self.app_patterns or self._matches_any([app], self.app_patterns)
 
     # --- Helper Methods ---
 

@@ -8,7 +8,7 @@ presentation to enable testing and reuse across different output formats.
 import re
 import shutil
 import unicodedata
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
@@ -21,6 +21,7 @@ def _get_timeslot_duration_class() -> type:
     Returns the TimeslotDuration class for runtime use in formatting functions.
     """
     from tw_report.pipeline.models import TimeslotDuration
+
     return TimeslotDuration
 
 
@@ -80,9 +81,9 @@ def display_width(text: str) -> int:
     for char in text:
         # Get East Asian Width property
         char_width = unicodedata.east_asian_width(char)
-        if char_width in ('F', 'W'):  # Fullwidth or Wide
+        if char_width in ("F", "W"):  # Fullwidth or Wide
             width += 2
-        elif char_width in ('A', 'H'):  # Ambiguous or Halfwidth
+        elif char_width in ("A", "H"):  # Ambiguous or Halfwidth
             # Treat ambiguous/halfwidth as single width in terminal context
             width += 1
         else:  # Narrow, Not East Asian
@@ -90,7 +91,7 @@ def display_width(text: str) -> int:
     return width
 
 
-def ljust_display(text: str, width: int, fillchar: str = ' ') -> str:
+def ljust_display(text: str, width: int, fillchar: str = " ") -> str:
     """Left-justify string to visual display width, padding with fillchar.
 
     CRITICAL FUNCTION for timeline alignment (2026-07-28):
@@ -100,7 +101,8 @@ def ljust_display(text: str, width: int, fillchar: str = ' ') -> str:
 
     Why ljust() is broken for alignment:
     - str.ljust() counts BYTES, not VISUAL COLUMNS
-    - With UTF-8, bytes ≠ visual columns (multi-byte chars like ▶, ñ take 2-3 bytes, 1 visual column)
+    - With UTF-8, bytes differ from visual columns (multi-byte chars like ▶, ñ take 2-3
+      bytes, 1 visual column)
     - Result: ljust(text, 28) may create 28 bytes but only 27 visual columns
     - This breaks column alignment, causing misaligned headers/data rows
 
@@ -172,9 +174,7 @@ def format_duration(duration: timedelta) -> str:
     return f"{hours:02}:{minutes:02}:{seconds:02}"
 
 
-def format_duration_tracked_prod(
-    tracked_duration: timedelta, productive_within: timedelta
-) -> str:
+def format_duration_tracked_prod(tracked_duration: timedelta, productive_within: timedelta) -> str:
     """Format duration with optional [prod NN%] for tracked-slot totals.
 
     Shows the duration with productivity percentage only if productivity exists.
@@ -311,9 +311,10 @@ def format_duration_with_gaps(
     return base_format
 
 
-
 def format_offline_task_duration(
-    wall_clock_duration: timedelta, event_duration: timedelta, productive_duration: Optional[timedelta] = None
+    wall_clock_duration: timedelta,
+    event_duration: timedelta,
+    productive_duration: Optional[timedelta] = None,
 ) -> str:
     """Format duration for offline tasks showing offline/online time split.
 
@@ -490,9 +491,7 @@ def truncate_title(title: str, max_length: int = 60) -> str:
     return title[: max_length - 1] + "…"
 
 
-def abbreviate_project_path(
-    project: str, task: str = "", max_content_width: int = 100
-) -> str:
+def abbreviate_project_path(project: str, task: str = "", max_content_width: int = 100) -> str:
     """Abbreviate hierarchical project path while preserving task description.
 
     For multi-level projects (e.g., "Platform > Web > Frontend"), keeps the
@@ -535,10 +534,7 @@ def abbreviate_project_path(
     return abbreviated
 
 
-
-def format_timeline_line(
-    left_part: str, duration_str: str = "", max_left_width: int = 100
-) -> str:
+def format_timeline_line(left_part: str, duration_str: str = "", max_left_width: int = 100) -> str:
     """Format timeline line with truncated content and right-aligned duration.
 
     CRITICAL DESIGN CHOICE (Phase 5 regression fix, 2026-07-02):
@@ -564,14 +560,15 @@ def format_timeline_line(
 
     EXAMPLE (terminal width 120, content 50 chars, duration "4:36:02" = 7 chars):
       left_part (before):   "     00:00 - 04:36  ▶ Project > Task"  (50 chars)
-      left_part (after):    "     00:00 - 04:36  ▶ Project > Task                                         "  (padded to 112)
-      final:                "     00:00 - 04:36  ▶ Project > Task                                          4:36:02"
-                                                                    ^~112 chars padding~^1 space^duration
+      left_part (after):    "     00:00 - 04:36  ▶ Project > Task ... (padded to 112)"
+      final:                "     00:00 - 04:36  ▶ Project > Task ...           4:36:02"
+                                    ^~112 chars padding~^1 space^duration
 
     PARAMETERS:
       left_part:        Pre-formatted content (time range + project/task + details)
       duration_str:     Duration string to right-align (e.g., "4:36:02", "0:13:47")
-      max_left_width:   Maximum chars before truncation (default 100, used by consolidated rendering)
+      max_left_width:   Maximum chars before truncation (default 100, used by
+                        consolidated rendering)
 
     RETURNS:
       Formatted line with left_part padded to terminal width and duration right-aligned
@@ -591,3 +588,21 @@ def format_timeline_line(
     if duration_str:
         return left_part.ljust(width - len(duration_str) - 1) + " " + duration_str
     return left_part
+
+
+def to_local_time(dt: datetime) -> datetime:
+    """Convert UTC datetime to local timezone.
+
+    Fixes timezone display issue where UTC times were shown as local times.
+
+    Args:
+        dt: Datetime in UTC (typically from ActivityWatch)
+
+    Returns:
+        Datetime converted to local timezone, with timezone info preserved
+    """
+    if dt.tzinfo is None or dt.tzinfo == timezone.utc:
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone()
+    return dt

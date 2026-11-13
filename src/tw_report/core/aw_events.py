@@ -96,12 +96,11 @@ class TaskWarriorEvent(Event):
         if "title" in self.data and self.data["title"]:
             title = self.data["title"]
             # Truncate to ~50 chars for display; remove URLs
-            if "http" in title:
-                # Extract just the problem name/number if it's a LeetCode URL
-                if "leetcode" in title.lower():
-                    parts = title.split(":")
-                    if len(parts) > 1:
-                        return parts[0].strip()
+            # Extract just the problem name/number if it's a LeetCode URL
+            if "http" in title and "leetcode" in title.lower():
+                parts = title.split(":")
+                if len(parts) > 1:
+                    return parts[0].strip()
             return title[:50] if len(title) > 50 else title
         # Fall back to UUID (short form for identification)
         if "uuid" in self.data and self.data["uuid"]:

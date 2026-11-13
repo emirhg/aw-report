@@ -42,14 +42,10 @@ def load_categories(filepath: str) -> List[Dict]:
             return settings.get("classes", [])
     except json.JSONDecodeError as e:
         logger.error(f"Failed to parse categories JSON from '{filepath}': {e}")
-        raise ConfigParsingError(
-            f"Malformed JSON in categories file '{filepath}': {e}"
-        ) from e
+        raise ConfigParsingError(f"Malformed JSON in categories file '{filepath}': {e}") from e
     except OSError as e:
         logger.error(f"Failed to read categories file '{filepath}': {e}")
-        raise ConfigParsingError(
-            f"Cannot read categories file '{filepath}': {e}"
-        ) from e
+        raise ConfigParsingError(f"Cannot read categories file '{filepath}': {e}") from e
 
 
 def compile_category_rules(
@@ -85,9 +81,7 @@ def compile_category_rules(
         if cat_list:
             full_path = " > ".join(cat_list)
             score_val = rule_item.get("data", {}).get("score")
-            explicit_scores[full_path] = (
-                float(score_val) if score_val is not None else None
-            )
+            explicit_scores[full_path] = float(score_val) if score_val is not None else None
             # Add parent categories with type: "none" and explicit scores
             rule = rule_item.get("rule", {})
             if rule.get("type") == "none" and score_val is not None:
@@ -131,9 +125,7 @@ def compile_category_rules(
                 ) from e
             except (ValueError, TypeError) as e:
                 logger.error(f"Invalid category rule structure: {rule_item}: {e}")
-                raise CategoryValidationError(
-                    f"Invalid category rule structure: {e}"
-                ) from e
+                raise CategoryValidationError(f"Invalid category rule structure: {e}") from e
 
     return compiled_rules, cat_score_map
 
@@ -191,11 +183,10 @@ def categorize_event(
 
     matched_cats = []
     for cat_list, pattern, _ in categories:
-        if any(pattern.search(s) for s in match_strings):
-            if cat_list:
-                full_path = " > ".join(cat_list)
-                # Store (specificity, path) for sorting by most-specific first
-                matched_cats.append((len(cat_list), full_path))
+        if any(pattern.search(s) for s in match_strings) and cat_list:
+            full_path = " > ".join(cat_list)
+            # Store (specificity, path) for sorting by most-specific first
+            matched_cats.append((len(cat_list), full_path))
 
     if matched_cats:
         # Sort by specificity (descending), then alphabetically

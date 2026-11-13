@@ -13,7 +13,10 @@ Example:
 """
 
 from datetime import timedelta
-from typing import Any, Dict, List, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Union
+
+if TYPE_CHECKING:
+    from tw_report.core.report_slot import ReportTimelineSlot
 
 
 def consolidate_sessions(
@@ -63,10 +66,8 @@ def consolidate_sessions(
             merged.append(_merge_group(current_group))
             current_group = [slot]
 
-        
     # Don't forget the last group
     merged.append(_merge_group(current_group))
-
 
     return merged
 
@@ -93,9 +94,8 @@ def _to_dict(slot: Union[Dict[str, Any], Any]) -> Dict[str, Any]:
 
 def _same_group(slot: Dict[str, Any], last_slot: Dict[str, Any]) -> bool:
     """Check if two slots belong to the same consolidation group."""
-    same = (
-        slot.get("project") == last_slot.get("project")
-        and slot.get("task") == last_slot.get("task")
+    same = slot.get("project") == last_slot.get("project") and slot.get("task") == last_slot.get(
+        "task"
     )
 
     return same
@@ -115,7 +115,6 @@ def _merge_group(group: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     if len(group) == 1:
         return group[0]
-
 
     # Calculate total duration from first start to last end
     first_slot = group[0]
@@ -151,7 +150,11 @@ def _merge_group(group: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     # Sum offline_extension_duration if any slot has it (offline task tracking)
     total_offline_extension = sum(
-        (slot.get("offline_extension_duration", timedelta(0)) for slot in group if slot.get("offline_extension_duration")),
+        (
+            slot.get("offline_extension_duration", timedelta(0))
+            for slot in group
+            if slot.get("offline_extension_duration")
+        ),
         timedelta(0),
     )
 
@@ -160,8 +163,12 @@ def _merge_group(group: List[Dict[str, Any]]) -> Dict[str, Any]:
     merged["start"] = start_time
     merged["end"] = end_time
     merged["duration"] = merged_duration  # Wall-clock duration (includes gaps between sessions)
-    merged["actual_duration"] = total_actual_duration  # Sum of active time (excludes AFK within slots)
-    merged["afk_duration"] = total_afk_duration if total_afk_duration > timedelta(0) else None  # Sum of AFK time
+    merged["actual_duration"] = (
+        total_actual_duration  # Sum of active time (excludes AFK within slots)
+    )
+    merged["afk_duration"] = (
+        total_afk_duration if total_afk_duration > timedelta(0) else None
+    )  # Sum of AFK time
     merged["event_duration"] = total_event_duration  # Sum of event durations
 
     # Preserve offline_extension_duration if present (offline task tracking)

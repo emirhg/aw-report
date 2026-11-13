@@ -59,10 +59,7 @@ def get_events_by_project(
         return all_events
 
     # Filter to events matching the project (case-insensitive substring match)
-    filtered = [
-        e for e in all_events
-        if project.lower() in e.data.get("project", "").lower()
-    ]
+    filtered = [e for e in all_events if project.lower() in e.data.get("project", "").lower()]
 
     if filtered:
         logger.debug(f"Filtered to {len(filtered)} events for project: {project}")
@@ -118,7 +115,8 @@ def get_events_by_projects(
 
     # Filter to events matching ANY of the projects (case-insensitive substring match)
     filtered = [
-        e for e in all_events
+        e
+        for e in all_events
         if any(p.lower() in e.data.get("project", "").lower() for p in projects)
     ]
 
@@ -244,9 +242,11 @@ def should_skip_window_bucket(
         return False
 
     # Can't skip if there are NO filters (need complete data for full timeline view)
-    has_any_filter = getattr(args, 'project', None) or getattr(args, 'task', None) or getattr(args, 'search', None)
-    if not has_any_filter:
-        return False
-
-    # Can skip for detail_level 1-2 in timeline mode with no app filter when filtering by project/task
-    return True
+    has_any_filter = (
+        getattr(args, "project", None)
+        or getattr(args, "task", None)
+        or getattr(args, "search", None)
+    )
+    # Can skip for detail_level 1-2 in timeline mode with no app filter when filtering by
+    # project/task
+    return bool(has_any_filter)

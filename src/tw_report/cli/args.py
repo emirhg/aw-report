@@ -11,9 +11,7 @@ import re
 import sys
 from typing import List, Optional, Tuple
 
-DEFAULT_CATEGORIES_FILE = os.path.expanduser(
-    "~/.config/activitywatch/aw-server/settings.json"
-)
+DEFAULT_CATEGORIES_FILE = os.path.expanduser("~/.config/activitywatch/aw-server/settings.json")
 
 
 def reorder_arguments(argv: List[str]) -> List[str]:
@@ -47,9 +45,11 @@ def reorder_arguments(argv: List[str]) -> List[str]:
         if arg.startswith("-"):
             optional_args.append(arg)
             # Check if the next arg is a value for this flag (not another flag, not a period)
-            if i + 1 < len(argv) and not argv[i + 1].startswith("-"):
-                # This flag takes a value
-                if arg in [
+            if (
+                i + 1 < len(argv)
+                and not argv[i + 1].startswith("-")
+                and arg
+                in [
                     "--project",
                     "--task",
                     "--app",
@@ -64,9 +64,10 @@ def reorder_arguments(argv: List[str]) -> List[str]:
                     "--tail-tolerance",
                     "--afk-validation-tolerance",
                     "--day-start-hour",
-                ]:
-                    optional_args.append(argv[i + 1])
-                    i += 1
+                ]
+            ):
+                optional_args.append(argv[i + 1])
+                i += 1
             i += 1
         else:
             # This is a positional argument
@@ -98,7 +99,10 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "args",
         nargs="*",
-        help="Period (starts with :) and/or search/filter terms. Order doesn't matter. Examples: :today, Climb, :week Climb, Climb :week",
+        help=(
+            "Period (starts with :) and/or search/filter terms. Order doesn't matter. Examples: "
+            ":today, Climb, :week Climb, Climb :week"
+        ),
     )
     parser.add_argument(
         "--no-taskwarrior",
@@ -109,7 +113,10 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "--task-id",
         type=int,
         metavar="ID",
-        help="Show only events for a specific TaskWarrior task ID (filters by UUID, skips window bucket).",
+        help=(
+            "Show only events for a specific TaskWarrior task ID (filters by UUID, skips window "
+            "bucket)."
+        ),
     )
     parser.add_argument(
         "--include-afk", action="store_true", help="Include AFK time in the report."
@@ -146,7 +153,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         action="append",
         metavar="PATTERN",
         help="Filter: show only entries whose project matches PATTERN (partial, repeatable = OR). "
-             "PATTERN may also be a TaskWarrior task ID or UUID, which resolves to that task's project.",
+        "PATTERN may also be a TaskWarrior task ID or UUID, which resolves to that task's project.",
     )
     parser.add_argument(
         "--task",
@@ -154,7 +161,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         action="append",
         metavar="PATTERN",
         help="Filter: show only entries whose task matches PATTERN. "
-             "PATTERN may also be a TaskWarrior task ID or UUID, which resolves to that task's name.",
+        "PATTERN may also be a TaskWarrior task ID or UUID, which resolves to that task's name.",
     )
     parser.add_argument(
         "--app",
@@ -228,7 +235,11 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--consolidate",
         action="store_true",
-        help="Consolidate sessions: merge consecutive sessions of the same task (even with gaps) unless interrupted by another task. Works with --by-day/week/month/year flags. Automatically enabled for --by-project (hierarchical view).",
+        help=(
+            "Consolidate sessions: merge consecutive sessions of the same task (even with gaps) "
+            "unless interrupted by another task. Works with --by-day/week/month/year flags. "
+            "Automatically enabled for --by-project (hierarchical view)."
+        ),
     )
 
     parser.add_argument(
@@ -254,24 +265,37 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--deduplicate-categories",
         action="store_true",
-        help="Collapse repeated categories within a slot (old behaviour). Default: show categories in timeline order.",
+        help=(
+            "Collapse repeated categories within a slot (old behaviour). Default: show "
+            "categories in timeline order."
+        ),
     )
     parser.add_argument(
         "--exclude-online",
         action="store_true",
-        help="Exclude online time reporting for OFFLINE tasks (omits window event queries as optimization).",
+        help=(
+            "Exclude online time reporting for OFFLINE tasks (omits window event queries as "
+            "optimization)."
+        ),
     )
     parser.add_argument(
         "--tail-tolerance",
         type=float,
         default=10.0,
-        help="When OFFLINE task ends within N seconds after last AFK event, extend online time to cover the tail (reduces spurious offline noise). Default: 10s, set to 0 to disable.",
+        help=(
+            "When OFFLINE task ends within N seconds after last AFK event, extend online time to "
+            "cover the tail (reduces spurious offline noise). Default: 10s, set to 0 to disable."
+        ),
     )
     parser.add_argument(
         "--afk-validation-tolerance",
         type=float,
         default=10.0,
-        help="When validating AFK data against window events, check if task/AFK times are within N seconds of each other. If matched tightly, query window bucket to confirm true offline (no window events = offline). Default: 10s.",
+        help=(
+            "When validating AFK data against window events, check if task/AFK times are within "
+            "N seconds of each other. If matched tightly, query window bucket to confirm true "
+            "offline (no window events = offline). Default: 10s."
+        ),
     )
     parser.add_argument(
         "--day-start-hour",
@@ -279,7 +303,10 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         choices=range(24),
         default=None,
         metavar="HOUR",
-        help="Hour when a logical day starts (0-23, default from config or 4). Set to 0 to use literal midnight boundaries.",
+        help=(
+            "Hour when a logical day starts (0-23, default from config or 4). Set to 0 to use "
+            "literal midnight boundaries."
+        ),
     )
     return parser.parse_args(reordered_argv)
 
@@ -309,17 +336,13 @@ def parse_positional_args(args_list: List[str]) -> Tuple[str, Optional[str]]:
     iso_date_pattern = re.compile(r"^\d{4}-\d{2}-\d{2}(T| |$)")
 
     # Find period (starts with ':' or is an ISO date)
-    period_args = [
-        arg for arg in args_list if arg.startswith(":") or iso_date_pattern.match(arg)
-    ]
+    period_args = [arg for arg in args_list if arg.startswith(":") or iso_date_pattern.match(arg)]
     if period_args:
         period = period_args[0]  # Use first period specification
 
     # Find search terms (everything that's not a period)
     search_terms = [
-        arg
-        for arg in args_list
-        if not arg.startswith(":") and not iso_date_pattern.match(arg)
+        arg for arg in args_list if not arg.startswith(":") and not iso_date_pattern.match(arg)
     ]
     if search_terms:
         search_term = search_terms[0]  # Use first search term as the main one

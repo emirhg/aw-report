@@ -4,40 +4,14 @@ tw-report CLI entry point with full orchestration.
 Handles all argument parsing, data fetching, processing, and report generation.
 """
 
-import sys
-import os
-import time
 import logging
+import sys
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, List, Optional, Tuple
-
-logger = logging.getLogger(__name__)
-
-# Unbuffered output for debugging long-running commands
-if os.environ.get('TW_REPORT_DEBUG'):
-    sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 1)
-    sys.stderr = os.fdopen(sys.stderr.fileno(), 'w', 1)
-
-# Profiling log file
-_profile_log = None
-_profile_start = time.perf_counter()
-
-def _profile(stage_name):
-    """Log timing checkpoint to profile execution."""
-    global _profile_log, _profile_start
-    if not _profile_log and os.environ.get('TW_REPORT_PROFILE'):
-        _profile_log = open('/tmp/tw_report_profile.log', 'w', buffering=1)
-    if _profile_log:
-        elapsed = time.perf_counter() - _profile_start
-        _profile_log.write(f'[{elapsed:7.2f}s] {stage_name}\n')
-        _profile_log.flush()
+from typing import List, Optional, Tuple
 
 from aw_client import ActivityWatchClient
 from aw_core.models import Event
 from aw_transform import filter_keyvals
-
-if TYPE_CHECKING:
-    pass
 
 from tw_report.cli.args import parse_args, parse_positional_args
 from tw_report.config import load_user_config, resolve_settings
@@ -75,16 +49,19 @@ from tw_report.core.timeslot_builder import build_timeslot_timeline
 
 # generate_untracked_gap_events removed in Phase 2 refactor — builder handles gaps
 from tw_report.pipeline.presenters import HierarchicalReport, TimelineReport
-from tw_report.pipeline.processors import compute_productivity_breakdown
 from tw_report.pipeline.processors import (
     aggregate_hierarchy_from_slots,
     build_context,
     compute_metrics,
+    compute_productivity_breakdown,
     merge_overlapping_afk_periods,
 )
 from tw_report.pipeline.report_render import print_report
 from tw_report.pipeline.timeline_render import print_timeline_report
 from tw_report.utils.formatting import normalize_title
+from tw_report.utils.profiling import StageProfiler, enable_unbuffered_output
+
+logger = logging.getLogger(__name__)
 
 
 def _matches_any(name: str, patterns: Optional[List[str]], exact: bool) -> bool:
@@ -142,14 +119,17 @@ def _fetch_events_for_ranges(
     More efficient than fetching for entire period when events are sparse.
 
     Args:
-        event_cls: Event subclass to use for re-wrapping events (WindowEvent, AFKEvent, TaskWarriorEvent)
+        event_cls: Event subclass to use for re-wrapping events (WindowEvent, AFKEvent,
+        TaskWarriorEvent)
     """
     events = []
     bucket_id = get_bucket_id(bucket_name)
     for start, end in time_ranges:
         # Add small buffer (1 second) to ensure boundary events are included
         buffer = timedelta(seconds=1)
-        range_events = get_events(client, bucket_id, start - buffer, end + buffer, event_cls=event_cls)
+        range_events = get_events(
+            client, bucket_id, start - buffer, end + buffer, event_cls=event_cls
+        )
         events.extend(range_events)
     return events
 
@@ -191,17 +171,21 @@ def _compute_app_bounded_ranges(
 
 def main():
     """Main script logic: orchestrate data fetching, processing, and report generation."""
-    _profile("MAIN START")
+    enable_unbuffered_output()
+    return _run(StageProfiler.from_env())
+
+
+def _run(profiler: StageProfiler):
+    profiler.checkpoint("MAIN START")
     args = parse_args()
-    _profile("parse_args() done")
+    profiler.checkpoint("parse_args() done")
     client = ActivityWatchClient("tw-report")
-    _profile("ActivityWatchClient created")
+    profiler.checkpoint("ActivityWatchClient created")
 
     # Load config file and resolve settings (CLI args > config file > defaults)
     user_config = load_user_config()
     resolved_settings = resolve_settings(
-        cli_args={"day_start_hour": args.day_start_hour},
-        user_config=user_config
+        cli_args={"day_start_hour": args.day_start_hour}, user_config=user_config
     )
     day_start_hour = resolved_settings.day_start_hour
 
@@ -227,11 +211,17 @@ def main():
 
     # Adjust default period based on grouping mode (if no explicit period provided)
     if period == ":today":  # Only adjust if using the default period
-        if grouping_mode == "week" and not any(arg.startswith(":") or arg[0].isdigit() for arg in args.args):
+        if grouping_mode == "week" and not any(
+            arg.startswith(":") or arg[0].isdigit() for arg in args.args
+        ):
             period = ":week"
-        elif grouping_mode == "month" and not any(arg.startswith(":") or arg[0].isdigit() for arg in args.args):
+        elif grouping_mode == "month" and not any(
+            arg.startswith(":") or arg[0].isdigit() for arg in args.args
+        ):
             period = ":month"
-        elif grouping_mode == "year" and not any(arg.startswith(":") or arg[0].isdigit() for arg in args.args):
+        elif grouping_mode == "year" and not any(
+            arg.startswith(":") or arg[0].isdigit() for arg in args.args
+        ):
             period = ":year"
 
     # Resolve task UUID if --task-id is provided
@@ -259,9 +249,22 @@ def main():
     # This happens when --project is used without an argument
     if args.project:
         for value in args.project:
-            if value.startswith(':') and value in [':today', ':yesterday', ':week', ':lastweek', ':month', ':lastmonth', ':year', ':all']:
-                print(f"Error: --project requires an argument. Did you mean to use a period ('{value}') without a filter?\n"
-                      f"Correct usage: tw-report {value} --project PATTERN", file=sys.stderr)
+            if value.startswith(":") and value in [
+                ":today",
+                ":yesterday",
+                ":week",
+                ":lastweek",
+                ":month",
+                ":lastmonth",
+                ":year",
+                ":all",
+            ]:
+                print(
+                    f"Error: --project requires an argument. Did you mean to use a period "
+                    f"('{value}') without a filter?\n"
+                    f"Correct usage: tw-report {value} --project PATTERN",
+                    file=sys.stderr,
+                )
                 return 1
 
     # Resolve project filter values (may be task IDs, UUIDs, or literal patterns)
@@ -306,7 +309,8 @@ def main():
     # PHASE 14 OPTIMIZATION: Fetch TaskWarrior events FIRST (with any filter applied)
     # to extract time ranges, then use those ranges to limit AFK/window fetching.
     # This dramatically reduces data volume for sparse task data (e.g., :all with --project).
-    # Example: tw-report --project "Higuera" :all fetches only Higuera's time windows for AFK/window,
+    # Example: tw-report --project "Higuera" :all fetches only Higuera's time windows for
+    # AFK/window,
     # not the entire :all period.
     task_events_early = None
     task_time_ranges = None
@@ -324,7 +328,8 @@ def main():
             )
         elif args.project:
             # Project filter mode: fetch by project(s) first (PHASE 14 optimization)
-            # Support multiple projects for compound filtering (e.g., --project Climb --project Mercado)
+            # Support multiple projects for compound filtering (e.g., --project Climb --project
+            # Mercado)
             if len(args.project) > 1:
                 # Multiple projects: use optimized multi-project fetch (no redundant re-fetching)
                 task_events_early = get_events_by_projects(
@@ -337,7 +342,8 @@ def main():
                 )
         elif args.task:
             # Task filter mode: fetch by task name(s) first (PHASE 14 optimization)
-            # Support multiple tasks for compound filtering (e.g., --task "Documentar" --task "Code review")
+            # Support multiple tasks for compound filtering (e.g., --task "Documentar" --task "Code
+            # review")
             if len(args.task) > 1:
                 # Multiple tasks: use optimized multi-task fetch (no redundant re-fetching)
                 task_events_early = get_events_by_tasks(
@@ -359,10 +365,6 @@ def main():
     window_events = []
     afk_events = []
 
-    # Determine if we can SKIP windows (opt-out pattern, but constrained)
-    is_filtered_task_mode = task_uuid or (args.project and not args.app) or (args.task and not args.app)
-    can_skip_window = is_filtered_task_mode and args.detail_level <= 2 and grouping_mode in ["day", "week", "month", "year"]
-
     # For opt-out: fetch windows by default, skip only in constrained cases
     # AFK data is always needed for metrics and OFFLINE reconciliation
     requires_afk_data = True
@@ -374,13 +376,17 @@ def main():
         if task_time_ranges:
             # Smart optimization: only fetch AFK for times when tasks exist
             # This dramatically reduces data volume for sparse task data (e.g., :year, :all)
-            afk_events = _fetch_events_for_ranges(client, "afk", task_time_ranges, event_cls=AFKEvent)
+            afk_events = _fetch_events_for_ranges(
+                client, "afk", task_time_ranges, event_cls=AFKEvent
+            )
         else:
             # No task time ranges: fetch entire period
             afk_bucket = get_bucket_id("afk")
-            _profile(f"Fetching AFK events from {start_time.date()} to {end_time.date()}")
+            profiler.checkpoint(
+                f"Fetching AFK events from {start_time.date()} to {end_time.date()}"
+            )
             afk_events = get_events(client, afk_bucket, start_time, end_time, event_cls=AFKEvent)
-            _profile(f"Fetched {len(afk_events)} AFK events")
+            profiler.checkpoint(f"Fetched {len(afk_events)} AFK events")
 
         # Filter AFK to only events overlapping task time ranges (if available)
         # CRITICAL: Only filter if task_time_ranges is non-empty. If no tasks exist,
@@ -421,13 +427,17 @@ def main():
 
     if task_time_ranges:
         # Smart optimization: only fetch windows for times when tasks exist
-        window_events = _fetch_events_for_ranges(client, "window", task_time_ranges, event_cls=WindowEvent)
+        window_events = _fetch_events_for_ranges(
+            client, "window", task_time_ranges, event_cls=WindowEvent
+        )
     else:
         # No task time ranges: fetch entire period
         window_bucket = get_bucket_id("window")
-        _profile(f"Fetching window events from {start_time.date()} to {end_time.date()}")
-        window_events = get_events(client, window_bucket, start_time, end_time, event_cls=WindowEvent)
-        _profile(f"Fetched {len(window_events)} window events")
+        profiler.checkpoint(f"Fetching window events from {start_time.date()} to {end_time.date()}")
+        window_events = get_events(
+            client, window_bucket, start_time, end_time, event_cls=WindowEvent
+        )
+        profiler.checkpoint(f"Fetched {len(window_events)} window events")
 
     # Categorize all window events (including those during AFK periods)
     # This ensures generate_afk_and_offline_slots can extract categories for AFK slot details
@@ -437,16 +447,16 @@ def main():
     # Filter AFK events to only those that START within the requested period
     # (ActivityWatch sometimes returns events from outside the range if they overlap it)
     afk_events = [
-        event for event in afk_events
+        event
+        for event in afk_events
         if event.timestamp >= start_time and event.timestamp < end_time
     ]
 
     # Merge any overlapping not-afk periods (data quality fix)
     afk_events = merge_overlapping_afk_periods(afk_events)
 
-    # Calculate non-afk time for metrics
+    # Not-afk events feed the current-session and break metrics below
     not_afk_events = filter_keyvals(afk_events, "status", ["not-afk"])
-    non_afk_time = sum((event.duration for event in not_afk_events), timedelta(0))
 
     # Calculate current session and last break metrics
     current_session_start = None
@@ -497,8 +507,10 @@ def main():
         if not task_events:
             task_events = None
             is_task_based_report = False
-            # CRITICAL: Always keep window events for AFK false positive detection via split_by_coverage()
-            # Even without tasks, we need windows to validate which AFK periods are real (have coverage)
+            # CRITICAL: Always keep window events for AFK false positive detection via
+            # split_by_coverage()
+            # Even without tasks, we need windows to validate which AFK periods are real (have
+            # coverage)
             # vs false positives (system was off). Don't clear window_events here.
 
     # Calculate metrics (used by both report types)
@@ -510,15 +522,27 @@ def main():
     all_events_for_period_utc = []
     if not_afk_events:
         all_events_for_period_utc.extend(
-            [(e.timestamp, e.timestamp + e.duration) for e in not_afk_events if e.duration > timedelta(0)]
+            [
+                (e.timestamp, e.timestamp + e.duration)
+                for e in not_afk_events
+                if e.duration > timedelta(0)
+            ]
         )
     if window_events:
         all_events_for_period_utc.extend(
-            [(e.timestamp, e.timestamp + e.duration) for e in window_events if e.duration > timedelta(0)]
+            [
+                (e.timestamp, e.timestamp + e.duration)
+                for e in window_events
+                if e.duration > timedelta(0)
+            ]
         )
     if task_events:
         all_events_for_period_utc.extend(
-            [(e.timestamp, e.timestamp + e.duration) for e in task_events if e.duration > timedelta(0)]
+            [
+                (e.timestamp, e.timestamp + e.duration)
+                for e in task_events
+                if e.duration > timedelta(0)
+            ]
         )
 
     first_event_time = None
@@ -528,10 +552,10 @@ def main():
         first_event_time = min(start for start, end in all_events_for_period_utc)
         last_event_time = max(end for start, end in all_events_for_period_utc)
 
-
     # UNIFIED PIPELINE (Session 2026-09-02):
     # Single builder call feeds both timeline and hierarchical rendering.
-    # Events are NOT pre-filtered — builder needs unfiltered data to correctly classify time as task-based vs AFK.
+    # Events are NOT pre-filtered — builder needs unfiltered data to correctly classify time as
+    # task-based vs AFK.
     # Filtering happens on slot output BEFORE metrics calculation.
     # This ensures both report modes see identical data and metrics.
 
@@ -539,14 +563,15 @@ def main():
     def _get_apps_from_slot(slot):
         """Extract all unique app names from slot's categories."""
         apps = set()
-        for cat_entry in (slot.categories or []):
+        for cat_entry in slot.categories or []:
             for app_entry in cat_entry.get("apps", []):
                 app_name = app_entry.get("app", "")
                 if app_name:
                     apps.add(app_name)
         return list(apps)
 
-    # PHASE 14 OPTIMIZATION: App-level time range filtering (composite-aware, with Phase 3B hardening)
+    # PHASE 14 OPTIMIZATION: App-level time range filtering (composite-aware, with Phase 3B
+    # hardening)
     # Runs whenever --app is set, whether or not a project/task filter already
     # narrowed task_time_ranges. When both are active, the app envelope is
     # clipped against the existing task_time_ranges (composite intersection);
@@ -570,7 +595,10 @@ def main():
             # with project/task filters. Bounding envelope preserves AFK context for gaps.
             if app_time_ranges:
                 from tw_report.core.aw_events import AFKEvent
-                afk_events = _fetch_events_for_ranges(client, "afk", app_time_ranges, event_cls=AFKEvent)
+
+                afk_events = _fetch_events_for_ranges(
+                    client, "afk", app_time_ranges, event_cls=AFKEvent
+                )
 
     # Tracked Activity from event times (includes all buckets: AFK + window + task)
     tracked_activity_from_slots = None
@@ -602,8 +630,12 @@ def main():
             return events
         groups = {}
         for event in events:
-            uuid = getattr(event, 'uuid', None)
-            key = (uuid, event.timestamp) if uuid else (event.timestamp, event.duration, getattr(event, 'task', None))
+            uuid = getattr(event, "uuid", None)
+            key = (
+                (uuid, event.timestamp)
+                if uuid
+                else (event.timestamp, event.duration, getattr(event, "task", None))
+            )
             if key not in groups or event.duration > groups[key].duration:
                 groups[key] = event
         deduped = list(groups.values())
@@ -658,19 +690,19 @@ def main():
     productivity_source_slots = None
     if not args.no_productivity:
         from tw_report.core.report_slot import ReportTimelineSlot
+
         productivity_source_slots = [ReportTimelineSlot.from_dict(g) for g in all_slot_entries]
 
     # Apply session consolidation to timeline slots if --consolidate flag is set
     # This merges multiple work sessions with same (date, project, task) into one entry
     if args.consolidate:
         from tw_report.pipeline.consolidation import consolidate_sessions
+
         # Filter out micro-slots (< 1 second) before consolidation
         # These are spurious state-change events that fragment work sessions
         min_duration = timedelta(seconds=1)
-        before = len(all_slot_entries)
         filtered_entries = [
-            s for s in all_slot_entries
-            if s.get("duration", timedelta(0)) >= min_duration
+            s for s in all_slot_entries if s.get("duration", timedelta(0)) >= min_duration
         ]
 
         all_slot_entries = consolidate_sessions(filtered_entries)
@@ -713,20 +745,21 @@ def main():
     # branch of should_include_entry is used for those slots
     def _slot_entry_type(s: ReportTimelineSlot) -> str:
         if s.is_afk_only:
-            return 'afk'
+            return "afk"
         if s.is_offline_gap:
-            return 'offline'
+            return "offline"
         if s.is_offline_task:
-            return 'offline_task'
-        return 'regular'
+            return "offline_task"
+        return "regular"
 
     filtered_slots = [
-        s for s in report_slots
+        s
+        for s in report_slots
         if event_filter.should_include_entry(
             {
-                'project': s.project,
-                'task': s.task,
-                'app': "|".join(_get_apps_from_slot(s)) or "",
+                "project": s.project,
+                "task": s.task,
+                "app": "|".join(_get_apps_from_slot(s)) or "",
             },
             entry_type=_slot_entry_type(s),
         )
@@ -741,12 +774,12 @@ def main():
     # Calculate filtered active time from builder output
     # Active time = actual_duration (work time without AFK)
     slot_active_time = sum(
-        (s.actual_duration or timedelta(0) for s in filtered_slots),
-        timedelta(0)
+        (s.actual_duration or timedelta(0) for s in filtered_slots), timedelta(0)
     )
 
     # Calculate break time from filtered slots (gaps between consecutive slots per day)
     from tw_report.core.report_slot import compute_total_break_time
+
     slot_break_time = compute_total_break_time(filtered_slots, day_start_hour)
 
     # Compute productivity metrics from filtered slots
@@ -789,7 +822,7 @@ def main():
     # Convert slots back to dicts for rendering (use raw builder output, NO filtering)
     # IMPORTANT: Rendering shows ALL slots (including AFK) while metrics can be filtered.
     # This is by design — the report shows complete timeline, but summary metrics respect filters.
-    consolidated_dicts = [s.to_dict() if hasattr(s, 'to_dict') else s for s in report_slots]
+    consolidated_dicts = [s.to_dict() if hasattr(s, "to_dict") else s for s in report_slots]
 
     # Now determine which rendering mode to use: timeline (period-based) or hierarchical
     # BUG REPORTS:
@@ -799,9 +832,9 @@ def main():
     # 2. Year consolidation (--by-year) hangs/timeouts: Possible O(n^2) or infinite loop
     #    Likely in period grouping or consolidation logic when spanning 56+ years of history
     #    Fix needed: Performance audit of consolidate_by_period() for large datasets
-    _profile(f"Starting rendering phase with {len(report_slots)} slots")
+    profiler.checkpoint(f"Starting rendering phase with {len(report_slots)} slots")
     if grouping_mode in ["day", "week", "month", "year"]:
-        _profile(f"Rendering timeline report (period: {period})")
+        profiler.checkpoint(f"Rendering timeline report (period: {period})")
         TimelineReport(print_timeline_report).present(
             slots=consolidated_dicts,
             period=period,
@@ -829,8 +862,10 @@ def main():
             total_break=slot_break_time,
         )
     else:
-        # Hierarchical (--by-project) report: use slot-based AFK/Offline calculations for consistency
-        # Aggregate the filtered slots into a hierarchy for display (display-only aggregation, not data calculation)
+        # Hierarchical (--by-project) report: use slot-based AFK/Offline calculations for
+        # consistency
+        # Aggregate the filtered slots into a hierarchy for display (display-only aggregation, not
+        # data calculation)
         report_data, actual_task_based = aggregate_hierarchy_from_slots(
             consolidated_slots=filtered_slots,
             task_based=(is_task_based_report and task_events is not None),
@@ -879,7 +914,7 @@ def main():
             total_break=slot_break_time,
         )
 
-    _profile("MAIN END - rendering complete")
+    profiler.checkpoint("MAIN END - rendering complete")
 
 
 if __name__ == "__main__":
