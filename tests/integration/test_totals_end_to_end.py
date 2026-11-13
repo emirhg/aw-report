@@ -15,7 +15,7 @@ import pytest
 
 from aw_core.models import Event
 from tw_report.pipeline.processors import compute_metrics, build_context
-from tw_report.pipeline.models import ReportEvent, ReportContext, ReportMetrics
+from tw_report.pipeline.models import ReportContext, ReportMetrics
 
 
 class TestMetricsCalculationWithRealEvents:

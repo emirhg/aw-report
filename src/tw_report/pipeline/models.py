@@ -23,18 +23,6 @@ class BucketEvents:
     window: list[Event] = field(default_factory=list)
     taskwarrior: list[Event] = field(default_factory=list)
 
-    def get_afk_by_status(self, status: str) -> list[Event]:
-        """Get AFKEvents filtered by status ('afk' or 'not-afk')."""
-        return [e for e in self.afk if e.data.get("status") == status]
-
-    def get_active_periods(self) -> list[Event]:
-        """Get all Events with status='not-afk' (active periods)."""
-        return self.get_afk_by_status("not-afk")
-
-    def get_idle_periods(self) -> list[Event]:
-        """Get all Events with status='afk' (idle periods)."""
-        return self.get_afk_by_status("afk")
-
 
 @dataclass(frozen=True)
 class TimeslotDuration:
@@ -119,18 +107,6 @@ class TimeslotDuration:
         online = self.online_duration or timedelta(0)
         offline = self.offline_gap or timedelta(0)
         return online + offline
-
-    @property
-    def non_afk_portion(self) -> timedelta:
-        """Time spent with keyboard/mouse focus (online_duration - afk_portion).
-
-        Returns zero if online_duration is None.
-        """
-        if self.online_duration is None:
-            return timedelta(0)
-        if self.afk_portion:
-            return self.online_duration - self.afk_portion
-        return self.online_duration
 
     def has_online(self) -> bool:
         """True if online_duration is present and non-zero."""
@@ -359,14 +335,6 @@ class ReportTotals:
 
 
 @dataclass(frozen=True)
-class ReportEvent:
-    event: Event
-    project: str
-    task: str
-    active_task: Event | None
-
-
-@dataclass(frozen=True)
 class ReportMetrics:
     productive_time: timedelta
     productive_task_time: timedelta
@@ -395,9 +363,6 @@ class ReportContext:
         is_task_based_report: True if this is a task-based report
         metrics: Aggregated metrics for the report period
 
-    Legacy fields (for backwards compatibility):
-        task_events: List of TaskWarriorEvents (via bucket_events.taskwarrior)
-        afk_events: List of AFKEvents (via bucket_events.afk)
     """
 
     bucket_events: BucketEvents
@@ -405,13 +370,3 @@ class ReportContext:
     cat_score_map: dict[str, float]
     is_task_based_report: bool
     metrics: ReportMetrics
-
-    @property
-    def task_events(self) -> list[Event] | None:
-        """Legacy accessor for taskwarrior events."""
-        return self.bucket_events.taskwarrior if self.bucket_events.taskwarrior else None
-
-    @property
-    def afk_events(self) -> list[Event]:
-        """Legacy accessor for afk events."""
-        return self.bucket_events.afk
