@@ -55,8 +55,6 @@ class TestMetricsCalculationWithRealEvents:
                     ],
                 }
             ],
-            window_events=[],
-            afk_events=[],
             tags=[],
             is_consolidated=False,
         )

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, TypeVar
 from aw_core.models import Event
 
 from tw_report.core.categories import build_categories_from_window_events, get_category_score
+from tw_report.core.event_slot import BUCKET_WINDOW
 from tw_report.core.filtering import NO_TASK, EventFilter
 from tw_report.pipeline.models import ReportContext, ReportMetrics
 
@@ -413,6 +414,17 @@ def _fit_to_total(parts: dict[str, timedelta], target: timedelta) -> dict[str, t
     return fitted
 
 
+def _window_events_for(slot: ReportTimelineSlot, fallback: list) -> list:
+    """Window events that can cover this slot's span.
+
+    Builder slots carry every window event overlapping their span, so their own events
+    are used. Slots without any event data fall back to the global window list.
+    """
+    if slot.events:
+        return slot.events.get(BUCKET_WINDOW, [])
+    return fallback
+
+
 def compute_productivity_breakdown(
     filtered_slots: list[ReportTimelineSlot],
     window_events: list,
@@ -456,7 +468,11 @@ def compute_productivity_breakdown(
             add(
                 active_parts,
                 _split_by_window_categories(
-                    slot.start, slot.end, active, window_events, cat_score_map
+                    slot.start,
+                    slot.end,
+                    active,
+                    _window_events_for(slot, window_events),
+                    cat_score_map,
                 ),
             )
 
@@ -468,7 +484,11 @@ def compute_productivity_breakdown(
             add(
                 afk_parts,
                 _split_by_window_categories(
-                    slot.start, slot.end, afk, window_events, cat_score_map
+                    slot.start,
+                    slot.end,
+                    afk,
+                    _window_events_for(slot, window_events),
+                    cat_score_map,
                 ),
             )
 

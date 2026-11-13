@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+from collections.abc import Sequence
 from datetime import timedelta
 from re import Pattern
 from typing import TYPE_CHECKING
@@ -16,6 +17,8 @@ from typing import TYPE_CHECKING
 from tw_report.exceptions import CategoryValidationError, ConfigParsingError
 
 if TYPE_CHECKING:
+    from aw_core.models import Event
+
     from tw_report.core.aw_events import WindowEvent
 
 logger = logging.getLogger(__name__)
@@ -195,7 +198,7 @@ def categorize_event(
 
 
 def build_categories_from_window_events(
-    window_events: list[WindowEvent],
+    window_events: Sequence[Event],
     period_start,
     period_end,
 ) -> list[dict]:
@@ -205,9 +208,8 @@ def build_categories_from_window_events(
     time period, builds a nested structure of category > app > title > events, and
     flattens it into the TimelineSlot.categories list format.
 
-    This is a shared helper used by:
-    - generate_afk_and_offline_slots(): Extract categories from window events during AFK periods
-    - OfflineTaskProcessor: Extract categories from window events during OFFLINE periods
+    Used by the slot builder (timeslot_builder) for task-covered slots, and by the
+    productivity breakdown (processors) for window coverage of each slot span.
 
     Args:
         window_events: List of ActivityWatch window events

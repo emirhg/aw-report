@@ -23,13 +23,14 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 
+from tw_report.core.event_slot import EventMap, merge_event_maps
 from tw_report.core.filtering import NO_PROJECT, NO_TASK
 from tw_report.core.period import day_boundary, logical_date
 from tw_report.core.timeline import TimelineSlot, TimelineSlotValidationError
 from tw_report.utils.deprecation import deprecated
 
 if TYPE_CHECKING:
-    from tw_report.core.aw_events import AFKEvent, TaskWarriorEvent, WindowEvent
+    from tw_report.core.aw_events import TaskWarriorEvent
 
 
 def _break_gap_within_day(
@@ -377,8 +378,8 @@ class ReportTimelineSlot:
 
     Data source fields:
     - task_event: Optional TaskWarriorEvent (task/project/tags only set if matched)
-    - window_events: List[WindowEvent] from window bucket (own activity only)
-    - afk_events: List[AFKEvent] embedded within this span
+    - events: raw events of any bucket inside this span, keyed by bucket
+              (see tw_report.core.event_slot.EventSlot)
 
     Aggregates:
     - productive_duration: Time on productive activities
@@ -401,8 +402,7 @@ class ReportTimelineSlot:
     actual_duration: timedelta
     productive_duration: timedelta = field(default_factory=lambda: timedelta(0))
     task_event: TaskWarriorEvent | None = None
-    window_events: list[WindowEvent] = field(default_factory=list)
-    afk_events: list[AFKEvent] = field(default_factory=list)
+    events: EventMap = field(default_factory=dict)
     afk_duration: timedelta | None = None
     offline_extension_duration: timedelta | None = None
     event_duration: timedelta | None = None
@@ -532,6 +532,8 @@ class ReportTimelineSlot:
             slot_dict["offline_extension_duration"] = self.offline_extension_duration
         if self.event_duration is not None:
             slot_dict["event_duration"] = self.event_duration
+        if self.events:
+            slot_dict["events"] = self.events
 
         return slot_dict
 
@@ -577,11 +579,10 @@ class ReportTimelineSlot:
             actual_duration=_required(slot.actual_duration),
             productive_duration=slot.productive_duration,
             task_event=task_event,
-            window_events=[],
-            afk_events=[],
             afk_duration=slot.afk_duration,
             offline_extension_duration=slot.offline_extension_duration,
             event_duration=slot.event_duration,
+            events=merge_event_maps(slot.events),
             tags=slot.tags,
             categories=slot.categories,
             apps=slot.apps,
@@ -641,11 +642,10 @@ class ReportTimelineSlot:
             actual_duration=d.get("actual_duration", timedelta(0)),
             productive_duration=d.get("productive_duration", timedelta(0)),
             task_event=task_event,
-            window_events=[],
-            afk_events=[],
             afk_duration=d.get("afk_duration"),
             offline_extension_duration=d.get("offline_extension_duration"),
             event_duration=d.get("event_duration"),
+            events=merge_event_maps(d.get("events")),
             tags=d.get("tags", []),
             categories=d.get("categories", []),
             apps=d.get("apps", []),
@@ -766,8 +766,6 @@ class ReportTimelineSlot:
             actual_duration=actual_duration,
             productive_duration=productive_duration,
             task_event=task_event,
-            window_events=[],
-            afk_events=[],
             afk_duration=afk_duration if afk_duration > timedelta(0) else None,
             offline_extension_duration=offline_extension_duration,
             event_duration=event_duration,
@@ -862,8 +860,7 @@ class ReportTimelineSlot:
                 actual_duration=self.actual_duration,
                 productive_duration=self.productive_duration,
                 task_event=self.task_event,
-                window_events=self.window_events,
-                afk_events=self.afk_events,
+                events=merge_event_maps(self.events),
                 afk_duration=self.afk_duration,
                 offline_extension_duration=self.offline_extension_duration,
                 event_duration=self.event_duration,
@@ -959,8 +956,7 @@ class ReportTimelineSlot:
                 actual_duration=piece_actual_duration,
                 productive_duration=piece_productive_duration,
                 task_event=self.task_event,
-                window_events=self.window_events,
-                afk_events=self.afk_events,
+                events=merge_event_maps(self.events),
                 afk_duration=piece_afk_duration,
                 offline_extension_duration=piece_offline_extension_duration,
                 event_duration=piece_event_duration,
@@ -1034,8 +1030,6 @@ class ReportTimelineSlot:
             actual_duration=_required(work_slot.actual_duration),
             productive_duration=work_slot.productive_duration,
             task_event=task_event,
-            window_events=[],
-            afk_events=[],  # Will be populated from afk_slots below
             afk_duration=total_embedded_afk if total_embedded_afk > timedelta(0) else None,
             offline_extension_duration=work_slot.offline_extension_duration,
             event_duration=work_slot.event_duration,
@@ -1311,8 +1305,7 @@ class ReportEntries:
                         actual_duration=merged_duration,
                         productive_duration=merged_productive_duration,
                         task_event=current.task_event,  # Use first slot's task_event
-                        window_events=current.window_events + rs.window_events,
-                        afk_events=current.afk_events + rs.afk_events,
+                        events=merge_event_maps(current.events, rs.events),
                         afk_duration=merged_afk_duration,
                         offline_extension_duration=merged_offline_ext,
                         event_duration=merged_event_duration,
@@ -1646,6 +1639,8 @@ class ReportEntries:
                 "categories": slot.categories,
                 "apps": slot.apps or [],
             }
+            if slot.events:
+                slot_dict["events"] = slot.events
             # Add optional fields only if they have values (must check for None, not truthiness)
             if slot.afk_duration is not None:
                 slot_dict["afk_duration"] = slot.afk_duration

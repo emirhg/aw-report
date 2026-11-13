@@ -408,7 +408,7 @@ def _run(profiler: StageProfiler):
     # to refine with partitioning. If task_events is None, skip windows entirely.
     # ============================================================================
 
-    # Fetch window events for AFK false positive detection via split_by_coverage()
+    # Fetch window events for AFK false-positive detection (builder splits AFK by window coverage)
     # Window events are needed to validate which AFK periods are real (have window coverage)
     # vs false positives (system was off). This is critical for accurate AFK/OFFLINE reporting.
     from tw_report.core.aw_events import WindowEvent
@@ -426,7 +426,7 @@ def _run(profiler: StageProfiler):
     profiler.checkpoint(f"Fetched {len(window_events)} window events")
 
     # Categorize all window events (including those during AFK periods)
-    # This ensures generate_afk_and_offline_slots can extract categories for AFK slot details
+    # This ensures the slot builder can extract categories for AFK slot details
     for event in window_events:
         categorize_event(event, compiled_categories)
 
@@ -494,8 +494,8 @@ def _run(profiler: StageProfiler):
         if not task_events:
             task_events = None
             is_task_based_report = False
-            # CRITICAL: Always keep window events for AFK false positive detection via
-            # split_by_coverage()
+            # CRITICAL: Always keep window events for AFK false positive detection in the slot
+            # builder
             # Even without tasks, we need windows to validate which AFK periods are real (have
             # coverage)
             # vs false positives (system was off). Don't clear window_events here.

@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from tw_report.core.event_slot import EventMap, merge_event_maps
+
 if TYPE_CHECKING:
     from tw_report.core.report_slot import ReportEntries
 
@@ -74,6 +76,7 @@ class TimelineSlot:
     offline_extension_duration: timedelta | None = None
     event_duration: timedelta | None = None
     apps: list[dict[str, Any]] | None = None
+    events: EventMap = field(default_factory=dict)
 
     def __post_init__(self):
         """Validate and normalize slot data.
@@ -147,6 +150,8 @@ class TimelineSlot:
             d["event_duration"] = self.event_duration
         if self.apps:
             d["apps"] = self.apps
+        if self.events:
+            d["events"] = self.events
         return d
 
     @classmethod
@@ -215,6 +220,7 @@ class TimelineSlot:
             offline_extension_duration=d.get("offline_extension_duration"),
             event_duration=d.get("event_duration"),
             apps=d.get("apps"),
+            events=merge_event_maps(d.get("events")),
         )
 
     def overlaps(self, other: TimelineSlot) -> bool:

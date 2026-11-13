@@ -26,6 +26,13 @@ from typing import Any
 
 from tw_report.core.aw_events import AFKEvent, TaskWarriorEvent, WindowEvent
 from tw_report.core.categories import build_categories_from_window_events
+from tw_report.core.event_index import EventIndex
+from tw_report.core.event_slot import (
+    BUCKET_AFK,
+    BUCKET_WINDOW,
+    collect_span_events,
+    merge_event_maps,
+)
 from tw_report.core.report_slot import ReportTimelineSlot
 
 logger = logging.getLogger(__name__)
@@ -83,7 +90,9 @@ class _RunAccumulator:
         )
         self._add_tick(bucket, tick_duration)
 
-    def finalize(self, window_events: list[WindowEvent]) -> ReportTimelineSlot:
+    def finalize(
+        self, afk_index: EventIndex[AFKEvent], window_index: EventIndex[WindowEvent]
+    ) -> ReportTimelineSlot:
         """Convert the accumulated run into a finalized ReportTimelineSlot.
 
         IMPORTANT: This creates ONE slot per run, but the classification key in the builder
@@ -93,6 +102,10 @@ class _RunAccumulator:
         by different runs, not by merging different states into one slot.
         """
         total_duration = self.end - self.start
+        # Raw events inside this run's span: the slot keeps them, and categories derive from them
+        span_events = collect_span_events(
+            self.start, self.end, {BUCKET_AFK: afk_index, BUCKET_WINDOW: window_index}
+        )
 
         if self.task_event is not None:
             # Task-covered run: slots are kept separate by classification key in the sweep-line
@@ -116,9 +129,12 @@ class _RunAccumulator:
             event_duration = self.online_duration if offline_ext_duration is not None else None
 
             # Fetch categories from window events covering this slot's span
-            categories = build_categories_from_window_events(window_events, self.start, self.end)
+            categories = build_categories_from_window_events(
+                span_events.get(BUCKET_WINDOW, []), self.start, self.end
+            )
 
             return ReportTimelineSlot(
+                events=span_events,
                 start=self.start,
                 end=self.end,
                 duration=total_duration,
@@ -135,6 +151,7 @@ class _RunAccumulator:
             # Return a single "dominant" slot for the accumulated run's primary bucket type
             if self.bucket == "afk":
                 return ReportTimelineSlot(
+                    events=span_events,
                     start=self.start,
                     end=self.end,
                     duration=total_duration,
@@ -143,6 +160,7 @@ class _RunAccumulator:
                 )
             else:  # "online" or mixed
                 return ReportTimelineSlot(
+                    events=span_events,
                     start=self.start,
                     end=self.end,
                     duration=total_duration,
@@ -225,10 +243,10 @@ def build_timeslot_timeline(
 
     task_events = [_ensure_taskwarrior_event(ev) for ev in task_events]
 
-    # Pre-sort events by timestamp for efficient sweep
-    afk_by_start = sorted(afk_events, key=lambda e: e.timestamp)
-    task_by_start = sorted(task_events, key=lambda e: e.timestamp)
-    window_by_start = sorted(window_events, key=lambda e: e.timestamp)
+    # Interval indexes: O(log n + k) lookups per tick instead of scanning every event
+    afk_index = EventIndex[AFKEvent](afk_events)
+    task_index = EventIndex[TaskWarriorEvent](task_events)
+    window_index = EventIndex[WindowEvent](window_events)
 
     slots = []
     current = None
@@ -241,11 +259,9 @@ def build_timeslot_timeline(
 
         # Find active events at t_i (coverage: event.timestamp <= t_i < event.timestamp +
         # event.duration)
-        active_tasks = [e for e in task_by_start if e.timestamp <= t_i < e.timestamp + e.duration]
-        active_afk = [e for e in afk_by_start if e.timestamp <= t_i < e.timestamp + e.duration]
-        active_window = [
-            e for e in window_by_start if e.timestamp <= t_i < e.timestamp + e.duration
-        ]
+        active_tasks = task_index.active_at(t_i)
+        active_afk = afk_index.active_at(t_i)
+        active_window = window_index.active_at(t_i)
 
         # CRITICAL: Skip intervals with NO events from ANY source
         # Only create slots when there's real data to represent
@@ -349,13 +365,13 @@ def build_timeslot_timeline(
             current.extend(t_next, bucket, tick_duration)
         else:
             if current is not None:
-                slots.append(current.finalize(window_events))
+                slots.append(current.finalize(afk_index, window_index))
             current = _RunAccumulator(key, task_event, t_i, t_next, bucket, tick_duration)
 
     # Flush the final accumulated run. At least one tick is covered whenever cuts >= 2 (the
     # first interval starts at an event start), so a run always exists here.
     assert current is not None
-    final_slot = current.finalize(window_events)
+    final_slot = current.finalize(afk_index, window_index)
     # Skip degenerate zero-duration slots created at state boundaries by sweep-line algorithm.
     # These are timing artifacts from the exact moment of state transition and serve no purpose.
     if final_slot.duration > timedelta(milliseconds=1):
@@ -582,8 +598,7 @@ def _merge_slot_group(group: list[ReportTimelineSlot]) -> ReportTimelineSlot:
         actual_duration=actual_duration,
         productive_duration=productive_duration,
         task_event=group[0].task_event,
-        window_events=sum((s.window_events for s in group), []),
-        afk_events=sum((s.afk_events for s in group), []),
+        events=merge_event_maps(*(s.events for s in group)),
         afk_duration=afk_duration if afk_duration > timedelta(0) else None,
         offline_extension_duration=offline_ext if offline_ext > timedelta(0) else None,
         event_duration=event_duration,

@@ -13,6 +13,8 @@ ActivityWatch buckets (afk, window)   TaskWarrior (aw-watcher-taskwarrior bucket
           core/aw_events.py  (typed events: AFKEvent, WindowEvent, TaskWarriorEvent)
                               |
           core/timeslot_builder.py  (sweep-line: non-overlapping ReportTimelineSlot list)
+                              (each slot keeps the raw events overlapping its span in `events`,
+                               looked up through core/event_index.py EventIndex)
                               |
           pipeline/consolidation.py  (only with --consolidate: merge same project/task)
                               |

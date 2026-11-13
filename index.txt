@@ -12,6 +12,8 @@ Read CLAUDE.md first (goal, rules, gates) and docs/ARCHITECTURE.md (design).
   core/aw_events.py                          119  typed events: WindowEvent, AFKEvent, TaskWarriorEvent
   core/buckets.py                             75  [buckets] table -> afk / window / tasks bucket IDs
   core/categories.py                         376  category rules (regex), scores, window categorization
+  core/event_index.py                          62  EventIndex: sorted interval lookups over raw events
+  core/event_slot.py                          58  event maps keyed by bucket role; merge and span collection
   core/events.py                             111  get_bucket_id and get_events (only ActivityWatch read path)
   core/filtering.py                          230  EventFilter, NO_PROJECT / NO_TASK sentinels, normalizers
   core/period.py                             151  period tokens and explicit date ranges

@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from tw_report.core.report_slot import ReportTimelineSlot
 
+from tw_report.core.event_slot import merge_event_maps
+
 
 def consolidate_sessions(
     slots: Sequence[dict[str, Any] | ReportTimelineSlot],
@@ -161,6 +163,7 @@ def _merge_group(group: list[dict[str, Any]]) -> dict[str, Any]:
 
     # Create merged slot by copying first and updating key fields
     merged = first_slot.copy()
+    merged["events"] = merge_event_maps(*(s.get("events") for s in group))
     merged["start"] = start_time
     merged["end"] = end_time
     merged["duration"] = merged_duration  # Wall-clock duration (includes gaps between sessions)
