@@ -913,11 +913,8 @@ class ReportTimelineSlot:
             piece_end = min(bucket_end, self.end)
             piece_duration = piece_end - piece_start
 
-            # Proportionally allocate durations
-            if self.duration.total_seconds() > 0:
-                ratio = piece_duration.total_seconds() / self.duration.total_seconds()
-            else:
-                ratio = 0
+            # Proportionally allocate durations (self.duration > 0 is guaranteed by __post_init__)
+            ratio = piece_duration.total_seconds() / self.duration.total_seconds()
 
             # Calculate prorated durations
             piece_actual_duration = timedelta(seconds=self.actual_duration.total_seconds() * ratio)
@@ -1370,39 +1367,38 @@ class ReportEntries:
             if same_project_task_date:
                 current_group.append(report_slot)
             else:
-                # Different task — merge current group and start new one
-                if current_group:
-                    # Convert ReportTimelineSlots to TimelineSlots for from_timeline_slots
-                    # compatibility
-                    from tw_report.core.timeline import TimelineSlot
+                # Different task — merge current group and start new one (group is non-empty)
+                # Convert ReportTimelineSlots to TimelineSlots for from_timeline_slots
+                # compatibility
+                from tw_report.core.timeline import TimelineSlot
 
-                    group_ts = [
-                        TimelineSlot(
-                            type="regular" if not s.is_offline_task else "offline_task",
-                            start=s.start,
-                            end=s.end,
-                            duration=s.duration,
-                            actual_duration=s.actual_duration,
-                            productive_duration=s.productive_duration,
-                            project=s.project,
-                            task=s.task,
-                            categories=s.categories,
-                            tags=s.tags,
-                            afk_duration=s.afk_duration,
-                            offline_extension_duration=s.offline_extension_duration,
-                            event_duration=s.event_duration,
-                            apps=s.apps,
-                        )
-                        for s in current_group
-                    ]
-
-                    # Allow mixed types (regular + afk) within same (project, task, date) group
-                    # e.g., a work session interrupted by AFK gaps should be merged into one row
-                    merged_report_slot = ReportTimelineSlot.from_timeline_slots(
-                        group_ts, allow_mixed_types=True
+                group_ts = [
+                    TimelineSlot(
+                        type="regular" if not s.is_offline_task else "offline_task",
+                        start=s.start,
+                        end=s.end,
+                        duration=s.duration,
+                        actual_duration=s.actual_duration,
+                        productive_duration=s.productive_duration,
+                        project=s.project,
+                        task=s.task,
+                        categories=s.categories,
+                        tags=s.tags,
+                        afk_duration=s.afk_duration,
+                        offline_extension_duration=s.offline_extension_duration,
+                        event_duration=s.event_duration,
+                        apps=s.apps,
                     )
-                    consolidated.append(merged_report_slot)
-                    current_group.clear()
+                    for s in current_group
+                ]
+
+                # Allow mixed types (regular + afk) within same (project, task, date) group
+                # e.g., a work session interrupted by AFK gaps should be merged into one row
+                merged_report_slot = ReportTimelineSlot.from_timeline_slots(
+                    group_ts, allow_mixed_types=True
+                )
+                consolidated.append(merged_report_slot)
+                current_group.clear()
                 current_group.append(report_slot)
 
         # Final flush
