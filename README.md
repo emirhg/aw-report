@@ -13,7 +13,7 @@ A sophisticated timesheet reporting tool that correlates ActivityWatch activity 
 You need:
 - **ActivityWatch** running on `localhost:5600` ([download](https://activitywatch.net/))
 - **Taskwarrior** with tasks created (`task add "My task"`)
-- **Python 3.8+**
+- **Python 3.14+**
 
 ### Installation
 
@@ -318,10 +318,10 @@ tw-report :today
 
 ### Dependencies
 
-- **Python 3.8+** — Type hints, f-strings
+- **Python 3.14+** — Stdlib `tomllib` (config), PEP 702 `warnings.deprecated`
 - **ActivityWatch** (`aw-client ≥0.5.15`) — Event fetching
 - **Taskwarrior** — Task management (via aw-watcher-taskwarrior)
-- **tomli ≥1.1.0** (Python <3.11) — Config file support
+- Config file support uses the standard-library `tomllib`
 
 ---
 

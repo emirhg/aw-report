@@ -432,7 +432,7 @@ Data reduction:
 | Inline OFFLINE processing | `OfflineTaskProcessor` | Reusable, testable component |
 | Zero tests | 262+ unit tests | Regression prevention, confidence |
 | No logging | Structured logging module | Observability, debugging |
-| No CI/CD | GitHub Actions matrix (Py 3.8, 3.11) | Quality gates on every push |
+| No CI/CD | GitHub Actions on Python 3.14 | Quality gates on every push |
 | No packaging | Full pyproject.toml + console script | Installable, distributable |
 | No config | TOML + XDG support (Phase 11) | User customization |
 | Monolithic entry point | Modular cli/main.py | Clear orchestration |
