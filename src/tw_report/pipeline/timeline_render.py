@@ -72,10 +72,8 @@ if TYPE_CHECKING:
 from tw_report.pipeline.models import PeriodMetrics, TimeslotDuration
 from tw_report.pipeline.report_render import print_report_summary, print_report_totals
 from tw_report.utils.formatting import (
-    format_afk_label,
     format_duration,
     format_duration_tracked_prod,
-    format_timeline_line,
     get_terminal_width,
     to_local_time,
     truncate_title,
@@ -230,67 +228,6 @@ def get_slot_logical_date(slot: Union[Dict, "ReportTimelineSlot"], day_start_hou
     return logical_date(start_time, day_start_hour)
 
 
-def _create_period_metrics_from_dict(
-    online: Optional[timedelta] = None,
-    afk: Optional[timedelta] = None,
-    offline: Optional[timedelta] = None,
-    productive: Optional[timedelta] = None,
-) -> PeriodMetrics:
-    """Create a PeriodMetrics object from individual duration values.
-
-    Helper function that demonstrates how to migrate from manual variable
-    accumulation to PeriodMetrics pattern. This enables gradual adoption
-    of PeriodMetrics throughout the rendering pipeline.
-
-    Args:
-        online: Online time (AFK + non-AFK combined)
-        afk: AFK time (subset of online)
-        offline: Offline gap (system powered off)
-        productive: Productive time
-
-    Returns:
-        PeriodMetrics object with the given durations
-
-    Example migration:
-        Old way:
-            day_duration += online_time
-            day_afk_duration += afk_time
-            day_offline_duration += offline_time
-            day_productive += prod_time
-
-        New way:
-            daily_metrics = _create_period_metrics_from_dict(
-                online=online_time,
-                afk=afk_time,
-                offline=offline_time,
-                productive=prod_time
-            )
-    """
-    metrics = PeriodMetrics()
-    metrics.add(online=online, afk=afk, offline=offline, productive=productive)
-    return metrics
-
-
-def _render_embedded_afk_slots(afk_slots: List[Dict], width: int) -> None:
-    """Render embedded AFK slots as indented sub-entries under a work slot.
-
-    Args:
-        afk_slots: List of AFK slot dicts to render as nested entries
-        width: Terminal width for formatting
-    """
-    for afk_slot in afk_slots:
-        s_start = to_local_time(afk_slot.start).strftime("%H:%M")
-        s_end = to_local_time(afk_slot.start + afk_slot["duration"]).strftime("%H:%M")
-        slot_duration = afk_slot.get("actual_duration", afk_slot["duration"])
-        slot_dur_str = format_afk_label(slot_duration)
-
-        # Render as indented sub-entry with "└─" prefix to show hierarchy
-        time_range = f"{s_start} - {s_end}".ljust(15)
-        # Indent with 12 spaces (more than work slots) and add └─ prefix
-        left = f"           └─ {time_range}"
-        print(format_timeline_line(left, duration_str=slot_dur_str, max_left_width=95))
-
-
 def _get_displayed_duration(slot: Union[Dict, "ReportTimelineSlot"]) -> timedelta:
     """Return the duration that's actually displayed for this slot.
 
@@ -413,64 +350,6 @@ def _render_slot_detail(
                             clean = truncate_title(title_info["title"], 75)
                             left = " " * 29 + clean
                             print(left.ljust(width - len(title_dur_str) - 1) + " " + title_dur_str)
-
-
-def format_and_print_day_total(daily_metrics, width):
-    """Format and print day total with proper DisplayColumns alignment.
-
-    Single source of truth for day total formatting used by all three code paths:
-    - Week boundary closure
-    - Date change within week
-    - End-of-report totals
-    """
-    from tw_report.utils.formatting import display_width, ljust_display
-
-    total_day_online = daily_metrics.online_duration
-    indent = " " * 7
-    day_total_label = "Day total:   "
-
-    # OFFLINE column: show offline_gap without parentheses
-    offline_col = ljust_display(
-        (
-            format_duration(daily_metrics.offline_gap)
-            if daily_metrics.offline_gap and daily_metrics.offline_gap.total_seconds() > 0
-            else ""
-        ),
-        12,
-    )
-    # AFK column: show total AFK time from daily_metrics
-    afk_col = ljust_display(
-        (
-            format_duration(daily_metrics.afk_duration)
-            if daily_metrics.afk_duration and daily_metrics.afk_duration.total_seconds() > 0
-            else ""
-        ),
-        12,
-    )
-    # ACTIVE column: online_duration minus afk_duration (ACTIVE = ONLINE - AFK)
-    active_duration = total_day_online - (daily_metrics.afk_duration or timedelta(0))
-    active_col = ljust_display(
-        format_duration(active_duration) if active_duration.total_seconds() > 0 else "", 8
-    )
-    productivity_col = ljust_display(
-        "  " + (f"[prod {_pct_of(daily_metrics.productive_duration, total_day_online):>3.0f}%]")
-        if daily_metrics.productive_duration
-        and daily_metrics.productive_duration.total_seconds() > 0
-        else "",
-        14,
-    )
-
-    right_section = f"{offline_col}{afk_col}{active_col}{productivity_col}"
-    left_part = ljust_display(f"{indent}{day_total_label}", 87)
-    left_part_width = display_width(left_part)
-    right_section_width = display_width(right_section)
-    dynamic_left_padding = width - left_part_width - right_section_width - 2
-
-    if dynamic_left_padding < 0:
-        full_line = left_part + "  " + right_section
-    else:
-        full_line = left_part + (" " * dynamic_left_padding) + "  " + right_section
-    print(full_line)
 
 
 def format_and_print_day_total_displayed(
@@ -897,10 +776,7 @@ def print_timeline_report(
 
     # Helper to check if slot has event_duration (field-driven offline_task detection)
     def is_offline_task_slot(s):
-        if isinstance(s, dict):
-            return s.get("event_duration") is not None
-        else:
-            return getattr(s, "event_duration", None) is not None
+        return s.event_duration is not None
 
     for slot in slots:
         if is_offline_task_slot(slot):
@@ -971,38 +847,13 @@ def print_timeline_report(
     # - --by-month: consolidate within each month only
     # This prevents cross-period consolidation that creates 24+ hour entries.
 
-    from tw_report.core.period import logical_date as get_logical_date
-
-    # Group slots by logical period
-    period_groups = {}
-    for slot in slots:
-        # Helper to get slot attribute (works with dict or object)
-        def get_attr(s, attr):
-            if isinstance(s, dict):
-                return s.get(attr)
-            else:
-                return getattr(s, attr, None)
-
-        # Get the logical date for this slot
-        slot_start = get_attr(slot, "start")
-        if slot_start:
-            period_key = get_logical_date(slot_start, day_start_hour)
-            if period_key not in period_groups:
-                period_groups[period_key] = []
-            period_groups[period_key].append(slot)
-
+    # Period grouping was write-only and has been removed; consolidation happens in main.py.
     # NOTE: Consolidation now happens in main.py before rendering,
     # so we skip it here to avoid double-consolidation which causes
     # small discrepancies in OFFLINE time calculations (17 sec differences).
     # The slots arriving here are already deduplicated and consolidated.
     # Just convert dicts to objects if needed and sort
-    normalized_slots = []
-    for slot in slots:
-        if isinstance(slot, dict):
-            normalized_slots.append(ReportTimelineSlot.from_dict(slot))
-        else:
-            normalized_slots.append(slot)
-    slots = sorted(normalized_slots, key=lambda s: s.start)
+    slots = sorted(slots, key=lambda s: s.start)
 
     # CRITICAL: Recalculate total_time_all after all filtering/deduplication
     # The previous calculation (line 555) included slots that are now filtered out.
@@ -1021,41 +872,8 @@ def print_timeline_report(
     # Use consolidated slots for accuracy (avoids double-counting duplicates)
     # This replaces the early placeholder calculation at line 707
 
-    # AFK time calculation (same logic as compute_afk_offline_totals)
-    has_consolidated_afk = any(s.afk_duration is not None for s in slots if not isinstance(s, dict))
-    if has_consolidated_afk:
-        # Consolidated slots: AFK time is in afk_duration field
-        total_afk_time = sum(
-            (
-                s.afk_duration or timedelta(0)
-                for s in slots
-                if not isinstance(s, dict) and s.afk_duration
-            ),
-            timedelta(0),
-        )
-    else:
-        # Regular slots: AFK time is in is_afk_only slots
-        total_afk_time = sum(
-            (
-                s.actual_duration if s.actual_duration else s.duration
-                for s in slots
-                if not isinstance(s, dict) and s.is_afk_only
-            ),
-            timedelta(0),
-        )
-
-    # OFFLINE time calculation
-    def get_offline_duration(s):
-        # Prefer offline_extension_duration if set (consolidated slots)
-        if hasattr(s, "offline_extension_duration") and s.offline_extension_duration:
-            return s.offline_extension_duration
-        # Fall back to duration - event_duration (pre-consolidation slots)
-        return s.duration - (s.event_duration or timedelta(0))
-
-    total_offline_time = sum(
-        (get_offline_duration(s) for s in slots if not isinstance(s, dict) and s.is_offline_task),
-        timedelta(0),
-    )
+    # AFK and OFFLINE totals (shared with the hierarchical report)
+    total_afk_time, total_offline_time = compute_afk_offline_totals(slots)
 
     # ============================================================================
     # DAY/WEEK METRICS ACCUMULATION
@@ -1091,7 +909,6 @@ def print_timeline_report(
     #   - Line 1076-1082: regular_slot accumulation loop
     #   - Line 1090-1100: day/week totals display and reset
     #
-    # See _create_period_metrics_from_dict() for migration helper function.
     # ============================================================================
 
     # Group by week, then by date within week
@@ -1196,14 +1013,13 @@ def print_timeline_report(
                     width,
                     daily_displayed_break,
                 )
-                if not is_single_day:
-                    # DEFER week total printing until after we have authoritative online_time from
-                    # AFK bucket
-                    # Save the data for printing after the render loop
-                    pending_week_total_data = (
-                        weekly_metrics.productive_duration,
-                        weekly_metrics.offline_gap,
-                    )
+                # DEFER week total printing until after we have authoritative online_time from
+                # AFK bucket
+                # Save the data for printing after the render loop
+                pending_week_total_data = (
+                    weekly_metrics.productive_duration,
+                    weekly_metrics.offline_gap,
+                )
                 print()
             current_week_key = slot_week
             # Extract week number from week_key (format: 'YYYY-Www')
@@ -1216,47 +1032,45 @@ def print_timeline_report(
             daily_metrics = PeriodMetrics()
             weekly_metrics = PeriodMetrics()
         elif slot_date_val != current_date:
-            # Date changed within same week: close previous day
-            if current_date is not None:
-                # Separator under the three duration columns using SAME dynamic padding as
-                # DisplayColumns
-                # CRITICAL: Must account for PRODUCTIVITY column (14 chars) to match DisplayColumns
-                # total_right_width (46)
-                # Left section (87) + dynamic padding + separator (2) + dashes (32 for
-                # OFFLINE+AFK+ACTIVE) + spaces (14 for PRODUCTIVITY)
-                left_padding_width = 87
-                # BREAK/OFFLINE/AFK/ACTIVE 12 each + PRODUCTIVITY 14 (= DisplayColumns)
-                right_section_width = 62
-                dynamic_padding = width - left_padding_width - right_section_width - 2
-                dashes_for_columns = (
-                    48  # BREAK+OFFLINE+AFK+ACTIVE get dashes, PRODUCTIVITY is spaces
+            # Date changed within same week: close previous day. (current_date is always set by
+            # the first slot's week-change branch, so there is no 'previous day' guard here.)
+            # Separator under the three duration columns using SAME dynamic padding as
+            # DisplayColumns
+            # CRITICAL: Must account for PRODUCTIVITY column (14 chars) to match DisplayColumns
+            # total_right_width (46)
+            # Left section (87) + dynamic padding + separator (2) + dashes (32 for
+            # OFFLINE+AFK+ACTIVE) + spaces (14 for PRODUCTIVITY)
+            left_padding_width = 87
+            # BREAK/OFFLINE/AFK/ACTIVE 12 each + PRODUCTIVITY 14 (= DisplayColumns)
+            right_section_width = 62
+            dynamic_padding = width - left_padding_width - right_section_width - 2
+            dashes_for_columns = 48  # BREAK+OFFLINE+AFK+ACTIVE get dashes, PRODUCTIVITY is spaces
+            if dynamic_padding < 0:
+                separator_line = (
+                    " " * left_padding_width
+                    + "  "
+                    + "-" * dashes_for_columns
+                    + " " * (right_section_width - dashes_for_columns)
                 )
-                if dynamic_padding < 0:
-                    separator_line = (
-                        " " * left_padding_width
-                        + "  "
-                        + "-" * dashes_for_columns
-                        + " " * (right_section_width - dashes_for_columns)
-                    )
-                else:
-                    separator_line = (
-                        " " * left_padding_width
-                        + (" " * dynamic_padding)
-                        + "  "
-                        + "-" * dashes_for_columns
-                        + " " * (right_section_width - dashes_for_columns)
-                    )
-                print(separator_line)
-                # Use displayed values for accurate day totals instead of accumulated metrics
-                format_and_print_day_total_displayed(
-                    daily_displayed_offline,
-                    daily_displayed_afk,
-                    daily_displayed_active,
-                    daily_metrics.productive_duration,
-                    width,
-                    daily_displayed_break,
+            else:
+                separator_line = (
+                    " " * left_padding_width
+                    + (" " * dynamic_padding)
+                    + "  "
+                    + "-" * dashes_for_columns
+                    + " " * (right_section_width - dashes_for_columns)
                 )
-                print()
+            print(separator_line)
+            # Use displayed values for accurate day totals instead of accumulated metrics
+            format_and_print_day_total_displayed(
+                daily_displayed_offline,
+                daily_displayed_afk,
+                daily_displayed_active,
+                daily_metrics.productive_duration,
+                width,
+                daily_displayed_break,
+            )
+            print()
             daily_metrics = PeriodMetrics()
             daily_displayed_offline = timedelta(0)
             daily_displayed_afk = timedelta(0)
@@ -1312,10 +1126,7 @@ def print_timeline_report(
 
         # Extract slot properties uniformly (works for dict or object)
         def get_slot_attr(s, attr, default=None):
-            if isinstance(s, dict):
-                return s.get(attr, default)
-            else:
-                return getattr(s, attr, default)
+            return getattr(s, attr, default)
 
         slot_start = slot.start
         slot_end = slot.end if hasattr(slot, "end") else slot.start + slot.duration
@@ -1326,38 +1137,19 @@ def print_timeline_report(
         slot_actual_duration = get_slot_attr(slot, "actual_duration")
         slot_productive = get_slot_attr(slot, "productive_duration")
 
-        # Special handling for offline_task display: prepend "*" to task name (field-driven)
-        slot_for_display = slot.copy() if isinstance(slot, dict) else slot
-        if (
-            slot_event_duration is not None
-            and isinstance(slot_for_display, dict)
-            and slot_for_display.get("task")
-        ):
-            slot_for_display["task"] = f"*{slot_for_display['task']}"
-
-        # For detail_level == 1, suppress task column by passing NO_TASK
-        if detail_level == 1 and isinstance(slot_for_display, dict):
-            slot_for_display["task"] = NO_TASK
-
         # Render slot with DisplayColumns (works for all slot types)
         slot_start_local = to_local_time(slot_start)
         slot_end_local = to_local_time(slot_end)
 
         from tw_report.core.report_slot import DisplayColumns
 
-        cols = DisplayColumns.from_slot_dict(slot_for_display, slot_start_local, slot_end_local)
+        cols = DisplayColumns.from_slot_dict(slot, slot_start_local, slot_end_local)
         print(cols.format(width))
 
         # Render detail (categories/apps/titles for detail_level >= 3)
         # Skip for offline_task slots (no window data) - field-driven check
         if slot_event_duration is None:
-            _render_slot_detail(
-                slot if isinstance(slot, dict) else slot.to_dict(), detail_level, width
-            )
-
-        # Render embedded AFK slots as indented sub-entries (should be empty now, defensive)
-        if isinstance(slot, dict) and slot.get("embedded_afk_slots"):
-            _render_embedded_afk_slots(slot["embedded_afk_slots"], width)
+            _render_slot_detail(slot.to_dict(), detail_level, width)
 
         # Update last_slot_end for gap detection (wall-clock duration for all slots)
         last_slot_end = slot_start + slot_duration
