@@ -14,6 +14,7 @@ dependencies = [
     "aw-client>=0.5.15",
     "aw-core>=0.5.17",
     "tomli>=1.1.0;python_version<'3.11'",
+    "typing_extensions>=4.5",
 ]
 
 [project.optional-dependencies]
@@ -46,7 +47,15 @@ warn_redundant_casts = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # Deprecated, production-unused APIs (see tw_report.utils.deprecation). Tests that cover
+    # them assert the warning with pytest.deprecated_call (tests/unit/test_deprecations.py).
+    "ignore:Not used by the report pipeline:DeprecationWarning",
+    "ignore:Private helper of deprecated:DeprecationWarning",
+    "ignore:Not called by the CLI:DeprecationWarning",
+    "ignore:Category-based layout:DeprecationWarning",
+]
 markers = [
     "live_server: requires a running ActivityWatch server on localhost",
 ]

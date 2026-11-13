@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Uni
 from tw_report.core.filtering import NO_PROJECT, NO_TASK
 from tw_report.core.period import day_boundary, logical_date
 from tw_report.core.timeline import TimelineSlot, TimelineSlotValidationError
+from tw_report.utils.deprecation import deprecated
 
 if TYPE_CHECKING:
     from tw_report.core.aw_events import AFKEvent, TaskWarriorEvent, WindowEvent
@@ -482,6 +483,7 @@ class ReportTimelineSlot:
         )
 
     @property
+    @deprecated("Not used by the report pipeline; the builder never produces offline-gap slots.")
     def is_offline_gap(self) -> bool:
         """True if this is an OFFLINE gap from an AFK false positive.
 
@@ -651,6 +653,7 @@ class ReportTimelineSlot:
         )
 
     @classmethod
+    @deprecated("Not used by the report pipeline; only deprecated consolidation methods call it.")
     def from_timeline_slots(
         cls,
         group: List[TimelineSlot],
@@ -804,6 +807,7 @@ class ReportTimelineSlot:
         else:
             raise ValueError(f"Unknown bucket mode: {mode}")
 
+    @deprecated("Not used by the report pipeline; use bucket_start() instead.")
     def bucket_key(
         self, mode: Literal["day", "week", "month", "year"], day_start_hour: int = 4
     ) -> date:
@@ -975,6 +979,9 @@ class ReportTimelineSlot:
         return pieces
 
     @classmethod
+    @deprecated(
+        "Not used by the report pipeline; only deprecated combine_work_with_embedded_afk() calls it"
+    )
     def from_work_slot_with_embedded_afk(
         cls, work_slot: TimelineSlot, afk_slots: List[TimelineSlot]
     ) -> "ReportTimelineSlot":
@@ -1067,6 +1074,7 @@ class ReportEntries:
         ]
         return cls(slots_list=report_slots)
 
+    @deprecated("Not used by the report pipeline; main() uses from_timeline() and as_dicts() only.")
     def combine_work_with_embedded_afk(self) -> "ReportEntries":
         """
         Combine work slots with embedded AFK periods for the same (project, task).
@@ -1186,6 +1194,7 @@ class ReportEntries:
 
         return ReportEntries(slots_list=result_report_slots)
 
+    @deprecated("Private helper of deprecated combine_work_with_embedded_afk().")
     def _merge_overlapping_work_slots(
         self, work_slots_raw: List["ReportTimelineSlot"]
     ) -> List["ReportTimelineSlot"]:
@@ -1322,6 +1331,7 @@ class ReportEntries:
 
         return result
 
+    @deprecated("Not used by the report pipeline; main() uses from_timeline() and as_dicts() only.")
     def consolidate_consecutive(self, day_start_hour: int = 4) -> "ReportEntries":
         """
         Fine-grain consolidation: merge CONSECUTIVE slots sharing (project, task, date).
@@ -1433,6 +1443,7 @@ class ReportEntries:
 
         return ReportEntries(slots_list=consolidated)
 
+    @deprecated("Not used by the report pipeline; main() uses from_timeline() and as_dicts() only.")
     def grouped_by_project_date(
         self, day_start_hour: int = 4
     ) -> List[Tuple[str, date, List[ReportTimelineSlot]]]:
@@ -1475,6 +1486,7 @@ class ReportEntries:
 
         return groups
 
+    @deprecated("Not used by the report pipeline; main() uses from_timeline() and as_dicts() only.")
     def bucket(
         self, mode: Literal["day", "week", "month", "year"], day_start_hour: int = 4
     ) -> "ReportEntries":
@@ -1551,6 +1563,7 @@ class ReportEntries:
 
         return ReportEntries(slots_list=bucketed)
 
+    @deprecated("Not used by the report pipeline; main() uses from_timeline() and as_dicts() only.")
     def collapse_to_project(self) -> "ReportEntries":
         """
         Collapse (bucket, project, task) rows to (bucket, project) totals.
@@ -1643,6 +1656,7 @@ class ReportEntries:
             result.append(slot_dict)
         return result
 
+    @deprecated("Private helper of deprecated consolidate_by_task().")
     def _deduplicate_slots(self) -> List[ReportTimelineSlot]:
         """Remove duplicate slots with identical (start, end, project, task).
 
@@ -1717,6 +1731,7 @@ class ReportEntries:
         )
         return dedup_list
 
+    @deprecated("Not used by the report pipeline; main() uses from_timeline() and as_dicts() only.")
     def consolidate_by_task(self) -> "ReportEntries":
         """Consolidate all slots for the same (project, task) into single merged entries.
 
@@ -1792,6 +1807,7 @@ class ReportEntries:
         return ReportEntries(slots_list=consolidated)
 
 
+@deprecated("Private helper of deprecated from_timeline_slots().")
 def _merge_categories_full(group: List[TimelineSlot]) -> List[Dict[str, Any]]:
     """
     Merge categories from all slots in a group (3-level: category→app→title).

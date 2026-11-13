@@ -5,12 +5,14 @@ Renders task-based or category-based hierarchical reports with productivity
 metrics, detail levels, and sorting options. Used by the --timesheet output mode.
 """
 
+import warnings
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Union
 
 from tw_report.core.filtering import NO_PROJECT
 from tw_report.pipeline.models import ReportTotals
 from tw_report.pipeline.processors import ProductivityBreakdown
+from tw_report.utils.deprecation import deprecated
 from tw_report.utils.formatting import (
     format_duration,
     format_duration_tracked_prod,
@@ -85,6 +87,13 @@ def print_report_summary(
         last_break_duration: Duration of last break
         total_offline_time: Total time system was offline (from OFFLINE-tagged tasks)
     """
+    if not task_based:
+        warnings.warn(
+            "Category-based layout (task_based=False) is deprecated and will be removed; "
+            "the report pipeline always uses the project > task layout.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     width = get_terminal_width()
 
     print(title.center(width, "="))
@@ -343,6 +352,7 @@ def print_report_totals(
     print("=" * width)
 
 
+@deprecated("Not used by the report pipeline.")
 def print_summary_total(
     total_duration: timedelta,
     productive_duration: Optional[timedelta] = None,
@@ -365,6 +375,7 @@ def print_summary_total(
     print(summary_line.rjust(width))
 
 
+@deprecated("Not used by the report pipeline; print_report_summary() is used instead.")
 def print_report_header(
     title: str,
     period: str,
@@ -598,6 +609,13 @@ def print_report(
         last_break_end: Last break end
         last_break_duration: Last break duration
     """
+    if not task_based:
+        warnings.warn(
+            "Category-based layout (task_based=False) is deprecated and will be removed; "
+            "the report pipeline always uses the project > task layout.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     width = get_terminal_width()
 
     def sort_items(items):

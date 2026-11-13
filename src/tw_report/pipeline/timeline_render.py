@@ -65,6 +65,7 @@ from aw_core.models import Event
 from tw_report.core.filtering import NO_PROJECT, NO_TASK
 from tw_report.core.period import logical_date
 from tw_report.core.report_slot import _break_gap_within_day
+from tw_report.utils.deprecation import deprecated
 
 if TYPE_CHECKING:
     from tw_report.core.report_slot import ReportTimelineSlot
@@ -90,6 +91,7 @@ def _pct_of(part, whole) -> float:
     return (part.total_seconds() / whole.total_seconds() * 100) if whole.total_seconds() > 0 else 0
 
 
+@deprecated("Not used by the report pipeline; only deprecated get_gap_between_slots() calls it.")
 def calculate_break_duration(slot_end: datetime, next_slot_start: datetime) -> timedelta:
     """Calculate break duration between two slots.
 
@@ -104,6 +106,7 @@ def calculate_break_duration(slot_end: datetime, next_slot_start: datetime) -> t
     return max(gap, timedelta(0))
 
 
+@deprecated("Not used by the report pipeline.")
 def get_gap_between_slots(slot1: Dict[str, Any], slot2: Dict[str, Any]) -> timedelta:
     """Extract gap time between two slots.
 
@@ -117,6 +120,7 @@ def get_gap_between_slots(slot1: Dict[str, Any], slot2: Dict[str, Any]) -> timed
     return calculate_break_duration(slot1["end"], slot2["start"])
 
 
+@deprecated("Not used by the report pipeline.")
 def format_break_column(break_duration: Optional[timedelta]) -> str:
     """Format break duration for timeline column display.
 

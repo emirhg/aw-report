@@ -58,6 +58,7 @@ from tw_report.pipeline.processors import (
 )
 from tw_report.pipeline.report_render import print_report
 from tw_report.pipeline.timeline_render import print_timeline_report
+from tw_report.utils.deprecation import deprecated
 from tw_report.utils.formatting import normalize_title
 from tw_report.utils.profiling import StageProfiler, enable_unbuffered_output
 
@@ -75,6 +76,7 @@ def _get_apps_from_slot(slot) -> List[str]:
     return list(apps)
 
 
+@deprecated("Not called by the CLI; scheduled for removal.")
 def _matches_any(name: str, patterns: Optional[List[str]], exact: bool) -> bool:
     """Check if name matches any pattern (case-insensitive substring or exact)."""
     if not patterns:
@@ -85,6 +87,7 @@ def _matches_any(name: str, patterns: Optional[List[str]], exact: bool) -> bool:
     )
 
 
+@deprecated("Not called by the CLI; scheduled for removal.")
 def _excluded(name: str, exclusions: Optional[List[str]]) -> bool:
     """Check if name is in exclusion list (case-insensitive substring match)."""
     if not exclusions:

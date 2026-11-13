@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 from aw_core.models import Event
 
+from tw_report.utils.deprecation import deprecated
+
 if TYPE_CHECKING:
     from tw_report.core.aw_events import TaskWarriorEvent
 
@@ -69,6 +71,7 @@ def get_task_info(active_task: "TaskWarriorEvent") -> Tuple[str, str]:
         return task_name, project
 
 
+@deprecated("Not used by the report pipeline; offline tags are read from event data directly.")
 def task_has_offline_tag(task_event: "TaskWarriorEvent") -> bool:
     """Check if a task event has the 'offline' tag (case-insensitive).
 
