@@ -78,15 +78,11 @@ def task_has_offline_tag(task_event: "TaskWarriorEvent") -> bool:
     Returns:
         True if the event has an 'offline' tag (case-insensitive), False otherwise
     """
-    # Handle both TaskWarriorEvent (with properties) and plain Event (with .data dict)
-    if hasattr(task_event, "has_offline_tag"):
-        # TaskWarriorEvent with properties
-        return task_event.has_offline_tag
-    else:
-        # Plain Event: extract tags from .data dict and check
-        raw_tags = task_event.data.get("tags", [])
-        tags = [raw_tags] if isinstance(raw_tags, str) else list(raw_tags)
-        return "offline" in (t.lower() for t in tags)
+    # Tags live in the event's data dict for both typed and plain events; a single
+    # string value is treated as one tag.
+    raw_tags = task_event.data.get("tags", [])
+    tags = [raw_tags] if isinstance(raw_tags, str) else list(raw_tags)
+    return "offline" in (t.lower() for t in tags)
 
 
 def build_offline_category_structure(

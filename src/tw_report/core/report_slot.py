@@ -287,7 +287,6 @@ class DisplayColumns:
         # Use abbreviate_project_path for consistent formatting
         abbrev_project = abbreviate_project_path(
             project_name.replace(".", " > ") if project_name != NO_PROJECT else NO_PROJECT,
-            task_name,
         )
         # Project display (no truncation cap)
         project_display = f"▶ {abbrev_project}" if abbrev_project else ""

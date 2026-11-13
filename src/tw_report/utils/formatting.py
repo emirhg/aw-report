@@ -491,18 +491,15 @@ def truncate_title(title: str, max_length: int = 60) -> str:
     return title[: max_length - 1] + "…"
 
 
-def abbreviate_project_path(project: str, task: str = "", max_content_width: int = 100) -> str:
-    """Abbreviate hierarchical project path while preserving task description.
+def abbreviate_project_path(project: str) -> str:
+    """Abbreviate hierarchical project path, keeping the most specific (leaf) level.
 
-    For multi-level projects (e.g., "Platform > Web > Frontend"), keeps the
-    most specific level (leaf) and abbreviates the root only when necessary.
-    Abbreviation uses first 10 chars to be more readable than 5-char limit.
+    For multi-level projects (e.g., "Platform > Web > Frontend"), keeps the leaf and
+    abbreviates the root to 10 chars plus "..." only when the full path exceeds 20 chars.
     Single-level projects are returned unchanged.
 
     Args:
         project: Project path, potentially with " > " separators (hierarchical)
-        task: Optional task name (used to decide abbreviation length)
-        max_content_width: Maximum width before truncation (default 100)
 
     Returns:
         Abbreviated project path (e.g., "Ecosystem... > Frontend" or full path if short enough)
@@ -511,27 +508,13 @@ def abbreviate_project_path(project: str, task: str = "", max_content_width: int
         return project
 
     parts = project.split(" > ")
-    leaf = parts[-1]
-
-    if len(parts) > 1:
-        root = parts[0]
-        # Only abbreviate if the full project is longer than 20 chars
-        # This gives us better readability without abbreviating short projects
-        full_project = f"{root} > {leaf}"
-        if len(full_project) > 20:
-            root_abbrev = root[:10] + "..." if len(root) > 10 else root
-            abbreviated = f"{root_abbrev} > {leaf}"
-        else:
-            abbreviated = full_project
-    else:
-        abbreviated = leaf
-
-    if task:
-        full = f"{abbreviated} ▶▶ {task}"
-        if len(full) <= max_content_width:
-            return abbreviated
-
-    return abbreviated
+    root, leaf = parts[0], parts[-1]
+    # Only abbreviate if the full project is longer than 20 chars
+    full_project = f"{root} > {leaf}"
+    if len(full_project) > 20:
+        root_abbrev = root[:10] + "..." if len(root) > 10 else root
+        return f"{root_abbrev} > {leaf}"
+    return full_project
 
 
 def format_timeline_line(left_part: str, duration_str: str = "", max_left_width: int = 100) -> str:

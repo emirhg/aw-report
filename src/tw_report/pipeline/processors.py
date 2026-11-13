@@ -63,136 +63,75 @@ def aggregate_hierarchy_from_slots(
 
     # Determine actual task_based mode: use True if ANY slot has project/task data (even NO_PROJECT)
     # This ensures "No project assigned" time is always shown hierarchically with project/task level
+    # ReportTimelineSlot.project is never None (NO_PROJECT fallback), so for any non-empty
+    # input this is always True and the former category-only grouping was unreachable; it
+    # has been removed. Return value is unchanged: task_based for empty input.
     has_any_project_task = any(s.project is not None for s in consolidated_slots)
     should_group_by_task = task_based or has_any_project_task
     actual_task_based = should_group_by_task  # Capture what we actually use
 
-    if should_group_by_task:
-        # Group by: Project > Task > Category > App > Title
-        for slot in consolidated_slots:
-            # Include all slots, even AFK-only (idle time is still tracked time)
+    # Group by: Project > Task > Category > App > Title
+    for slot in consolidated_slots:
+        # Include all slots, even AFK-only (idle time is still tracked time)
 
-            # Use slot's actual_duration as the work duration for this slot
-            slot_work_duration = slot.actual_duration or slot.duration or timedelta(0)
+        # Use slot's actual_duration as the work duration for this slot
+        slot_work_duration = slot.actual_duration or slot.duration or timedelta(0)
 
-            # If slot has no categories, create an "Uncategorized" default entry
-            # This handles "No project assigned" slots which often lack categories
-            categories_to_process = slot.categories or [
-                {
-                    "category": "Uncategorized",
-                    "apps": [
-                        {
-                            "app": "No App",
-                            "duration": slot_work_duration,
-                            "titles": [
-                                {
-                                    "title": "No Title",
-                                    "duration": slot_work_duration,
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ]
+        # If slot has no categories, create an "Uncategorized" default entry
+        # This handles "No project assigned" slots which often lack categories
+        categories_to_process = slot.categories or [
+            {
+                "category": "Uncategorized",
+                "apps": [
+                    {
+                        "app": "No App",
+                        "duration": slot_work_duration,
+                        "titles": [
+                            {
+                                "title": "No Title",
+                                "duration": slot_work_duration,
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
 
-            # Each slot may have multiple categories; iterate over them
-            for cat_entry in categories_to_process:
-                category = cat_entry.get("category", "Uncategorized")
-                score = get_category_score(category, cat_score_map)
+        # Each slot may have multiple categories; iterate over them
+        for cat_entry in categories_to_process:
+            category = cat_entry.get("category", "Uncategorized")
+            score = get_category_score(category, cat_score_map)
 
-                proj_node = report.setdefault(
-                    slot.project,
-                    {"total_duration": timedelta(0), "tasks": {}, "prod_score": 0.0},
-                )
-                task_node = proj_node["tasks"].setdefault(
-                    slot.task or NO_TASK,
-                    {"total_duration": timedelta(0), "categories": {}, "prod_score": 0.0},
-                )
-                cat_node = task_node["categories"].setdefault(
-                    category,
-                    {"total_duration": timedelta(0), "apps": {}, "prod_score": 0.0},
-                )
+            proj_node = report.setdefault(
+                slot.project,
+                {"total_duration": timedelta(0), "tasks": {}, "prod_score": 0.0},
+            )
+            task_node = proj_node["tasks"].setdefault(
+                slot.task or NO_TASK,
+                {"total_duration": timedelta(0), "categories": {}, "prod_score": 0.0},
+            )
+            cat_node = task_node["categories"].setdefault(
+                category,
+                {"total_duration": timedelta(0), "apps": {}, "prod_score": 0.0},
+            )
 
-                # Iterate over apps within this category entry
-                apps_list = cat_entry.get("apps") or []
-                if not apps_list:
-                    # If category has no apps, use the category duration directly
-                    # This handles task-based slots which have categories but no app info
-                    cat_duration = cat_entry.get("duration", slot_work_duration)
-                    prod_score = (cat_duration.total_seconds() / 3600) * score
+            # Iterate over apps within this category entry
+            apps_list = cat_entry.get("apps") or []
+            if not apps_list:
+                # If category has no apps, use the category duration directly
+                # This handles task-based slots which have categories but no app info
+                cat_duration = cat_entry.get("duration", slot_work_duration)
+                prod_score = (cat_duration.total_seconds() / 3600) * score
 
-                    proj_node["total_duration"] += cat_duration
-                    proj_node["prod_score"] += prod_score
-                    task_node["total_duration"] += cat_duration
-                    task_node["prod_score"] += prod_score
-                    cat_node["total_duration"] += cat_duration
-                    cat_node["prod_score"] += prod_score
-                else:
-                    # Normal case: iterate over apps
-                    for app_entry in apps_list:
-                        app_name = app_entry.get("app", "Unknown App")
-                        app_duration = app_entry.get("duration", timedelta(0))
-                        prod_score = (app_duration.total_seconds() / 3600) * score
-
-                        app_node = cat_node["apps"].setdefault(
-                            app_name, {"total_duration": timedelta(0), "prod_score": 0.0}
-                        )
-
-                        proj_node["total_duration"] += app_duration
-                        proj_node["prod_score"] += prod_score
-                        task_node["total_duration"] += app_duration
-                        task_node["prod_score"] += prod_score
-                        cat_node["total_duration"] += app_duration
-                        cat_node["prod_score"] += prod_score
-                        app_node["total_duration"] += app_duration
-                        app_node["prod_score"] += prod_score
-
-                        # Iterate over titles within this app entry
-                        for title_entry in app_entry.get("titles") or []:
-                            title = title_entry.get("title", "No Title")
-                            normalized_title = normalize_title(title)
-                            title_duration = title_entry.get("duration", timedelta(0))
-                            title_prod_score = (title_duration.total_seconds() / 3600) * score
-
-                            title_node = app_node.setdefault("titles", {}).setdefault(
-                                normalized_title,
-                                {"total_duration": timedelta(0), "prod_score": 0.0},
-                            )
-                            title_node["total_duration"] += title_duration
-                            title_node["prod_score"] += title_prod_score
-    else:
-        # Group by: Category > App > Title (no project/task level)
-        for slot in consolidated_slots:
-            # If slot has no categories, create a default "Uncategorized" entry with full slot
-            # duration
-            categories_to_process = slot.categories or [
-                {
-                    "category": "Uncategorized",
-                    "apps": [
-                        {
-                            "app": "Unknown App",
-                            "duration": slot.actual_duration or timedelta(0),
-                            "titles": [
-                                {
-                                    "title": "No Title",
-                                    "duration": slot.actual_duration or timedelta(0),
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ]
-
-            for cat_entry in categories_to_process:
-                category = cat_entry.get("category", "Uncategorized")
-                score = get_category_score(category, cat_score_map)
-
-                cat_node = report.setdefault(
-                    category,
-                    {"total_duration": timedelta(0), "apps": {}, "prod_score": 0.0},
-                )
-
-                for app_entry in cat_entry.get("apps") or []:
+                proj_node["total_duration"] += cat_duration
+                proj_node["prod_score"] += prod_score
+                task_node["total_duration"] += cat_duration
+                task_node["prod_score"] += prod_score
+                cat_node["total_duration"] += cat_duration
+                cat_node["prod_score"] += prod_score
+            else:
+                # Normal case: iterate over apps
+                for app_entry in apps_list:
                     app_name = app_entry.get("app", "Unknown App")
                     app_duration = app_entry.get("duration", timedelta(0))
                     prod_score = (app_duration.total_seconds() / 3600) * score
@@ -201,11 +140,16 @@ def aggregate_hierarchy_from_slots(
                         app_name, {"total_duration": timedelta(0), "prod_score": 0.0}
                     )
 
+                    proj_node["total_duration"] += app_duration
+                    proj_node["prod_score"] += prod_score
+                    task_node["total_duration"] += app_duration
+                    task_node["prod_score"] += prod_score
                     cat_node["total_duration"] += app_duration
                     cat_node["prod_score"] += prod_score
                     app_node["total_duration"] += app_duration
                     app_node["prod_score"] += prod_score
 
+                    # Iterate over titles within this app entry
                     for title_entry in app_entry.get("titles") or []:
                         title = title_entry.get("title", "No Title")
                         normalized_title = normalize_title(title)
@@ -218,7 +162,6 @@ def aggregate_hierarchy_from_slots(
                         )
                         title_node["total_duration"] += title_duration
                         title_node["prod_score"] += title_prod_score
-
     return report, actual_task_based
 
 

@@ -400,11 +400,7 @@ class TestAbbreviateProjectPath:
 
     def test_with_task(self):
         """Abbreviation considers task length."""
-        result = abbreviate_project_path(
-            "VeryLongProjectName > Web > Frontend",
-            task="VeryLongTaskName",
-            max_content_width=100,
-        )
+        result = abbreviate_project_path("VeryLongProjectName > Web > Frontend")
         # Should abbreviate project
         assert "..." in result
 

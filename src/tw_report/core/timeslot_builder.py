@@ -40,7 +40,7 @@ class _RunAccumulator:
         task_event: Optional[TaskWarriorEvent],
         start: datetime,
         end: datetime,
-        bucket: str,  # "online", "embedded_afk", "offline", "afk", "offline_gap"
+        bucket: str,  # "online", "embedded_afk", "offline", "afk"
         tick_duration: timedelta,
     ):
         """Initialize a run with the first tick."""
@@ -53,7 +53,6 @@ class _RunAccumulator:
         self.embedded_afk_duration = timedelta(0)
         self.offline_duration = timedelta(0)
         self.generic_afk_duration = timedelta(0)
-        self.generic_offline_duration = timedelta(0)
 
         self._add_tick(bucket, tick_duration)
 
@@ -67,8 +66,6 @@ class _RunAccumulator:
             self.offline_duration += tick_duration
         elif bucket == "afk":
             self.generic_afk_duration += tick_duration
-        elif bucket == "offline_gap":
-            self.generic_offline_duration += tick_duration
 
     def extend(self, end: datetime, bucket: str, tick_duration: timedelta) -> None:
         """Extend the run to include another tick.
@@ -143,14 +140,6 @@ class _RunAccumulator:
                     duration=total_duration,
                     actual_duration=timedelta(0),
                     afk_duration=self.generic_afk_duration,
-                )
-            elif self.bucket == "offline_gap":
-                return ReportTimelineSlot(
-                    start=self.start,
-                    end=self.end,
-                    duration=total_duration,
-                    actual_duration=timedelta(0),
-                    offline_extension_duration=self.generic_offline_duration,
                 )
             else:  # "online" or mixed
                 return ReportTimelineSlot(
@@ -340,17 +329,12 @@ def build_timeslot_timeline(
             afk_status = active_afk[0].status if active_afk else None
 
             if not has_afk_coverage:
-                # No AFK coverage: check for window events (strong evidence system is on)
-                # CRITICAL FIX (2026-09-02): Window events during AFK bucket gaps indicate
-                # ActivityWatch startup timing lag, not actual offline time. If window activity
-                # exists, system is provably powered on.
-                has_window_activity = len(active_window) > 0
-                if has_window_activity:
-                    bucket = "online"  # Window activity proves system is powered on
-                    key = ("generic", "active")
-                else:
-                    bucket = "offline_gap"  # No task, no AFK, no window → system truly off
-                    key = ("generic", "offline")
+                # No AFK coverage. Ticks with no coverage from any source were skipped above, so
+                # window events must cover this tick. CRITICAL FIX (2026-09-02): window events
+                # during AFK bucket gaps indicate ActivityWatch startup timing lag, not offline
+                # time; window activity proves the system is powered on.
+                bucket = "online"
+                key = ("generic", "active")
             elif afk_status == "afk":
                 bucket = "afk"  # No task, AFK status → idle
                 key = ("generic", "afk")
@@ -366,13 +350,14 @@ def build_timeslot_timeline(
                 slots.append(current.finalize(window_events))
             current = _RunAccumulator(key, task_event, t_i, t_next, bucket, tick_duration)
 
-    # Flush the final accumulated run
-    if current is not None:
-        final_slot = current.finalize(window_events)
-        # Skip degenerate zero-duration slots created at state boundaries by sweep-line algorithm.
-        # These are timing artifacts from the exact moment of state transition and serve no purpose.
-        if final_slot.duration > timedelta(milliseconds=1):
-            slots.append(final_slot)
+    # Flush the final accumulated run. At least one tick is covered whenever cuts >= 2 (the
+    # first interval starts at an event start), so a run always exists here.
+    assert current is not None
+    final_slot = current.finalize(window_events)
+    # Skip degenerate zero-duration slots created at state boundaries by sweep-line algorithm.
+    # These are timing artifacts from the exact moment of state transition and serve no purpose.
+    if final_slot.duration > timedelta(milliseconds=1):
+        slots.append(final_slot)
 
     # Apply state continuity merging to fix micro-slots from AFK bucket gaps
     # CRITICAL: This merger must NOT merge real activity state transitions (ACTIVE ≠ AFK ≠ OFFLINE).
