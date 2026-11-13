@@ -177,14 +177,13 @@ def print_report_summary(
 
         # Print distracting and unscored time (common to both modes)
         if distracting_time:
-            distracting_pct = (
-                (distracting_time / total_tracking_time * 100) if total_tracking_time else 0
-            )
+            # total_tracking_time is positive here: this block is gated on non_afk_time above.
+            distracting_pct = distracting_time / total_tracking_time * 100
             distracting_str = f"{distracting_pct:.1f}% ({format_duration(distracting_time)})"
             print(f"Overall distracting time{' ' * (32 - 23)}{distracting_str}")
 
         if unscored_time:
-            unscored_pct = (unscored_time / total_tracking_time * 100) if total_tracking_time else 0
+            unscored_pct = unscored_time / total_tracking_time * 100
             unscored_str = f"{unscored_pct:.1f}% ({format_duration(unscored_time)})"
             print(f"Unscored time{' ' * (32 - 12)}{unscored_str}")
 
@@ -705,8 +704,7 @@ def print_report(
                         else:
                             print(a_line.ljust(width - len(a_duration) - 2, " ") + f" {a_duration}")
 
-            if detail_level >= 2:
-                print()
+            print()
     else:
         for cat, c_data in sort_items(report_data.items()):
             c_duration = format_duration(c_data["total_duration"])
@@ -734,8 +732,7 @@ def print_report(
                             title_line.ljust(width - len(title_duration) - 2) + f" {title_duration}"
                         )
 
-            if detail_level >= 2:
-                print()
+            print()
 
     # Print TOTALS at bottom
     # Calculate online time = active + afk
