@@ -2,6 +2,45 @@
 
 This file provides project-specific instructions for Claude Code and related agents working on **tw-report**, a sophisticated timesheet report generator that correlates ActivityWatch activity with Taskwarrior tasks.
 
+## Project Goal (read first)
+
+**End goal:** turn ActivityWatch + Taskwarrior activity into time entries that can be pushed to
+**OpenProject**. Exact push format is not defined yet; the work now is the part that comes first.
+
+**What the code must do, in priority order:**
+1. **Classify every event** (window, AFK, TaskWarrior) into a project/task (and later an
+   OpenProject work package). Unassigned time stays explicit, never silently dropped.
+2. **Build continuous entries as large as possible while preserving cohesion**: one entry
+   should represent one coherent piece of work. Merge what belongs together (same project/task
+   across short interruptions); do not merge across real breaks, other tasks, or day boundaries
+   unless that is a deliberate choice.
+3. Only then render or export (text today; OpenProject later).
+
+**Remarks on the current code (as of the robust-core branch):**
+- Data sources are configured in the `[buckets]` table of `$XDG_CONFIG_HOME/tw-report/config.toml`
+  (roles `afk`, `window`, `tasks`; resolved in `core/buckets.py`). Only fixed roles are supported;
+  extra buckets such as browser, vim or tmux are out of scope until their data is reliable.
+- Classification rules live in `core/categories.py` (ActivityWatch regex rules) and in the
+  TaskWarrior fields read by `core/aw_events.py`. "No project assigned" / "No task assigned" are
+  the untracked sentinels; keep using them, do not invent new spellings.
+- Merging today happens in `pipeline/consolidation.py::consolidate_sessions`. It joins
+  consecutive slots with the same (project, task) **across any gap**, and is interrupted only by
+  a different task. AFK slots carry no task, so an AFK break currently splits an entry. Decide
+  explicitly whether short AFK breaks should be bridged (more cohesive entries) and whether
+  merging may cross midnight (day-level entries) before changing it.
+- The builder (`core/timeslot_builder.py`) emits slots per state transition (online, embedded AFK,
+  offline). That is correct for the timeline but fragments continuous work. Consolidation, not
+  the builder, is where cohesion should be decided.
+- Duplicate TaskWarrior heartbeats (same uuid and start) are collapsed in `cli/main.py`
+  (`_deduplicate_task_events`) only on typed fetches (project/task filters). The unfiltered
+  fetch passes plain events, so its uuid key is always empty. Totals still come out the same
+  today, but fix this before trusting entry boundaries (`tests/characterization/test_cli_paths.py`).
+- Known open defects that affect entries: the strict xfail tests, e.g.
+  `tests/unit/test_small_modules_coverage.py` (bare-URL task titles) and
+  `tests/unit/test_timeline_render_coverage.py` (`--detail-level 1` task names, offline `*` prefix).
+- Keep `consolidate_by_task`, `consolidate_consecutive` and the other deprecated `ReportEntries`
+  methods out of new work: they are the older, unused consolidation path.
+
 ## Getting Started
 
 1. **Project Overview**: Read `README.md` for the full feature set, architecture, and report types.

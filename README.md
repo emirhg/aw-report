@@ -340,9 +340,20 @@ exclude_projects = ["Personal", "Testing"]
 
 # Custom terminal width
 terminal_width = 120
+
+[buckets]
+# Optional. Each role is fed by one ActivityWatch bucket.
+# Defaults: aw-watcher-<watcher>_<hostname>, where the hostname is this machine's name.
+# hostname = "laptop"                     # change only the hostname used for the defaults
+# window = "aw-watcher-tmux"              # or name the exact bucket ID of a role
+# afk = "aw-watcher-afk_laptop"
+# tasks = "aw-watcher-taskwarrior_laptop"
 ```
 
 **Precedence:** CLI arguments > config file > defaults
+
+**Buckets:** only the keys `hostname`, `afk`, `window` and `tasks` are accepted. Anything else
+(a typo such as `windw`) is an error, reported on stderr with exit code 1.
 
 ### Categories (Productivity Scores)
 
