@@ -63,7 +63,9 @@ class TestActiveBreakdown:
         windows = [_window(0, 7, "Work"), _window(7, 3, "Social")]
         slot = _active_slot(0, 25)
         result = compute_productivity_breakdown([slot], windows, SCORES)
-        total = _total(result.active_productive, result.active_unproductive, result.active_undefined)
+        total = _total(
+            result.active_productive, result.active_unproductive, result.active_undefined
+        )
         assert abs((total - slot.actual_duration).total_seconds()) < 0.001
 
     def test_no_windows_all_undefined(self):
@@ -125,7 +127,9 @@ class TestConsolidatedShapes:
         result = compute_productivity_breakdown(
             [slot], windows, SCORES, active_total=timedelta(minutes=25)
         )
-        total = _total(result.active_productive, result.active_unproductive, result.active_undefined)
+        total = _total(
+            result.active_productive, result.active_unproductive, result.active_undefined
+        )
         assert total == timedelta(minutes=25)
 
     def test_afk_total_with_no_windows_is_all_undefined(self):

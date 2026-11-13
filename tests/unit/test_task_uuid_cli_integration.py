@@ -131,9 +131,7 @@ class TestTaskUuidCliIntegration:
         ]
 
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = Mock(
-                stdout=json.dumps(task_json), returncode=0
-            )
+            mock_run.return_value = Mock(stdout=json.dumps(task_json), returncode=0)
 
             from tw_report.core.task_uuid_filtering import get_task_uuid
 
@@ -197,9 +195,7 @@ class TestTaskUuidCliIntegration:
         end = datetime(2026, 7, 2, 0, 0, tzinfo=timezone.utc)
 
         # With UUID: should not query window bucket
-        get_events_by_uuid(
-            mock_client, "aw-watcher-taskwarrior_host", start, end, "some-uuid"
-        )
+        get_events_by_uuid(mock_client, "aw-watcher-taskwarrior_host", start, end, "some-uuid")
 
         # The main() logic would skip window bucket fetch entirely
         # Here we verify the function filters correctly
@@ -220,9 +216,11 @@ class TestTaskUuidCliIntegration:
 
         args = parse_args(
             [
-                "--task-id", "48",
+                "--task-id",
+                "48",
                 "--by-week",
-                "--detail-level", "2",
+                "--detail-level",
+                "2",
                 ":week",
             ]
         )
@@ -266,9 +264,7 @@ class TestTaskUuidCliIntegration:
         from tw_report.cli.args import parse_args
 
         # --task with a single UUID value should be accepted
-        args = parse_args(
-            ["--task", "550e8400-e29b-41d4-a716-446655440000", ":today"]
-        )
+        args = parse_args(["--task", "550e8400-e29b-41d4-a716-446655440000", ":today"])
 
         assert args.task == ["550e8400-e29b-41d4-a716-446655440000"]
         assert len(args.task) == 1
@@ -326,9 +322,7 @@ class TestTaskUuidCliIntegration:
         ]
 
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = Mock(
-                stdout=json.dumps(task_json), returncode=0
-            )
+            mock_run.return_value = Mock(stdout=json.dumps(task_json), returncode=0)
 
             from tw_report.core.task_uuid_filtering import get_task_uuid
 

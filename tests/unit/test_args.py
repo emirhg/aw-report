@@ -210,15 +210,17 @@ class TestParseArgs:
 
     def test_combined_flags(self):
         """Multiple flags combined."""
-        args = parse_args([
-            "--by-week",
-            "--detail-level",
-            "2",
-            "--exclude-afk",
-            "--project",
-            "Climb",
-            ":week",
-        ])
+        args = parse_args(
+            [
+                "--by-week",
+                "--detail-level",
+                "2",
+                "--exclude-afk",
+                "--project",
+                "Climb",
+                ":week",
+            ]
+        )
         assert args.by_week is True
         assert args.detail_level == 2
         assert args.exclude_afk is True

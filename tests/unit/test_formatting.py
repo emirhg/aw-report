@@ -65,24 +65,18 @@ class TestFormatDurationTrackedProd:
 
     def test_full_productive(self):
         """100% productive time."""
-        result = format_duration_tracked_prod(
-            timedelta(hours=1), timedelta(hours=1)
-        )
+        result = format_duration_tracked_prod(timedelta(hours=1), timedelta(hours=1))
         assert "0:01:00:00" not in result  # Should use format_duration
         assert "[prod 100%]" in result
 
     def test_half_productive(self):
         """50% productive time."""
-        result = format_duration_tracked_prod(
-            timedelta(hours=2), timedelta(hours=1)
-        )
+        result = format_duration_tracked_prod(timedelta(hours=2), timedelta(hours=1))
         assert "[prod  50%]" in result
 
     def test_low_productivity(self):
         """Low productivity percentage."""
-        result = format_duration_tracked_prod(
-            timedelta(hours=10), timedelta(minutes=30)
-        )
+        result = format_duration_tracked_prod(timedelta(hours=10), timedelta(minutes=30))
         # 30 minutes / 10 hours = 0.5 / 10 = 0.05 = 5%
         assert "[prod   5%]" in result
 
@@ -101,9 +95,7 @@ class TestFormatDurationTrackedProd:
     def test_alignment(self):
         """Percentage label should be consistently aligned when productivity exists."""
         result_no_prod = format_duration_tracked_prod(timedelta(hours=1), timedelta(0))
-        result_with_prod = format_duration_tracked_prod(
-            timedelta(hours=1), timedelta(hours=1)
-        )
+        result_with_prod = format_duration_tracked_prod(timedelta(hours=1), timedelta(hours=1))
         # Result with productivity should end with bracket
         assert result_with_prod.endswith("]")
         # Result with productivity should contain label
@@ -223,18 +215,14 @@ class TestFormatOfflineTaskDuration:
 
     def test_full_offline_time_no_productivity_data(self):
         """When all time was offline with no productivity data, don't show productivity."""
-        result = format_offline_task_duration(
-            timedelta(hours=2), timedelta(0)
-        )
+        result = format_offline_task_duration(timedelta(hours=2), timedelta(0))
         assert "(02:00:00 OFF)" in result
         assert "--:--:--" in result or "00:00:00" in result  # Either placeholder or zero
         assert "[prod" not in result  # No productivity data shown
 
     def test_half_offline_time_no_productivity_data(self):
         """When half the time was offline with no productivity data, don't show productivity."""
-        result = format_offline_task_duration(
-            timedelta(hours=2), timedelta(hours=1)
-        )
+        result = format_offline_task_duration(timedelta(hours=2), timedelta(hours=1))
         assert "(01:00:00 OFF)" in result
         assert "01:00:00" in result
         assert "[prod" not in result  # No productivity data shown
@@ -242,8 +230,9 @@ class TestFormatOfflineTaskDuration:
     def test_online_with_productivity_data(self):
         """When showing productivity based on measured data."""
         result = format_offline_task_duration(
-            timedelta(hours=2), timedelta(hours=2),
-            productive_duration=timedelta(hours=1)  # 50% productive
+            timedelta(hours=2),
+            timedelta(hours=2),
+            productive_duration=timedelta(hours=1),  # 50% productive
         )
         # Wall clock - online = offline: 2 hours - 2 hours = 0 hours offline
         assert "00:00:00  [prod  50%]" in result or "[prod  50%]" in result
@@ -252,9 +241,7 @@ class TestFormatOfflineTaskDuration:
         """Zero wall_clock with zero event_duration needs at least online time to format."""
         # TimeslotDuration requires at least one of: online_duration or offline_gap
         # So pass at least one non-zero value
-        result = format_offline_task_duration(
-            timedelta(hours=1), timedelta(0)
-        )
+        result = format_offline_task_duration(timedelta(hours=1), timedelta(0))
         # 1 hour wall clock, 0 online = 1 hour offline
         assert "01:00:00" in result or "1:00:00" in result
         assert "[prod" not in result  # No productivity data
@@ -385,9 +372,7 @@ class TestAbbreviateProjectPath:
 
     def test_multi_level_long_root(self):
         """Multi-level project with long root is abbreviated."""
-        result = abbreviate_project_path(
-            "VeryLongProjectName > Web > Frontend"
-        )
+        result = abbreviate_project_path("VeryLongProjectName > Web > Frontend")
         # The long root gets abbreviated and ellipsis is added
         assert "..." in result
         assert "Frontend" in result

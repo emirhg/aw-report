@@ -51,18 +51,39 @@ def scenario_buckets():
         make_event(_utc(10, 45), 45, {"app": "Firefox", "title": "PR review", "class": "Firefox"}),
     ]
     tasks = [
-        make_event(_utc(9), 90, {
-            "project": "Climb", "task": "Task1", "label": "Task1",
-            "tags": ["work"], "title": "Climb > Task1",
-        }),
-        make_event(_utc(10, 45), 45, {
-            "project": "Higuera", "task": "Refactor", "label": "Refactor",
-            "tags": ["work"], "title": "Higuera > Refactor",
-        }),
-        make_event(_utc(11, 30), 30, {
-            "project": "Climb", "task": "Writing", "label": "Writing",
-            "tags": ["offline"], "title": "Climb > Writing",
-        }),
+        make_event(
+            _utc(9),
+            90,
+            {
+                "project": "Climb",
+                "task": "Task1",
+                "label": "Task1",
+                "tags": ["work"],
+                "title": "Climb > Task1",
+            },
+        ),
+        make_event(
+            _utc(10, 45),
+            45,
+            {
+                "project": "Higuera",
+                "task": "Refactor",
+                "label": "Refactor",
+                "tags": ["work"],
+                "title": "Higuera > Refactor",
+            },
+        ),
+        make_event(
+            _utc(11, 30),
+            30,
+            {
+                "project": "Climb",
+                "task": "Writing",
+                "label": "Writing",
+                "tags": ["offline"],
+                "title": "Climb > Writing",
+            },
+        ),
     ]
     return {
         f"aw-watcher-afk_{HOST}": afk,

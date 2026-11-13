@@ -63,21 +63,21 @@ class TestTotalTimeCalculation:
         output = captured.out
 
         # Extract the "Total Time" line from output
-        total_time_line = [line for line in output.split('\n') if 'Total Time' in line]
+        total_time_line = [line for line in output.split("\n") if "Total Time" in line]
         assert len(total_time_line) > 0, "Total Time line should be present in output"
 
         # Verify the Total Time line shows the sum, not the calendar span
         total_line = total_time_line[0]
-        assert 'Total Time' in total_line
+        assert "Total Time" in total_line
 
         # The old bug would show ~3824 hours (calendar span), new code shows ~187 hours
-        assert '3824' not in total_line, (
+        assert "3824" not in total_line, (
             f"Bug regression detected: Total Time is using calendar span instead of sum. "
             f"Line: {total_line}"
         )
 
         # Verify it's in the right ballpark (187-189 hours range)
-        assert any(h in total_line for h in ['187', '188', '189']), (
+        assert any(h in total_line for h in ["187", "188", "189"]), (
             f"Total Time should be ~187-189 hours (Worked+Break), got: {total_line}"
         )
 
@@ -122,6 +122,6 @@ class TestTotalTimeCalculation:
         output = captured.out
 
         # Verify Total Time is present and reasonable (should be ~9 hours)
-        total_time_line = [line for line in output.split('\n') if 'Total Time' in line]
+        total_time_line = [line for line in output.split("\n") if "Total Time" in line]
         assert len(total_time_line) > 0
-        assert '9:' in total_time_line[0], "Single-day total should show ~9 hours"
+        assert "9:" in total_time_line[0], "Single-day total should show ~9 hours"

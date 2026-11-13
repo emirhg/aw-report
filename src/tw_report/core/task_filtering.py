@@ -8,7 +8,7 @@ in --task filter values, resolving them to task descriptions.
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 if TYPE_CHECKING:
     from tw_report.core.aw_events import TaskWarriorEvent
@@ -104,6 +104,7 @@ def resolve_task_filter_value(value: str) -> Tuple[Optional[str], Optional[str]]
     from tw_report.core.task_uuid_filtering import get_task_description
 
     # Detect if value is an ID or UUID that needs resolution
+    identifier: Union[int, str]
     if value.isdigit():
         identifier = int(value)
     elif _is_uuid_like(value):

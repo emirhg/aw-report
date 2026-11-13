@@ -40,7 +40,7 @@ class TestGetTimeRangesFromEvents:
         event = create_mock_event(
             datetime(2026, 7, 1, 10, 0, tzinfo=timezone.utc),
             3600,  # 1 hour
-            "Firefox"
+            "Firefox",
         )
         events = [event]
 
@@ -57,7 +57,7 @@ class TestGetTimeRangesFromEvents:
         """Overlapping events should merge into single range."""
         base = datetime(2026, 7, 1, 10, 0, tzinfo=timezone.utc)
         events = [
-            create_mock_event(base, 3600, "Firefox"),         # 10:00-11:00
+            create_mock_event(base, 3600, "Firefox"),  # 10:00-11:00
             create_mock_event(base + timedelta(minutes=30), 3600, "Chrome"),  # 10:30-11:30
         ]
 
@@ -73,7 +73,7 @@ class TestGetTimeRangesFromEvents:
         """Non-overlapping events should create separate ranges."""
         base = datetime(2026, 7, 1, 10, 0, tzinfo=timezone.utc)
         events = [
-            create_mock_event(base, 3600, "Firefox"),           # 10:00-11:00
+            create_mock_event(base, 3600, "Firefox"),  # 10:00-11:00
             create_mock_event(base + timedelta(hours=2), 3600, "Chrome"),  # 12:00-13:00
         ]
 
@@ -96,11 +96,7 @@ class TestComputeAppBoundedRanges:
 
     def test_app_only_mode_single_event(self):
         """App-only mode: should return envelope of app usage."""
-        event = create_mock_event(
-            datetime(2026, 7, 1, 10, 0, tzinfo=timezone.utc),
-            3600,
-            "Firefox"
-        )
+        event = create_mock_event(datetime(2026, 7, 1, 10, 0, tzinfo=timezone.utc), 3600, "Firefox")
         app_matching = [event]
 
         # Expected: single envelope range from min(start) to max(end)
@@ -114,8 +110,10 @@ class TestComputeAppBoundedRanges:
         """App-only mode with gaps: should return envelope, not fragmented."""
         base = datetime(2026, 7, 1, 10, 0, tzinfo=timezone.utc)
         app_matching = [
-            create_mock_event(base, 3600, "Firefox"),                    # 10:00-11:00
-            create_mock_event(base + timedelta(hours=2), 1800, "Firefox"),  # 12:00-12:30 (gap at 11:00-12:00)
+            create_mock_event(base, 3600, "Firefox"),  # 10:00-11:00
+            create_mock_event(
+                base + timedelta(hours=2), 1800, "Firefox"
+            ),  # 12:00-12:30 (gap at 11:00-12:00)
         ]
 
         # Expected: envelope from 10:00 to 12:30 (spans the internal gap)
@@ -134,9 +132,7 @@ class TestComputeAppBoundedRanges:
         task_ranges = [(base, base + timedelta(hours=2))]
 
         # App usage: 10:30-11:30 (1 hour, subset of task range)
-        app_matching = [
-            create_mock_event(base + timedelta(minutes=30), 3600, "Firefox")
-        ]
+        app_matching = [create_mock_event(base + timedelta(minutes=30), 3600, "Firefox")]
 
         # Expected: clipped to 10:30-11:30
         expected_start = base + timedelta(minutes=30)
@@ -153,9 +149,7 @@ class TestComputeAppBoundedRanges:
         task_ranges = [(base, base + timedelta(hours=1))]
 
         # App usage: 13:00-14:00 (no overlap)
-        app_matching = [
-            create_mock_event(base + timedelta(hours=3), 3600, "Firefox")
-        ]
+        app_matching = [create_mock_event(base + timedelta(hours=3), 3600, "Firefox")]
 
         # Expected: fallback to original task_ranges (no valid clipped ranges)
         # Logic: clipped range would be empty, so return task_ranges unchanged
@@ -178,7 +172,7 @@ class TestComputeAppBoundedRanges:
 
         # Two Firefox usage windows with a gap (e.g., browser closed for 30 min)
         app_matching = [
-            create_mock_event(base, 1800, "Firefox"),                   # 10:00-10:30
+            create_mock_event(base, 1800, "Firefox"),  # 10:00-10:30
             create_mock_event(base + timedelta(hours=1), 1800, "Firefox"),  # 11:00-11:30
         ]
 
@@ -193,4 +187,4 @@ class TestComputeAppBoundedRanges:
         gap_start = base + timedelta(minutes=30)
         gap_end = base + timedelta(hours=1)
         assert gap_start >= app_start  # Gap is within envelope
-        assert gap_end <= app_end      # Gap is within envelope
+        assert gap_end <= app_end  # Gap is within envelope

@@ -327,15 +327,11 @@ class TestPrintReport:
                                         "prod_score": 90.0,
                                         "titles": {
                                             "main.py": {
-                                                "total_duration": timedelta(
-                                                    minutes=30
-                                                ),
+                                                "total_duration": timedelta(minutes=30),
                                                 "prod_score": 100.0,
                                             },
                                             "test_main.py": {
-                                                "total_duration": timedelta(
-                                                    minutes=30
-                                                ),
+                                                "total_duration": timedelta(minutes=30),
                                                 "prod_score": 80.0,
                                             },
                                         },

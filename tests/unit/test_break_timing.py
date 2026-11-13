@@ -19,7 +19,7 @@ class TestPeriodMetricsBreakTracking:
         """PeriodMetrics should track break_duration."""
         metrics = PeriodMetrics()
         # Should have break_duration attribute
-        assert hasattr(metrics, 'break_duration') or hasattr(metrics, 'break_time')
+        assert hasattr(metrics, "break_duration") or hasattr(metrics, "break_time")
 
     def test_period_metrics_add_break_duration(self):
         """Can add break duration to PeriodMetrics."""
@@ -27,7 +27,7 @@ class TestPeriodMetricsBreakTracking:
         metrics.add(online=timedelta(hours=10))
 
         # Add break
-        if hasattr(metrics, 'break_duration'):
+        if hasattr(metrics, "break_duration"):
             metrics.break_duration = timedelta(hours=2)
             assert metrics.break_duration == timedelta(hours=2)
 

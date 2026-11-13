@@ -484,23 +484,31 @@ def _app(name, minutes, start, end, titles=()):
 def test_merge_categories_sums_durations_and_expands_range():
     from tw_report.core.report_slot import _merge_categories_full
 
-    first = _Slot([{
-        "category": "Coding",
-        "duration": timedelta(minutes=30),
-        "start": at(0),
-        "end": at(1),
-        "apps": [_app("VSCode", 30, at(0), at(1), [_title("tw-report.py", 30, ["e1"])])],
-    }])
-    second = _Slot([{
-        "category": "Coding",
-        "duration": timedelta(minutes=20),
-        "start": at(2),
-        "end": at(3),
-        "apps": [
-            _app("VSCode", 10, at(2), at(3), [_title("tw-report.py", 10, ["e2"])]),
-            _app("Terminal", 10, at(2), at(3), [_title("bash", 10)]),
-        ],
-    }])
+    first = _Slot(
+        [
+            {
+                "category": "Coding",
+                "duration": timedelta(minutes=30),
+                "start": at(0),
+                "end": at(1),
+                "apps": [_app("VSCode", 30, at(0), at(1), [_title("tw-report.py", 30, ["e1"])])],
+            }
+        ]
+    )
+    second = _Slot(
+        [
+            {
+                "category": "Coding",
+                "duration": timedelta(minutes=20),
+                "start": at(2),
+                "end": at(3),
+                "apps": [
+                    _app("VSCode", 10, at(2), at(3), [_title("tw-report.py", 10, ["e2"])]),
+                    _app("Terminal", 10, at(2), at(3), [_title("bash", 10)]),
+                ],
+            }
+        ]
+    )
     merged = _merge_categories_full([first, second])
     assert len(merged) == 1
     coding = merged[0]
@@ -521,9 +529,23 @@ def test_merge_categories_sums_durations_and_expands_range():
 def test_merge_categories_defaults_missing_names_and_skips_absent_bounds():
     from tw_report.core.report_slot import _merge_categories_full
 
-    merged = _merge_categories_full([_Slot([{"duration": timedelta(minutes=5), "apps": [
-        {"duration": timedelta(minutes=5), "titles": [{"duration": timedelta(minutes=5)}]}
-    ]}])])
+    merged = _merge_categories_full(
+        [
+            _Slot(
+                [
+                    {
+                        "duration": timedelta(minutes=5),
+                        "apps": [
+                            {
+                                "duration": timedelta(minutes=5),
+                                "titles": [{"duration": timedelta(minutes=5)}],
+                            }
+                        ],
+                    }
+                ]
+            )
+        ]
+    )
     assert merged[0]["category"] == "Uncategorized"
     assert merged[0]["start"] is None and merged[0]["end"] is None
     app = merged[0]["apps"][0]
@@ -541,10 +563,21 @@ def test_merge_categories_without_apps_omits_apps_key():
 def test_merge_categories_second_occurrence_without_bounds_keeps_first_range():
     from tw_report.core.report_slot import _merge_categories_full
 
-    merged = _merge_categories_full([
-        _Slot([{"category": "Coding", "duration": timedelta(minutes=5), "start": at(0), "end": at(1)}]),
-        _Slot([{"category": "Coding", "duration": timedelta(minutes=5)}]),
-    ])
+    merged = _merge_categories_full(
+        [
+            _Slot(
+                [
+                    {
+                        "category": "Coding",
+                        "duration": timedelta(minutes=5),
+                        "start": at(0),
+                        "end": at(1),
+                    }
+                ]
+            ),
+            _Slot([{"category": "Coding", "duration": timedelta(minutes=5)}]),
+        ]
+    )
     assert merged[0]["start"] == at(0)
     assert merged[0]["end"] == at(1)
     assert merged[0]["duration"] == timedelta(minutes=10)
@@ -627,9 +660,7 @@ def test_from_timeline_slots_rejects_mixed_projects_without_flag():
 
     with pytest.raises(TimelineSlotValidationError, match="differing projects"):
         ReportTimelineSlot.from_timeline_slots([work(0, 1), afk(1, 2)])  # P vs untracked
-    merged = ReportTimelineSlot.from_timeline_slots(
-        [work(0, 1), afk(1, 2)], allow_mixed_types=True
-    )
+    merged = ReportTimelineSlot.from_timeline_slots([work(0, 1), afk(1, 2)], allow_mixed_types=True)
     assert merged.duration == timedelta(hours=2)
 
 
@@ -703,7 +734,8 @@ def test_split_keeps_offline_extension_as_remainder_after_event_time():
     assert len(pieces) == 2
     for piece in pieces:
         assert piece.offline_extension_duration == timedelta(hours=0) or (
-            piece.offline_extension_duration == timedelta(minutes=30) or piece.offline_extension_duration is None
+            piece.offline_extension_duration == timedelta(minutes=30)
+            or piece.offline_extension_duration is None
         )
 
 
@@ -741,12 +773,32 @@ def test_grouped_by_project_date_appends_same_project_and_day():
 def test_merge_categories_widens_range_on_later_and_earlier_occurrences():
     from tw_report.core.report_slot import _merge_categories_full
 
-    merged = _merge_categories_full([
-        _Slot([{"category": "Coding", "duration": timedelta(minutes=5), "start": at(1), "end": at(2),
-                "apps": [_app("VSCode", 5, at(1), at(2))]}]),
-        _Slot([{"category": "Coding", "duration": timedelta(minutes=5), "start": at(0), "end": at(3),
-                "apps": [_app("VSCode", 5, at(0), at(3))]}]),
-    ])
+    merged = _merge_categories_full(
+        [
+            _Slot(
+                [
+                    {
+                        "category": "Coding",
+                        "duration": timedelta(minutes=5),
+                        "start": at(1),
+                        "end": at(2),
+                        "apps": [_app("VSCode", 5, at(1), at(2))],
+                    }
+                ]
+            ),
+            _Slot(
+                [
+                    {
+                        "category": "Coding",
+                        "duration": timedelta(minutes=5),
+                        "start": at(0),
+                        "end": at(3),
+                        "apps": [_app("VSCode", 5, at(0), at(3))],
+                    }
+                ]
+            ),
+        ]
+    )
     assert merged[0]["start"] == at(0)
     assert merged[0]["end"] == at(3)
     vscode = merged[0]["apps"][0]
@@ -758,12 +810,32 @@ def test_merge_categories_widens_range_on_later_and_earlier_occurrences():
 def test_merge_categories_keeps_wider_range_when_later_occurrence_is_narrower():
     from tw_report.core.report_slot import _merge_categories_full
 
-    merged = _merge_categories_full([
-        _Slot([{"category": "Coding", "duration": timedelta(minutes=5), "start": at(0), "end": at(3),
-                "apps": [_app("VSCode", 5, at(0), at(3))]}]),
-        _Slot([{"category": "Coding", "duration": timedelta(minutes=5), "start": at(1), "end": at(2),
-                "apps": [_app("VSCode", 5, at(1), at(2))]}]),
-    ])
+    merged = _merge_categories_full(
+        [
+            _Slot(
+                [
+                    {
+                        "category": "Coding",
+                        "duration": timedelta(minutes=5),
+                        "start": at(0),
+                        "end": at(3),
+                        "apps": [_app("VSCode", 5, at(0), at(3))],
+                    }
+                ]
+            ),
+            _Slot(
+                [
+                    {
+                        "category": "Coding",
+                        "duration": timedelta(minutes=5),
+                        "start": at(1),
+                        "end": at(2),
+                        "apps": [_app("VSCode", 5, at(1), at(2))],
+                    }
+                ]
+            ),
+        ]
+    )
     assert merged[0]["start"] == at(0)
     assert merged[0]["end"] == at(3)
     assert merged[0]["apps"][0]["start"] == at(0)

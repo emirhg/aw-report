@@ -69,8 +69,7 @@ class TestSlotTimezoneHandling:
         print(f"Local instant ({dt_local}) → logical date {result_local}")
 
         # After fix, these should be the same (both in local timezone)
-        assert result_utc == result_local, \
-            "BUG: logical_date() doesn't normalize timezones!"
+        assert result_utc == result_local, "BUG: logical_date() doesn't normalize timezones!"
         # Both should resolve to the local time representation (Aug 31)
         assert result_utc == date(2026, 8, 31)
         assert result_local == date(2026, 8, 31)

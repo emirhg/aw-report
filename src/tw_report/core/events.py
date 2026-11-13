@@ -9,12 +9,14 @@ typed exceptions and structured logging.
 import logging
 import platform
 from datetime import datetime
-from typing import List, Optional, Type
+from typing import List, Optional, Type, TypeVar, Union, overload
 
 from aw_client import ActivityWatchClient
 from aw_core.models import Event
 
 logger = logging.getLogger(__name__)
+
+E = TypeVar("E", bound=Event)
 
 
 def get_bucket_id(bucket_name: str) -> str:
@@ -30,13 +32,33 @@ def get_bucket_id(bucket_name: str) -> str:
     return f"aw-watcher-{bucket_name}_{hostname}"
 
 
+@overload
+def get_events(
+    client: ActivityWatchClient,
+    bucket_id: str,
+    start: datetime,
+    end: datetime,
+    event_cls: Type[E],
+) -> List[E]: ...
+
+
+@overload
+def get_events(
+    client: ActivityWatchClient,
+    bucket_id: str,
+    start: datetime,
+    end: datetime,
+    event_cls: None = None,
+) -> List[Event]: ...
+
+
 def get_events(
     client: ActivityWatchClient,
     bucket_id: str,
     start: datetime,
     end: datetime,
     event_cls: Optional[Type[Event]] = None,
-) -> List[Event]:
+) -> Union[List[Event], List[E]]:
     """Fetch events from a specific bucket within a time range.
 
     Gracefully degrades on connection errors: logs a warning and returns an

@@ -392,20 +392,38 @@ class TestTotalsLayout:
             productivity=breakdown,
         )
         lines = [l for l in capsys.readouterr().out.splitlines() if l.strip()]
-        labels = [l.strip().split("  ")[0] for l in lines if l.strip() and not l.startswith(("─", "=", "TOTALS"))]
+        labels = [
+            l.strip().split("  ")[0]
+            for l in lines
+            if l.strip() and not l.startswith(("─", "=", "TOTALS"))
+        ]
 
         assert labels == [
-            "Total Time", "Worked Time", "Online", "Active Time",
-            "Productive", "Unproductive", "Undefined",
-            "AFK time", "Productive", "Unproductive", "Undefined",
+            "Total Time",
+            "Worked Time",
+            "Online",
+            "Active Time",
+            "Productive",
+            "Unproductive",
+            "Undefined",
+            "AFK time",
+            "Productive",
+            "Unproductive",
+            "Undefined",
             "Break Time",
         ]
 
         def indent(line):
             return len(line) - len(line.lstrip(" "))
 
-        levels = {"Total Time": 0, "Worked Time": 2, "Online": 4, "Active Time": 6,
-                  "AFK time": 6, "Break Time": 2}
+        levels = {
+            "Total Time": 0,
+            "Worked Time": 2,
+            "Online": 4,
+            "Active Time": 6,
+            "AFK time": 6,
+            "Break Time": 2,
+        }
         for line in lines:
             label = line.strip().split("  ")[0]
             if label in levels:

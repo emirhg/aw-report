@@ -120,9 +120,9 @@ class TestFullPipelineTotalsCalculation:
         assert expected["online_time"] == timedelta(hours=4)
 
         # Verify key relationship
-        assert expected["online_time"] == (
-            expected["active_time"] + expected["afk_time"]
-        ), "Online must equal Active + AFK"
+        assert expected["online_time"] == (expected["active_time"] + expected["afk_time"]), (
+            "Online must equal Active + AFK"
+        )
 
     def test_scenario_large_unassigned_afk_block(self, base_date):
         """REAL SCENARIO: Day with large unassigned AFK block (like system idle).
@@ -246,9 +246,7 @@ class TestFullPipelineTotalsCalculation:
         fixture.add_afk_break(15, 0, 120)  # 2h break
 
         # Sum of all events should equal online
-        total_event_duration = sum(
-            (e.duration for e in fixture.afk_events), timedelta(0)
-        )
+        total_event_duration = sum((e.duration for e in fixture.afk_events), timedelta(0))
         expected = fixture.calculate_totals()
 
         assert total_event_duration == expected["online_time"]

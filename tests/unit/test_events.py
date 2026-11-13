@@ -123,9 +123,7 @@ class TestGetEvents:
     def test_generic_exception_degrades_gracefully(self, mock_client, time_range):
         """Generic exception should log warning and return empty list."""
         start, end = time_range
-        mock_client.get_events.side_effect = Exception(
-            "Unexpected error from AW server"
-        )
+        mock_client.get_events.side_effect = Exception("Unexpected error from AW server")
 
         result = get_events(mock_client, "aw-watcher-window_host", start, end)
 
@@ -135,9 +133,7 @@ class TestGetEvents:
         """Malformed response from server should degrade gracefully."""
         start, end = time_range
         # Simulate server returning invalid data
-        mock_client.get_events.side_effect = ValueError(
-            "Invalid JSON from server"
-        )
+        mock_client.get_events.side_effect = ValueError("Invalid JSON from server")
 
         result = get_events(mock_client, "aw-watcher-window_host", start, end)
 
@@ -176,9 +172,7 @@ class TestGetEvents:
         with caplog.at_level(logging.WARNING, logger="tw_report.core.events"):
             get_events(mock_client, "aw-watcher-window_host", start, end)
 
-        assert any(
-            "Could not fetch events" in record.message for record in caplog.records
-        )
+        assert any("Could not fetch events" in record.message for record in caplog.records)
         # exc_info=True should have been set
         assert any(record.exc_info for record in caplog.records)
 
@@ -190,9 +184,7 @@ class TestGetEvents:
         # Fetch from different buckets
         window_events = get_events(mock_client, "aw-watcher-window_host", start, end)
         afk_events = get_events(mock_client, "aw-watcher-afk_host", start, end)
-        task_events = get_events(
-            mock_client, "aw-watcher-taskwarrior_host", start, end
-        )
+        task_events = get_events(mock_client, "aw-watcher-taskwarrior_host", start, end)
 
         # All should be the same (mock returns same events)
         assert len(window_events) == 2

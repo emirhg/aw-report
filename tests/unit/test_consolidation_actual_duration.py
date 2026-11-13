@@ -48,7 +48,7 @@ class TestConsolidationActualDuration:
                 base_time,
                 timedelta(hours=1),
                 actual_duration=timedelta(minutes=50),  # 10 min AFK
-                task="Task1"
+                task="Task1",
             )
         ]
 
@@ -65,13 +65,13 @@ class TestConsolidationActualDuration:
                 base_time,
                 timedelta(hours=1),
                 actual_duration=timedelta(minutes=50),  # 10 min AFK
-                task="Task1"
+                task="Task1",
             ),
             make_slot(
                 base_time + timedelta(hours=1, minutes=30),
                 timedelta(hours=1),
                 actual_duration=timedelta(minutes=55),  # 5 min AFK
-                task="Task1"
+                task="Task1",
             ),
         ]
 
@@ -88,24 +88,21 @@ class TestConsolidationActualDuration:
         # Three 1-hour slots with gaps between them
         slots = [
             make_slot(
-                base_time,
-                timedelta(hours=1),
-                actual_duration=timedelta(minutes=50),
-                task="Task1"
+                base_time, timedelta(hours=1), actual_duration=timedelta(minutes=50), task="Task1"
             ),
             # 30-minute gap
             make_slot(
                 base_time + timedelta(hours=1, minutes=30),
                 timedelta(hours=1),
                 actual_duration=timedelta(minutes=55),
-                task="Task1"
+                task="Task1",
             ),
             # 30-minute gap
             make_slot(
                 base_time + timedelta(hours=3),
                 timedelta(hours=1),
                 actual_duration=timedelta(minutes=48),
-                task="Task1"
+                task="Task1",
             ),
         ]
 
@@ -120,9 +117,21 @@ class TestConsolidationActualDuration:
     def test_interruption_creates_separate_groups(self, base_time):
         """Task interrupted by different task should create separate groups."""
         slots = [
-            make_slot(base_time, timedelta(hours=1), actual_duration=timedelta(minutes=50), task="Task1"),
-            make_slot(base_time + timedelta(hours=1, minutes=30), timedelta(hours=1), actual_duration=timedelta(minutes=45), task="Task2"),
-            make_slot(base_time + timedelta(hours=2, minutes=30), timedelta(hours=1), actual_duration=timedelta(minutes=55), task="Task1"),
+            make_slot(
+                base_time, timedelta(hours=1), actual_duration=timedelta(minutes=50), task="Task1"
+            ),
+            make_slot(
+                base_time + timedelta(hours=1, minutes=30),
+                timedelta(hours=1),
+                actual_duration=timedelta(minutes=45),
+                task="Task2",
+            ),
+            make_slot(
+                base_time + timedelta(hours=2, minutes=30),
+                timedelta(hours=1),
+                actual_duration=timedelta(minutes=55),
+                task="Task1",
+            ),
         ]
 
         consolidated = consolidate_sessions(slots)
@@ -145,13 +154,13 @@ class TestConsolidationActualDuration:
                 base_time,
                 timedelta(hours=1),
                 actual_duration=timedelta(minutes=5),  # 55 min AFK
-                task="Task1"
+                task="Task1",
             ),
             make_slot(
                 base_time + timedelta(hours=1, minutes=30),
                 timedelta(hours=1),
                 actual_duration=timedelta(minutes=3),  # 57 min AFK
-                task="Task1"
+                task="Task1",
             ),
         ]
 
@@ -170,13 +179,13 @@ class TestConsolidationActualDuration:
                 base_time,
                 timedelta(hours=1),
                 actual_duration=timedelta(0),  # Pure AFK
-                task="Task1"
+                task="Task1",
             ),
             make_slot(
                 base_time + timedelta(hours=1, minutes=30),
                 timedelta(hours=1),
                 actual_duration=timedelta(minutes=30),
-                task="Task1"
+                task="Task1",
             ),
         ]
 
@@ -194,14 +203,14 @@ class TestConsolidationActualDuration:
                 timedelta(hours=1),
                 actual_duration=timedelta(minutes=50),
                 project="MyProject",
-                task="MyTask"
+                task="MyTask",
             ),
             make_slot(
                 base_time + timedelta(hours=1, minutes=30),
                 timedelta(hours=1),
                 actual_duration=timedelta(minutes=55),
                 project="MyProject",
-                task="MyTask"
+                task="MyTask",
             ),
         ]
 
@@ -217,10 +226,10 @@ class TestConsolidationActualDuration:
         # Create 10 slots of same task
         slots = [
             make_slot(
-                base_time + timedelta(hours=i, minutes=i*5),
+                base_time + timedelta(hours=i, minutes=i * 5),
                 timedelta(minutes=30),
                 actual_duration=timedelta(minutes=25),  # 5 min AFK each
-                task="Task1"
+                task="Task1",
             )
             for i in range(10)
         ]

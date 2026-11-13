@@ -34,12 +34,12 @@ class TestEventBackedInvariant:
             AFKEvent(
                 timestamp=datetime(2026, 8, 30, 20, 0, 0, tzinfo=timezone.utc),
                 duration=timedelta(minutes=3, seconds=11),
-                data={"status": "not-afk"}
+                data={"status": "not-afk"},
             ),
             AFKEvent(
                 timestamp=datetime(2026, 8, 30, 20, 18, 44, tzinfo=timezone.utc),
                 duration=timedelta(minutes=11, seconds=16),
-                data={"status": "not-afk"}
+                data={"status": "not-afk"},
             ),
         ]
 
@@ -47,7 +47,9 @@ class TestEventBackedInvariant:
         slots = build_timeslot_timeline(afk_events, [], [])
 
         # Should have exactly 2 slots (one per AFK event)
-        assert len(slots) == 2, f"Expected 2 slots, got {len(slots)}. Phantom slots created for gap!"
+        assert len(slots) == 2, (
+            f"Expected 2 slots, got {len(slots)}. Phantom slots created for gap!"
+        )
 
         # Verify no slot spans the gap
         for slot in slots:
@@ -55,8 +57,9 @@ class TestEventBackedInvariant:
             gap_end = datetime(2026, 8, 30, 20, 18, 43, tzinfo=timezone.utc)
 
             # Slot must not cover the entire gap
-            assert not (slot.start <= gap_start and slot.end >= gap_end), \
+            assert not (slot.start <= gap_start and slot.end >= gap_end), (
                 f"Slot {slot.start}-{slot.end} covers the gap with no events!"
+            )
 
     def test_every_slot_has_event_coverage(self):
         """
@@ -71,14 +74,14 @@ class TestEventBackedInvariant:
             AFKEvent(
                 timestamp=datetime(2026, 8, 30, 20, 0, 0, tzinfo=timezone.utc),
                 duration=timedelta(hours=1),
-                data={"status": "not-afk"}
+                data={"status": "not-afk"},
             ),
         ]
         window_events = [
             WindowEvent(
                 timestamp=datetime(2026, 8, 30, 20, 30, 0, tzinfo=timezone.utc),
                 duration=timedelta(minutes=20),
-                data={"app": "kitty"}
+                data={"app": "kitty"},
             ),
         ]
 
@@ -99,8 +102,9 @@ class TestEventBackedInvariant:
                 for e in window_events
             )
 
-            assert has_afk_coverage or has_window_coverage, \
+            assert has_afk_coverage or has_window_coverage, (
                 f"Slot {slot.start}-{slot.end} has no event coverage! Phantom slot!"
+            )
 
     def test_all_events_converted_to_slots(self):
         """
@@ -112,20 +116,21 @@ class TestEventBackedInvariant:
             AFKEvent(
                 timestamp=datetime(2026, 8, 30, 20, 0, 0, tzinfo=timezone.utc),
                 duration=timedelta(minutes=10),
-                data={"status": "not-afk"}
+                data={"status": "not-afk"},
             ),
             AFKEvent(
                 timestamp=datetime(2026, 8, 30, 20, 20, 0, tzinfo=timezone.utc),
                 duration=timedelta(minutes=10),
-                data={"status": "afk"}
+                data={"status": "afk"},
             ),
         ]
 
         slots = build_timeslot_timeline(afk_events, [], [])
 
         # Should have at least one slot per event
-        assert len(slots) >= len(afk_events), \
+        assert len(slots) >= len(afk_events), (
             f"Events lost! {len(afk_events)} events but only {len(slots)} slots"
+        )
 
     def test_no_invented_durations(self):
         """
@@ -140,13 +145,13 @@ class TestEventBackedInvariant:
             AFKEvent(
                 timestamp=datetime(2026, 8, 30, 20, 0, 0, tzinfo=timezone.utc),
                 duration=timedelta(minutes=5),
-                data={"status": "not-afk"}
+                data={"status": "not-afk"},
             ),
             # GAP: 14:05-14:20 (15 minutes, zero events)
             AFKEvent(
                 timestamp=datetime(2026, 8, 30, 20, 20, 0, tzinfo=timezone.utc),
                 duration=timedelta(minutes=5),
-                data={"status": "not-afk"}
+                data={"status": "not-afk"},
             ),
         ]
 
@@ -157,8 +162,9 @@ class TestEventBackedInvariant:
 
         # Total slot duration should match total event duration
         # (no invented duration for gaps)
-        assert total_slot_duration == total_event_duration, \
+        assert total_slot_duration == total_event_duration, (
             f"Invented duration! Events total {total_event_duration}, slots total {total_slot_duration}"
+        )
 
     def test_gap_detection_realistic_scenario(self):
         """
@@ -177,19 +183,19 @@ class TestEventBackedInvariant:
             AFKEvent(
                 timestamp=datetime(2026, 8, 30, 20, 0, 0, tzinfo=timezone.utc),
                 duration=timedelta(minutes=3, seconds=11),
-                data={"status": "not-afk"}
+                data={"status": "not-afk"},
             ),
             AFKEvent(
                 timestamp=datetime(2026, 8, 30, 20, 18, 44, tzinfo=timezone.utc),
                 duration=timedelta(minutes=11, seconds=16),
-                data={"status": "not-afk"}
+                data={"status": "not-afk"},
             ),
         ]
         window_events = [
             WindowEvent(
                 timestamp=datetime(2026, 8, 30, 20, 0, 0, tzinfo=timezone.utc),
                 duration=timedelta(minutes=3, seconds=14),
-                data={"app": "kitty"}
+                data={"app": "kitty"},
             ),
             # WINDOW ends at 14:03:14
             # AFK resumes at 14:18:44
@@ -197,7 +203,7 @@ class TestEventBackedInvariant:
             WindowEvent(
                 timestamp=datetime(2026, 8, 30, 20, 18, 43, tzinfo=timezone.utc),
                 duration=timedelta(minutes=6),
-                data={"app": "kitty"}
+                data={"app": "kitty"},
             ),
         ]
 
@@ -209,9 +215,7 @@ class TestEventBackedInvariant:
 
         for slot in slots:
             # If slot overlaps the gap, it's a phantom
-            overlaps_gap = (
-                slot.start < gap_end and slot.end > gap_start
-            )
+            overlaps_gap = slot.start < gap_end and slot.end > gap_start
 
             if overlaps_gap:
                 # Verify this slot is actually backed by an event in the gap
@@ -219,5 +223,6 @@ class TestEventBackedInvariant:
                     (e.timestamp < gap_end and e.timestamp + e.duration > gap_start)
                     for e in afk_events + window_events
                 )
-                assert has_backing, \
+                assert has_backing, (
                     f"Phantom slot {slot.start}-{slot.end} in gap {gap_start}-{gap_end}"
+                )

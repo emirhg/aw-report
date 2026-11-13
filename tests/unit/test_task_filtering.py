@@ -73,9 +73,7 @@ class TestGetEventsByTask:
         start, end = time_range
         mock_client.get_events.return_value = sample_events
 
-        result = get_events_by_task(
-            mock_client, "aw-watcher-taskwarrior_host", start, end
-        )
+        result = get_events_by_task(mock_client, "aw-watcher-taskwarrior_host", start, end)
 
         assert len(result) == 3
         assert result == sample_events
@@ -92,9 +90,7 @@ class TestGetEventsByTask:
         assert len(result) == 2
         assert all("Documentar" in e.data.get("task", "") for e in result)
 
-    def test_get_events_by_task_case_insensitive(
-        self, mock_client, time_range, sample_events
-    ):
+    def test_get_events_by_task_case_insensitive(self, mock_client, time_range, sample_events):
         """Test that task filtering is case-insensitive."""
         start, end = time_range
         mock_client.get_events.return_value = sample_events
@@ -105,9 +101,7 @@ class TestGetEventsByTask:
 
         assert len(result) == 2
 
-    def test_get_events_by_task_no_matches(
-        self, mock_client, time_range, sample_events
-    ):
+    def test_get_events_by_task_no_matches(self, mock_client, time_range, sample_events):
         """Test filtering with no matching tasks."""
         start, end = time_range
         mock_client.get_events.return_value = sample_events
@@ -181,9 +175,7 @@ class TestGetEventsByTasks:
         start, end = time_range
         mock_client.get_events.return_value = sample_events
 
-        result = get_events_by_tasks(
-            mock_client, "aw-watcher-taskwarrior_host", start, end
-        )
+        result = get_events_by_tasks(mock_client, "aw-watcher-taskwarrior_host", start, end)
 
         assert len(result) == 3
         assert result == sample_events
@@ -200,14 +192,19 @@ class TestGetEventsByTasks:
         assert len(result) == 2
         assert all("Documentar" in e.data.get("task", "") for e in result)
 
-    def test_get_events_by_tasks_multiple_patterns_or_match(self, mock_client, time_range, sample_events):
+    def test_get_events_by_tasks_multiple_patterns_or_match(
+        self, mock_client, time_range, sample_events
+    ):
         """Test filtering by multiple task patterns (OR match)."""
         start, end = time_range
         mock_client.get_events.return_value = sample_events
 
         result = get_events_by_tasks(
-            mock_client, "aw-watcher-taskwarrior_host", start, end,
-            tasks=["Documentar", "Code review"]
+            mock_client,
+            "aw-watcher-taskwarrior_host",
+            start,
+            end,
+            tasks=["Documentar", "Code review"],
         )
 
         assert len(result) == 3  # All events match one of the patterns
@@ -218,8 +215,7 @@ class TestGetEventsByTasks:
         mock_client.get_events.return_value = sample_events
 
         result = get_events_by_tasks(
-            mock_client, "aw-watcher-taskwarrior_host", start, end,
-            tasks=["documentar"]
+            mock_client, "aw-watcher-taskwarrior_host", start, end, tasks=["documentar"]
         )
 
         assert len(result) == 2
@@ -230,8 +226,7 @@ class TestGetEventsByTasks:
         mock_client.get_events.return_value = sample_events
 
         result = get_events_by_tasks(
-            mock_client, "aw-watcher-taskwarrior_host", start, end,
-            tasks=["Nonexistent"]
+            mock_client, "aw-watcher-taskwarrior_host", start, end, tasks=["Nonexistent"]
         )
 
         assert result == []
@@ -242,8 +237,11 @@ class TestGetEventsByTasks:
         mock_client.get_events.return_value = []
 
         result = get_events_by_tasks(
-            mock_client, "aw-watcher-taskwarrior_host", start, end,
-            tasks=["Documentar", "Code review"]
+            mock_client,
+            "aw-watcher-taskwarrior_host",
+            start,
+            end,
+            tasks=["Documentar", "Code review"],
         )
 
         assert result == []
@@ -289,9 +287,7 @@ class TestResolveTaskFilterValue:
                 returncode=0,
             )
 
-            resolved, error = resolve_task_filter_value(
-                "550e8400-e29b-41d4-a716-446655440000"
-            )
+            resolved, error = resolve_task_filter_value("550e8400-e29b-41d4-a716-446655440000")
 
             assert error is None
             assert resolved == "Code review PR #456"

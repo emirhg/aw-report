@@ -43,14 +43,18 @@ class TestMetricsCalculationWithRealEvents:
                 duration=slot_duration,
                 data={"project": "Work", "task": "Coding", "tags": []},
             ),
-            categories=[{
-                "category": "Development",
-                "apps": [{
-                    "app": "IDE",
-                    "duration": slot_duration,
-                    "titles": [{"title": "main.py", "duration": slot_duration}]
-                }]
-            }],
+            categories=[
+                {
+                    "category": "Development",
+                    "apps": [
+                        {
+                            "app": "IDE",
+                            "duration": slot_duration,
+                            "titles": [{"title": "main.py", "duration": slot_duration}],
+                        }
+                    ],
+                }
+            ],
             window_events=[],
             afk_events=[],
             tags=[],
@@ -145,7 +149,7 @@ class TestTotalsDisplayConsistency:
         """Verify fundamental math relationships in TOTALS."""
         # Scenario: 8 hour work day with breaks
         active_time = timedelta(hours=6)  # 6 hours focused
-        afk_time = timedelta(hours=1)      # 1 hour idle
+        afk_time = timedelta(hours=1)  # 1 hour idle
         offline_time = timedelta(hours=1)  # 1 hour system off
 
         # Calculate totals
@@ -167,7 +171,7 @@ class TestTotalsDisplayConsistency:
 
         # Project Tracking: 7 hours on tracked projects out of 10 total
         tracked_time = timedelta(hours=7)
-        project_tracking_pct = (tracked_time.total_seconds() / total_time.total_seconds() * 100)
+        project_tracking_pct = tracked_time.total_seconds() / total_time.total_seconds() * 100
 
         # Active Time: 7 hours (online - afk)
         active_time = online_time - afk_time
@@ -175,7 +179,7 @@ class TestTotalsDisplayConsistency:
 
         # Focus Time: 5 hours productive out of 7 tracked
         productive_time = timedelta(hours=5)
-        focus_pct = (productive_time.total_seconds() / tracked_time.total_seconds() * 100)
+        focus_pct = productive_time.total_seconds() / tracked_time.total_seconds() * 100
 
         # Verify calculations
         assert abs(project_tracking_pct - 70.0) < 0.1  # 7/10 = 70%
@@ -237,7 +241,7 @@ class TestTotalsAccuracy:
         # Verify relationships
         assert weekly_online == timedelta(hours=45)  # 5 days × 9 hours
         assert weekly_active == timedelta(hours=40)  # 5 days × 8 hours
-        assert weekly_afk == timedelta(hours=5)      # 5 days × 1 hour
+        assert weekly_afk == timedelta(hours=5)  # 5 days × 1 hour
         assert weekly_online == weekly_active + weekly_afk
 
 

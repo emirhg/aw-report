@@ -48,7 +48,7 @@ class TestExcludeNonProjectFilter:
         entry = {
             "type": "regular",
             "project": "No project assigned",  # Use actual sentinel value
-            "task": "Some task"
+            "task": "Some task",
         }
         assert f.should_include_entry(entry, "regular") is False
 
@@ -57,16 +57,10 @@ class TestExcludeNonProjectFilter:
         from tw_report.core.filtering import EventFilter
 
         f = EventFilter(exclude_non_project=True)
-        entry = {
-            "type": "regular",
-            "project": "Climb",
-            "task": "Task1"
-        }
+        entry = {"type": "regular", "project": "Climb", "task": "Task1"}
         assert f.should_include_entry(entry, "regular") is True
 
-    def test_exclude_non_project_filters_afk_gaps_without_project(
-        self, filter_exclude_non_project
-    ):
+    def test_exclude_non_project_filters_afk_gaps_without_project(self, filter_exclude_non_project):
         """--exclude-non-project should remove AFK gaps without project/task."""
         from tw_report.core.filtering import EventFilter
 
@@ -75,14 +69,14 @@ class TestExcludeNonProjectFilter:
             "type": "afk",
             "project": "No project assigned",
             "task": "No task assigned",
-            "duration": 600
+            "duration": 600,
         }
         # FIXED: Should now be filtered out
         assert f.should_include_entry(entry, "afk") is False
 
     def test_exclude_non_project_filters_offline_task_slots(
-            self, filter_exclude_non_project, issue_1_offline_task_data
-        ):
+        self, filter_exclude_non_project, issue_1_offline_task_data
+    ):
         """
         --exclude-non-project should remove synthetic OFFLINE task slots without project.
 
@@ -96,11 +90,10 @@ class TestExcludeNonProjectFilter:
             "type": "offline_task",
             "project": "No project assigned",
             "task": "Some task",
-            "duration": 15750  # 4:22:30
+            "duration": 15750,  # 4:22:30
         }
         # FIXED: Should now be filtered consistently
         assert f.should_include_entry(entry, "offline_task") is False
-
 
     @pytest.mark.parametrize("project", ["No project", "no project", "", None])
     def test_exclude_non_project_removes_all_unassigned_spellings(self, project):
@@ -204,13 +197,12 @@ class TestExclusionLists:
 class TestConsolidationWithFilters:
     """Test interaction between consolidation and filters."""
 
-    def test_consolidate_respects_exclude_non_project(
-        self, consolidate_report_args_with_filter
-    ):
+    def test_consolidate_respects_exclude_non_project(self, consolidate_report_args_with_filter):
         """Consolidated report should respect --exclude-non-project."""
         # Setup: Mixed tracked and untracked entries
         # EXPECTED: Untracked entries removed before consolidation
         assert True  # Placeholder
+
 
 class TestIssue1OfflineTaskDuration:
     """Tests specifically for Issue #1: OFFLINE task shows 0:00:00 duration."""
@@ -348,14 +340,17 @@ class TestNormalizeUntracked:
     @pytest.mark.parametrize("value", ["No project", "no project", " No project ", "", None])
     def test_project_spellings_map_to_no_project(self, value):
         from tw_report.core.filtering import NO_PROJECT, normalize_project
+
         assert normalize_project(value) == NO_PROJECT
 
     @pytest.mark.parametrize("value", ["No task", "No task tracked", "no task tracked", "", None])
     def test_task_spellings_map_to_no_task(self, value):
         from tw_report.core.filtering import NO_TASK, normalize_task
+
         assert normalize_task(value) == NO_TASK
 
     def test_real_names_unchanged(self):
         from tw_report.core.filtering import normalize_project, normalize_task
+
         assert normalize_project("Climb") == "Climb"
         assert normalize_task("Merge vs Rebase") == "Merge vs Rebase"

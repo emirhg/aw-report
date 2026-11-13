@@ -61,8 +61,9 @@ def test_span_without_any_coverage_produces_no_slot():
         afk_event(1800, 600, "not-afk"),
     ]
     window = [
-        WindowEvent(timestamp=T0, duration=timedelta(seconds=600),
-                    data={"app": "VSCode", "title": "x"}),
+        WindowEvent(
+            timestamp=T0, duration=timedelta(seconds=600), data={"app": "VSCode", "title": "x"}
+        ),
     ]
     slots = build_timeslot_timeline(afk_events=afk, window_events=window, task_events=[])
     gap_start, gap_end = T0 + timedelta(minutes=10), T0 + timedelta(minutes=30)

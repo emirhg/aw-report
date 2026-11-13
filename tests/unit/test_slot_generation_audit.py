@@ -12,7 +12,7 @@ import sys
 import os
 from datetime import datetime, timedelta, timezone
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../src"))
 
 from tw_report.core.report_slot import ReportTimelineSlot
 
@@ -53,7 +53,7 @@ class TestSlotCreationValidation:
         task_event = TaskWarriorEvent(
             timestamp=start,
             duration=timedelta(hours=1),
-            data={"project": "P1", "title": "T1", "tags": []}
+            data={"project": "P1", "title": "T1", "tags": []},
         )
 
         slot = ReportTimelineSlot(
@@ -71,8 +71,8 @@ class TestSlotCreationValidation:
         print(f"  Dict start tz: {slot_dict['start'].tzinfo}")
 
         # Both should have same timezone
-        assert slot_dict['start'].tzinfo == tz_minus6
-        assert slot_dict['end'].tzinfo == tz_minus6
+        assert slot_dict["start"].tzinfo == tz_minus6
+        assert slot_dict["end"].tzinfo == tz_minus6
 
     def test_no_duplicate_timezones_for_same_slot(self):
         """A single logical time should not appear in multiple timezones."""
@@ -169,9 +169,7 @@ class TestSlotDurationValidation:
         end = datetime(2026, 8, 30, 13, 30, tzinfo=tz)
 
         task_event = TaskWarriorEvent(
-            timestamp=start,
-            duration=end - start,
-            data={"project": "P1", "title": "T1", "tags": []}
+            timestamp=start, duration=end - start, data={"project": "P1", "title": "T1", "tags": []}
         )
 
         slot = ReportTimelineSlot(

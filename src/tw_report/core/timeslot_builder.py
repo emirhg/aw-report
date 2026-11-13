@@ -22,7 +22,7 @@ for every task uniformly, replacing the three previously-inconsistent rules in t
 
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from tw_report.core.aw_events import AFKEvent, TaskWarriorEvent, WindowEvent
 from tw_report.core.categories import build_categories_from_window_events
@@ -212,7 +212,7 @@ def build_timeslot_timeline(
     if len(cuts) < 2:
         return []  # No events, or only one instantaneous event
 
-    cuts = sorted(cuts)
+    ordered_cuts = sorted(cuts)
 
     # Ensure all task_events are TaskWarriorEvent objects (handle generic Event objects)
     def _ensure_taskwarrior_event(ev):
@@ -233,8 +233,10 @@ def build_timeslot_timeline(
     slots = []
     current = None
 
+    # Run classification key: a 5-tuple for task runs, a 2-tuple for generic runs
+    key: Tuple[Any, ...]
     # Sweep through each atomic interval
-    for t_i, t_next in zip(cuts, cuts[1:]):
+    for t_i, t_next in zip(ordered_cuts, ordered_cuts[1:]):
         tick_duration = t_next - t_i
 
         # Find active events at t_i (coverage: event.timestamp <= t_i < event.timestamp +
@@ -452,21 +454,23 @@ def _merge_adjacent_micro_slots_by_state_continuity(
             is_same_task = next_slot.project == current.project and next_slot.task == current.task
 
             # State flags for the previous (accumulated) slot
-            current_is_active = (
+            current_is_active = bool(
                 current.actual_duration and current.actual_duration.total_seconds() > 0
             )
-            current_is_afk = current.afk_duration and current.afk_duration.total_seconds() > 0
-            current_is_offline = (
+            current_is_afk = bool(current.afk_duration and current.afk_duration.total_seconds() > 0)
+            current_is_offline = bool(
                 current.offline_extension_duration
                 and current.offline_extension_duration.total_seconds() > 0
             )
 
             # State flags for the candidate next slot
-            next_is_active = (
+            next_is_active = bool(
                 next_slot.actual_duration and next_slot.actual_duration.total_seconds() > 0
             )
-            next_is_afk = next_slot.afk_duration and next_slot.afk_duration.total_seconds() > 0
-            next_is_offline = (
+            next_is_afk = bool(
+                next_slot.afk_duration and next_slot.afk_duration.total_seconds() > 0
+            )
+            next_is_offline = bool(
                 next_slot.offline_extension_duration
                 and next_slot.offline_extension_duration.total_seconds() > 0
             )
@@ -563,9 +567,11 @@ def _merge_slot_group(group: List[ReportTimelineSlot]) -> ReportTimelineSlot:
 
     # event_duration: sum online portions from merged slots
     # CRITICAL: Must be set when offline_extension_duration is set (for TimelineSlot validation)
-    event_duration = sum((s.event_duration or timedelta(0) for s in group), timedelta(0))
-    event_duration = (
-        event_duration if (offline_ext > timedelta(0) or event_duration > timedelta(0)) else None
+    summed_event_duration = sum((s.event_duration or timedelta(0) for s in group), timedelta(0))
+    event_duration: Optional[timedelta] = (
+        summed_event_duration
+        if (offline_ext > timedelta(0) or summed_event_duration > timedelta(0))
+        else None
     )
 
     # Use first slot's metadata

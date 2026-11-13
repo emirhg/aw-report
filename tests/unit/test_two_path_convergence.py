@@ -41,7 +41,9 @@ class TestTwoPathConvergence:
                     duration=timedelta(minutes=5, seconds=18),
                     data={"project": "Mercado > CodeSignal", "task": "LeetCode 1091", "tags": []},
                 ),
-                categories=[{"category": "Coding", "apps": [], "duration": timedelta(minutes=3, seconds=24)}],
+                categories=[
+                    {"category": "Coding", "apps": [], "duration": timedelta(minutes=3, seconds=24)}
+                ],
             ),
             # LeetCode 84: 1:48 in hierarchical
             ReportTimelineSlot(
@@ -55,7 +57,9 @@ class TestTwoPathConvergence:
                     duration=timedelta(minutes=1, seconds=48),
                     data={"project": "Mercado > CodeSignal", "task": "LeetCode 84", "tags": []},
                 ),
-                categories=[{"category": "Coding", "apps": [], "duration": timedelta(minutes=1, seconds=48)}],
+                categories=[
+                    {"category": "Coding", "apps": [], "duration": timedelta(minutes=1, seconds=48)}
+                ],
             ),
             # LeetCode 2970: 00:54 in hierarchical, but fragments in timeline
             ReportTimelineSlot(
@@ -90,8 +94,7 @@ class TestTwoPathConvergence:
 
         # Timeline path: sum all slots (no consolidation by task in basic form)
         timeline_total = sum(
-            (s.actual_duration or s.duration for s in sample_task_slots),
-            timedelta(0)
+            (s.actual_duration or s.duration for s in sample_task_slots), timedelta(0)
         )
 
         # ASSERTION: Must match exactly
@@ -121,7 +124,7 @@ class TestTwoPathConvergence:
             task = slot.task
             if task not in timeline_tasks:
                 timeline_tasks[task] = timedelta(0)
-            timeline_tasks[task] += (slot.actual_duration or slot.duration)
+            timeline_tasks[task] += slot.actual_duration or slot.duration
 
         # ASSERTION: Must match for each task
         for task in timeline_tasks:
@@ -138,17 +141,11 @@ class TestTwoPathConvergence:
         from tw_report.pipeline.timeline_render import split_slots_spanning_days
 
         # Original total
-        original_total = sum(
-            (s.duration for s in sample_task_slots),
-            timedelta(0)
-        )
+        original_total = sum((s.duration for s in sample_task_slots), timedelta(0))
 
         # After splitting
         split_slots = split_slots_spanning_days(sample_task_slots, day_start_hour=4)
-        split_total = sum(
-            (s.duration for s in split_slots),
-            timedelta(0)
-        )
+        split_total = sum((s.duration for s in split_slots), timedelta(0))
 
         # Must be equal (no duplication)
         assert split_total == original_total, (

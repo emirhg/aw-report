@@ -21,7 +21,9 @@ class TestTimeslotDuration:
             TimeslotDuration(online_duration=timedelta(hours=1), afk_portion=timedelta(hours=2))
 
     def test_total_duration_is_online_plus_offline(self):
-        slot = TimeslotDuration(online_duration=timedelta(minutes=20), offline_gap=timedelta(minutes=50))
+        slot = TimeslotDuration(
+            online_duration=timedelta(minutes=20), offline_gap=timedelta(minutes=50)
+        )
         assert slot.total_duration == timedelta(hours=1, minutes=10)
 
     def test_total_duration_with_offline_only(self):

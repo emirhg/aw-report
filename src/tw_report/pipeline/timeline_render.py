@@ -57,8 +57,9 @@ This approach was chosen over fixed-column padding because:
   3. Dynamic padding maintains alignment without truncation
 """
 
+import contextlib
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union, overload
 
 from aw_core.models import Event
 
@@ -202,6 +203,7 @@ def get_slot_week_key(slot: Union[Dict, "ReportTimelineSlot"], day_start_hour: i
         '2026-W36'
     """
     start_time = slot.get("start") if isinstance(slot, dict) else slot.start
+    assert start_time is not None, "slot must have a start time"
 
     logical_dt = logical_date(start_time, day_start_hour)
     iso_year, iso_week, iso_weekday = logical_dt.isocalendar()
@@ -228,6 +230,7 @@ def get_slot_logical_date(slot: Union[Dict, "ReportTimelineSlot"], day_start_hou
         datetime.date(2026, 8, 31)  # Still in previous logical day
     """
     start_time = slot.get("start") if isinstance(slot, dict) else slot.start
+    assert start_time is not None, "slot must have a start time"
 
     return logical_date(start_time, day_start_hour)
 
@@ -272,9 +275,21 @@ def _get_displayed_duration(slot: Union[Dict, "ReportTimelineSlot"]) -> timedelt
             return slot.duration
 
 
+@overload
 def split_slots_spanning_days(
-    slots: List[Union[Dict, "ReportTimelineSlot"]], day_start_hour: int = 4
-) -> List[Union[Dict, "ReportTimelineSlot"]]:
+    slots: List[Dict[str, Any]], day_start_hour: int = 4
+) -> List[Dict[str, Any]]: ...
+
+
+@overload
+def split_slots_spanning_days(
+    slots: List["ReportTimelineSlot"], day_start_hour: int = 4
+) -> List["ReportTimelineSlot"]: ...
+
+
+def split_slots_spanning_days(
+    slots: Union[List[Dict[str, Any]], List["ReportTimelineSlot"]], day_start_hour: int = 4
+) -> Union[List[Dict[str, Any]], List["ReportTimelineSlot"]]:
     """Split slots that span multiple days into single-day pieces.
 
     Accepts both dicts and ReportTimelineSlot objects for backward compatibility.
@@ -290,32 +305,29 @@ def split_slots_spanning_days(
     """
     from tw_report.core.report_slot import ReportTimelineSlot
 
-    # Handle mixed input: convert dicts to ReportTimelineSlot, process, then convert back if needed
-    input_is_dict = slots and isinstance(slots[0], dict)
+    # Output takes the form of the input: dict slots in, dict slots out (per the first element)
+    input_is_dict = bool(slots) and isinstance(slots[0], dict)
 
-    if input_is_dict:
-        # Convert dicts to ReportTimelineSlot for processing
-        report_slots = []
-        for slot_dict in slots:
+    report_slots: List[ReportTimelineSlot] = []
+    for item in slots:
+        if isinstance(item, dict):
             try:
-                rs = ReportTimelineSlot.from_dict(slot_dict)
-                report_slots.append(rs)
+                report_slots.append(ReportTimelineSlot.from_dict(item))
             except Exception:
                 # Backward compatibility: skip malformed slots
                 continue
-    else:
-        report_slots = slots
+        else:
+            report_slots.append(item)
 
     # Split each slot at day boundaries
-    split_slots = []
+    split_slots: List[ReportTimelineSlot] = []
     for slot in report_slots:
         split_slots.extend(slot.split_at_boundaries("day", day_start_hour))
 
     # Convert back to dicts if input was dicts
     if input_is_dict:
         return [s.to_dict() for s in split_slots]
-    else:
-        return split_slots
+    return split_slots
 
 
 def _render_slot_detail(
@@ -530,19 +542,17 @@ def print_timeline_report(
       (other metric parameters used for header display)
     """
 
-    # Convert dicts to ReportTimelineSlot objects if needed (for backward compatibility with tests)
+    # Normalise every input to ReportTimelineSlot. Dict slots that cannot be built are skipped.
     from tw_report.core.report_slot import ReportTimelineSlot
 
-    if slots and isinstance(slots[0], dict):
-        converted_slots = []
-        for slot_dict in slots:
-            try:
-                rs = ReportTimelineSlot.from_dict(slot_dict)
-                converted_slots.append(rs)
-            except Exception:
-                # Skip malformed slots
-                pass
-        slots = converted_slots
+    normalized: List[ReportTimelineSlot] = []
+    for slot_item in slots:
+        if isinstance(slot_item, dict):
+            # Skip malformed slots
+            with contextlib.suppress(Exception):
+                normalized.append(ReportTimelineSlot.from_dict(slot_item))
+        else:
+            normalized.append(slot_item)
 
     width = get_terminal_width()
     is_single_day = logical_date(start_time, day_start_hour) == logical_date(
@@ -552,7 +562,7 @@ def print_timeline_report(
     # Use actual_duration for merged slots, duration for others
     # Include all slots (offline, regular, afk, offline_task) in totals
     # OFFLINE gaps represent system-off time and should be counted
-    all_regular_slots = slots
+    all_regular_slots = normalized
     # Project-tracked time (excluding "No project assigned")
     tracked_slots = [s for s in all_regular_slots if s.project != NO_PROJECT]
 
@@ -618,7 +628,7 @@ def print_timeline_report(
         total_time_all=total_time_including_offline,
     )
 
-    if not slots:
+    if not normalized:
         print("No activity found for the specified period.")
 
     # CRITICAL: Print date/week header with duration column labels on same line
@@ -737,35 +747,35 @@ def print_timeline_report(
         return get_slot_logical_date(slot, day_start_hour)
 
     # Split slots spanning multiple days
-    slots = split_slots_spanning_days(slots, day_start_hour)
+    normalized = split_slots_spanning_days(normalized, day_start_hour)
 
     # Filter to only include slots within the requested date range
     # After splitting, we should only show portions that fall within [start_time, end_time)
-    slots = [
+    normalized = [
         s
-        for s in slots
+        for s in normalized
         if s.start < end_time and (s.start + (s.actual_duration or s.duration)) > start_time
     ]
 
     # Recalculate total_time_all after filtering to match the displayed slots
     # Include OFFLINE gaps in totals (they represent system-off time)
     total_time_all = sum(
-        (_get_displayed_duration(slot) for slot in slots),
+        (_get_displayed_duration(slot) for slot in normalized),
         timedelta(0),
     )
     total_productive_all = sum(
-        (slot.productive_duration for slot in slots),
+        (slot.productive_duration for slot in normalized),
         timedelta(0),
     )
 
     # Sort slots by start time
-    slots = sorted(slots, key=lambda s: s.start)
+    normalized = sorted(normalized, key=lambda s: s.start)
 
     # Filter out slots where display time range equals zero (confusing display like "11:19 - 11:19")
     # These occur when slot["duration"] represents wall-clock time but is zero
-    slots = [
+    normalized = [
         s
-        for s in slots
+        for s in normalized
         if s.duration > timedelta(milliseconds=100)  # > 100ms to handle rounding
     ]
 
@@ -776,13 +786,13 @@ def print_timeline_report(
     # ARCHITECTURAL NOTE: This filtering should ideally happen at slot generation time
     # (OfflineTaskProcessor.consumed_window_event_ids in offline.py), not in rendering.
     # Currently kept here as the proper generation-layer fix requires additional investigation.
-    offline_slots_by_task = {}
+    offline_slots_by_task: Dict[Tuple[Any, Any], List[ReportTimelineSlot]] = {}
 
     # Helper to check if slot has event_duration (field-driven offline_task detection)
     def is_offline_task_slot(s):
         return s.event_duration is not None
 
-    for slot in slots:
+    for slot in normalized:
         if is_offline_task_slot(slot):
             key = (slot.project, slot.task)
             if key not in offline_slots_by_task:
@@ -801,7 +811,7 @@ def print_timeline_report(
                 (offline_slot.start, offline_slot.start + offline_slot.duration)
             )
 
-    for slot in slots:
+    for slot in normalized:
         if is_offline_task_slot(slot):
             filtered_slots.append(slot)
         else:
@@ -839,7 +849,7 @@ def print_timeline_report(
             if not overlaps_offline:
                 filtered_slots.append(slot)
 
-    slots = filtered_slots
+    normalized = filtered_slots
 
     # ============================================================================
     # PERIOD-AWARE CONSOLIDATION
@@ -857,18 +867,18 @@ def print_timeline_report(
     # small discrepancies in OFFLINE time calculations (17 sec differences).
     # The slots arriving here are already deduplicated and consolidated.
     # Just convert dicts to objects if needed and sort
-    slots = sorted(slots, key=lambda s: s.start)
+    normalized = sorted(normalized, key=lambda s: s.start)
 
     # CRITICAL: Recalculate total_time_all after all filtering/deduplication
     # The previous calculation (line 555) included slots that are now filtered out.
     # This must happen AFTER zero-duration filtering and OFFLINE deduplication.
     # Include OFFLINE gaps in totals (they represent system-off time)
     total_time_all = sum(
-        (_get_displayed_duration(slot) for slot in slots),
+        (_get_displayed_duration(slot) for slot in normalized),
         timedelta(0),
     )
     total_productive_all = sum(
-        (slot.productive_duration for slot in slots),
+        (slot.productive_duration for slot in normalized),
         timedelta(0),
     )
 
@@ -877,7 +887,7 @@ def print_timeline_report(
     # This replaces the early placeholder calculation at line 707
 
     # AFK and OFFLINE totals (shared with the hierarchical report)
-    total_afk_time, total_offline_time = compute_afk_offline_totals(slots)
+    total_afk_time, total_offline_time = compute_afk_offline_totals(normalized)
 
     # ============================================================================
     # DAY/WEEK METRICS ACCUMULATION
@@ -972,7 +982,7 @@ def print_timeline_report(
 
     # Helper to check if slot has event_duration (field-driven offline_task detection)
     # Process each slot individually
-    for slot in slots:
+    for slot in normalized:
         slot_week = slot_week_key(slot)  # Now uses logical_date (fixed 2026-08-31)
         slot_date_val = slot_date(slot)
 
@@ -1206,7 +1216,7 @@ def print_timeline_report(
             weekly_displayed_active += slot_active
 
     # Print final totals
-    if slots:
+    if normalized:
         # Separator under the three duration columns using SAME dynamic padding as DisplayColumns
         # CRITICAL: Must account for PRODUCTIVITY column (14 chars) to match DisplayColumns
         # total_right_width (46)

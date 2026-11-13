@@ -69,7 +69,9 @@ def test_task_warrior_title_fallback_strips_leetcode_prefix():
 
 def test_task_warrior_title_fallback_truncates_long_titles():
     long_title = "x" * 80
-    event = TaskWarriorEvent(timestamp=T0, duration=timedelta(minutes=1), data={"title": long_title})
+    event = TaskWarriorEvent(
+        timestamp=T0, duration=timedelta(minutes=1), data={"title": long_title}
+    )
     assert event.task == "x" * 50
 
 
@@ -124,7 +126,9 @@ def test_task_has_offline_tag_for_typed_event():
 
 
 def test_search_term_is_prepended_to_project_and_task_patterns():
-    event_filter = EventFilter(project_patterns=["Climb"], task_patterns=["Task1"], search_term="web")
+    event_filter = EventFilter(
+        project_patterns=["Climb"], task_patterns=["Task1"], search_term="web"
+    )
     assert event_filter.project_patterns == ["web", "Climb"]
     assert event_filter.task_patterns == ["web", "Task1"]
 
@@ -202,15 +206,17 @@ def test_timeline_slot_to_dict_includes_every_optional_field():
 
 
 def test_timeline_slot_from_afk_dict_infers_afk_duration_from_actual():
-    slot = TimelineSlot.from_dict({
-        "type": "afk",
-        "start": T0,
-        "end": T0 + timedelta(minutes=30),
-        "duration": timedelta(minutes=30),
-        "actual_duration": timedelta(minutes=30),
-        "project": NO_PROJECT,
-        "task": NO_TASK,
-    })
+    slot = TimelineSlot.from_dict(
+        {
+            "type": "afk",
+            "start": T0,
+            "end": T0 + timedelta(minutes=30),
+            "duration": timedelta(minutes=30),
+            "actual_duration": timedelta(minutes=30),
+            "project": NO_PROJECT,
+            "task": NO_TASK,
+        }
+    )
     assert slot.afk_duration == timedelta(minutes=30)
 
 
@@ -251,10 +257,22 @@ def test_consolidate_sessions_accepts_report_slot_objects():
 
 def test_consolidate_sessions_uses_start_plus_duration_when_end_missing():
     slots = [
-        {"start": T0, "duration": timedelta(hours=1), "actual_duration": timedelta(hours=1),
-         "project": "P", "task": "T", "end": None},
-        {"start": T0 + timedelta(hours=1), "duration": timedelta(hours=1),
-         "actual_duration": timedelta(hours=1), "project": "P", "task": "T", "end": None},
+        {
+            "start": T0,
+            "duration": timedelta(hours=1),
+            "actual_duration": timedelta(hours=1),
+            "project": "P",
+            "task": "T",
+            "end": None,
+        },
+        {
+            "start": T0 + timedelta(hours=1),
+            "duration": timedelta(hours=1),
+            "actual_duration": timedelta(hours=1),
+            "project": "P",
+            "task": "T",
+            "end": None,
+        },
     ]
     merged = consolidate_sessions(slots)
     assert merged[0]["duration"] == timedelta(hours=2)
@@ -262,12 +280,24 @@ def test_consolidate_sessions_uses_start_plus_duration_when_end_missing():
 
 def test_consolidate_sessions_preserves_offline_extension_total():
     slots = [
-        {"start": T0, "end": T0 + timedelta(hours=1), "duration": timedelta(hours=1),
-         "actual_duration": timedelta(0), "project": "P", "task": "T",
-         "offline_extension_duration": timedelta(minutes=30)},
-        {"start": T0 + timedelta(hours=1), "end": T0 + timedelta(hours=2),
-         "duration": timedelta(hours=1), "actual_duration": timedelta(0), "project": "P",
-         "task": "T", "offline_extension_duration": timedelta(minutes=15)},
+        {
+            "start": T0,
+            "end": T0 + timedelta(hours=1),
+            "duration": timedelta(hours=1),
+            "actual_duration": timedelta(0),
+            "project": "P",
+            "task": "T",
+            "offline_extension_duration": timedelta(minutes=30),
+        },
+        {
+            "start": T0 + timedelta(hours=1),
+            "end": T0 + timedelta(hours=2),
+            "duration": timedelta(hours=1),
+            "actual_duration": timedelta(0),
+            "project": "P",
+            "task": "T",
+            "offline_extension_duration": timedelta(minutes=15),
+        },
     ]
     merged = consolidate_sessions(slots)
     assert merged[0]["offline_extension_duration"] == timedelta(minutes=45)
@@ -310,10 +340,19 @@ def TimeslotDuration_offline_only():
 
 
 def test_run_accumulator_ignores_unknown_tick_buckets():
-    acc = _RunAccumulator(("generic", "active"), None, T0, T0 + timedelta(minutes=1),
-                          "online", timedelta(minutes=1))
-    before = (acc.online_duration, acc.embedded_afk_duration, acc.offline_duration,
-              acc.generic_afk_duration)
+    acc = _RunAccumulator(
+        ("generic", "active"), None, T0, T0 + timedelta(minutes=1), "online", timedelta(minutes=1)
+    )
+    before = (
+        acc.online_duration,
+        acc.embedded_afk_duration,
+        acc.offline_duration,
+        acc.generic_afk_duration,
+    )
     acc._add_tick("not-a-bucket", timedelta(minutes=5))
-    assert (acc.online_duration, acc.embedded_afk_duration, acc.offline_duration,
-            acc.generic_afk_duration) == before
+    assert (
+        acc.online_duration,
+        acc.embedded_afk_duration,
+        acc.offline_duration,
+        acc.generic_afk_duration,
+    ) == before

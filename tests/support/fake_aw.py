@@ -36,8 +36,10 @@ class FakeActivityWatchClient:
         if limit is not None and limit >= 0:
             selected = selected[:limit]
         # Return copies so callers that re-wrap events cannot mutate the fixture.
-        return [Event(id=e.id, timestamp=e.timestamp, duration=e.duration, data=dict(e.data))
-                for e in selected]
+        return [
+            Event(id=e.id, timestamp=e.timestamp, duration=e.duration, data=dict(e.data))
+            for e in selected
+        ]
 
 
 def _overlaps(event: Event, start: Optional[datetime], end: Optional[datetime]) -> bool:

@@ -23,7 +23,9 @@ def at(hours: float) -> datetime:
     return T0 + timedelta(hours=hours)
 
 
-def slot(h0, h1, project="P", task="T", categories=None, with_task_event=True) -> ReportTimelineSlot:
+def slot(
+    h0, h1, project="P", task="T", categories=None, with_task_event=True
+) -> ReportTimelineSlot:
     d = timedelta(hours=h1 - h0)
     ts = TimelineSlot(
         type="regular",
@@ -105,14 +107,18 @@ def test_aggregate_empty_input_returns_requested_mode():
 
 
 def test_aggregate_title_and_category_totals_accumulate_per_project_task():
-    categories = [{
-        "category": "Coding",
-        "apps": [{
-            "app": "VSCode",
-            "duration": timedelta(hours=1),
-            "titles": [{"title": "tw-report.py", "duration": timedelta(hours=1)}],
-        }],
-    }]
+    categories = [
+        {
+            "category": "Coding",
+            "apps": [
+                {
+                    "app": "VSCode",
+                    "duration": timedelta(hours=1),
+                    "titles": [{"title": "tw-report.py", "duration": timedelta(hours=1)}],
+                }
+            ],
+        }
+    ]
     report, _ = aggregate_hierarchy_from_slots(
         consolidated_slots=[slot(0, 1, categories=categories)],
         task_based=True,
@@ -136,10 +142,10 @@ def test_compute_metrics_classifies_by_category_score_sign():
     distracting_cat = [{"category": "Social", "apps": []}]
     neutral_cat = [{"category": "Misc", "apps": []}]
     slots = [
-        slot(0, 1, categories=productive_cat),                          # score > 0, with task
-        slot(1, 2, categories=productive_cat, with_task_event=False),   # score > 0, no task
-        slot(2, 3, categories=distracting_cat),                         # score < 0
-        slot(3, 4, categories=neutral_cat),                             # score == 0
+        slot(0, 1, categories=productive_cat),  # score > 0, with task
+        slot(1, 2, categories=productive_cat, with_task_event=False),  # score > 0, no task
+        slot(2, 3, categories=distracting_cat),  # score < 0
+        slot(3, 4, categories=neutral_cat),  # score == 0
     ]
     metrics = _metrics(slots, {"Coding": 10.0, "Social": -5.0, "Misc": 0.0})
     assert metrics.productive_time == timedelta(hours=2)
@@ -181,29 +187,35 @@ def test_merge_afk_returns_short_inputs_unchanged():
 
 
 def test_merge_afk_joins_overlapping_same_status_periods():
-    merged = merge_overlapping_afk_periods([
-        _afk_event(0, 3600, "not-afk"),
-        _afk_event(1800, 3600, "not-afk"),
-    ])
+    merged = merge_overlapping_afk_periods(
+        [
+            _afk_event(0, 3600, "not-afk"),
+            _afk_event(1800, 3600, "not-afk"),
+        ]
+    )
     assert len(merged) == 1
     assert merged[0].duration == timedelta(seconds=5400)
 
 
 def test_merge_afk_joins_micro_gap_under_two_seconds():
-    merged = merge_overlapping_afk_periods([
-        _afk_event(0, 60, "not-afk"),
-        _afk_event(61, 60, "not-afk"),  # 1 second gap
-    ])
+    merged = merge_overlapping_afk_periods(
+        [
+            _afk_event(0, 60, "not-afk"),
+            _afk_event(61, 60, "not-afk"),  # 1 second gap
+        ]
+    )
     assert len(merged) == 1
     assert merged[0].duration == timedelta(seconds=121)
 
 
 def test_merge_afk_keeps_status_changes_and_real_gaps_separate():
-    merged = merge_overlapping_afk_periods([
-        _afk_event(0, 60, "not-afk"),
-        _afk_event(60, 60, "afk"),          # status change, no gap
-        _afk_event(300, 60, "not-afk"),     # same status as first but a real gap
-    ])
+    merged = merge_overlapping_afk_periods(
+        [
+            _afk_event(0, 60, "not-afk"),
+            _afk_event(60, 60, "afk"),  # status change, no gap
+            _afk_event(300, 60, "not-afk"),  # same status as first but a real gap
+        ]
+    )
     assert [e.data["status"] for e in merged] == ["not-afk", "afk", "not-afk"]
 
 

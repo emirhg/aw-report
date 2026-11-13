@@ -119,7 +119,10 @@ class TestReportTimelineSlotMerge:
             duration=timedelta(hours=1),
             actual_duration=timedelta(hours=1),
             productive_duration=timedelta(minutes=50),
-            project="P", task="T", categories=[], tags=["a"],
+            project="P",
+            task="T",
+            categories=[],
+            tags=["a"],
         )
         slot2 = TimelineSlot(
             type="regular",
@@ -128,7 +131,10 @@ class TestReportTimelineSlotMerge:
             duration=timedelta(hours=1),
             actual_duration=timedelta(hours=1),
             productive_duration=timedelta(minutes=45),
-            project="P", task="T", categories=[], tags=["b"],
+            project="P",
+            task="T",
+            categories=[],
+            tags=["b"],
         )
 
         merged = ReportTimelineSlot.from_timeline_slots([slot1, slot2])
@@ -150,7 +156,10 @@ class TestReportTimelineSlotMerge:
             duration=timedelta(hours=1),
             actual_duration=timedelta(hours=1),
             productive_duration=timedelta(0),
-            project="P", task="T", categories=[], tags=["a", "b", "c"],
+            project="P",
+            task="T",
+            categories=[],
+            tags=["a", "b", "c"],
         )
         slot2 = TimelineSlot(
             type="regular",
@@ -159,7 +168,10 @@ class TestReportTimelineSlotMerge:
             duration=timedelta(hours=1),
             actual_duration=timedelta(hours=1),
             productive_duration=timedelta(0),
-            project="P", task="T", categories=[], tags=["b", "d"],
+            project="P",
+            task="T",
+            categories=[],
+            tags=["b", "d"],
         )
 
         merged = ReportTimelineSlot.from_timeline_slots([slot1, slot2])
@@ -175,7 +187,10 @@ class TestReportTimelineSlotMerge:
             duration=timedelta(hours=1),
             actual_duration=timedelta(hours=1),
             productive_duration=timedelta(0),
-            project="ProjectA", task="T", categories=[], tags=[],
+            project="ProjectA",
+            task="T",
+            categories=[],
+            tags=[],
         )
         slot2 = TimelineSlot(
             type="regular",
@@ -184,7 +199,10 @@ class TestReportTimelineSlotMerge:
             duration=timedelta(minutes=30),
             actual_duration=timedelta(minutes=30),
             productive_duration=timedelta(0),
-            project="ProjectB", task="T", categories=[], tags=[],
+            project="ProjectB",
+            task="T",
+            categories=[],
+            tags=[],
         )
 
         with pytest.raises(TimelineSlotValidationError):
@@ -199,7 +217,10 @@ class TestReportTimelineSlotMerge:
             duration=timedelta(hours=1),
             actual_duration=timedelta(hours=1),
             productive_duration=timedelta(0),
-            project="ProjectA", task="T", categories=[], tags=[],
+            project="ProjectA",
+            task="T",
+            categories=[],
+            tags=[],
         )
         slot2 = TimelineSlot(
             type="afk",
@@ -209,12 +230,13 @@ class TestReportTimelineSlotMerge:
             actual_duration=timedelta(0),  # AFK has no active work
             afk_duration=timedelta(minutes=30),  # All idle time
             productive_duration=timedelta(0),
-            project="ProjectA", task="T", categories=[], tags=[],
+            project="ProjectA",
+            task="T",
+            categories=[],
+            tags=[],
         )
 
-        merged = ReportTimelineSlot.from_timeline_slots(
-            [slot1, slot2], allow_mixed_types=True
-        )
+        merged = ReportTimelineSlot.from_timeline_slots([slot1, slot2], allow_mixed_types=True)
         # Should merge field values: actual_duration and afk_duration should sum
         assert merged.actual_duration == timedelta(hours=1)  # 1h work time
         assert merged.afk_duration == timedelta(minutes=30)  # 30m idle time
@@ -231,7 +253,10 @@ class TestReportTimelineSlotMerge:
             duration=timedelta(hours=1),
             actual_duration=timedelta(minutes=30),
             productive_duration=timedelta(0),
-            project="P", task="T", categories=[], tags=[],
+            project="P",
+            task="T",
+            categories=[],
+            tags=[],
         )
         slot2 = TimelineSlot(
             type="offline_task",
@@ -241,7 +266,10 @@ class TestReportTimelineSlotMerge:
             actual_duration=timedelta(minutes=20),
             productive_duration=timedelta(0),
             event_duration=timedelta(minutes=20),
-            project="P", task="T", categories=[], tags=["offline"],
+            project="P",
+            task="T",
+            categories=[],
+            tags=["offline"],
         )
         slot3 = TimelineSlot(
             type="offline_task",
@@ -251,7 +279,10 @@ class TestReportTimelineSlotMerge:
             actual_duration=timedelta(minutes=15),
             productive_duration=timedelta(0),
             event_duration=timedelta(minutes=15),
-            project="P", task="T", categories=[], tags=["offline"],
+            project="P",
+            task="T",
+            categories=[],
+            tags=["offline"],
         )
 
         # Mix offline_task slots with a regular slot
@@ -271,7 +302,10 @@ class TestReportTimelineSlotMerge:
             duration=timedelta(minutes=15),
             actual_duration=timedelta(0),  # No online work activity
             productive_duration=timedelta(0),
-            project="P", task="T", categories=[], tags=[],
+            project="P",
+            task="T",
+            categories=[],
+            tags=[],
             afk_duration=timedelta(minutes=15),  # All idle time
         )
         slot2 = TimelineSlot(
@@ -281,7 +315,10 @@ class TestReportTimelineSlotMerge:
             duration=timedelta(minutes=5),
             actual_duration=timedelta(0),  # No online work activity
             productive_duration=timedelta(0),
-            project="P", task="T", categories=[], tags=[],
+            project="P",
+            task="T",
+            categories=[],
+            tags=[],
             afk_duration=timedelta(minutes=5),  # All idle time
         )
 
@@ -299,7 +336,8 @@ class TestReportTimelineSlotMerge:
             duration=timedelta(hours=1),
             actual_duration=timedelta(hours=1),
             productive_duration=timedelta(0),
-            project="P", task="T",
+            project="P",
+            task="T",
             categories=[
                 {
                     "category": "Dev",
@@ -332,7 +370,8 @@ class TestReportTimelineSlotMerge:
             duration=timedelta(hours=1),
             actual_duration=timedelta(hours=1),
             productive_duration=timedelta(0),
-            project="P", task="T",
+            project="P",
+            task="T",
             categories=[
                 {
                     "category": "Dev",
@@ -411,7 +450,9 @@ class TestReportTimelineSlotBucketing:
         # To span midnight local (00:00 local = 06:00 UTC with UTC-6 offset),
         # use a slot that crosses 06:00 UTC: 05:00 UTC to 07:00 UTC
         # This is 23:00 local 07-22 to 01:00 local 07-23
-        start_time = dt_start.replace(day=23, hour=5, minute=0, second=0, microsecond=0)  # 2026-07-23 05:00 UTC = 23:00 local 07-22
+        start_time = dt_start.replace(
+            day=23, hour=5, minute=0, second=0, microsecond=0
+        )  # 2026-07-23 05:00 UTC = 23:00 local 07-22
         end_time = start_time + timedelta(hours=2)  # 2026-07-23 07:00 UTC = 01:00 local 07-23
 
         slot = TimelineSlot(
@@ -421,7 +462,10 @@ class TestReportTimelineSlotBucketing:
             duration=timedelta(hours=2),
             actual_duration=timedelta(hours=2),
             productive_duration=timedelta(hours=1),
-            project="P", task="T", categories=[], tags=[],
+            project="P",
+            task="T",
+            categories=[],
+            tags=[],
         )
 
         report_slot = ReportTimelineSlot.from_timeline_slot(slot)
@@ -448,7 +492,10 @@ class TestReportTimelineSlotBucketing:
             duration=timedelta(0),
             actual_duration=timedelta(0),
             productive_duration=timedelta(0),
-            project="P", task="T", categories=[], tags=[],
+            project="P",
+            task="T",
+            categories=[],
+            tags=[],
         )
 
         # ReportTimelineSlot forbids zero-duration slots
@@ -598,7 +645,10 @@ class TestReportEntries:
             duration=timedelta(hours=1),
             actual_duration=timedelta(hours=1),
             productive_duration=timedelta(0),
-            project="P", task="T", categories=[], tags=["a"],
+            project="P",
+            task="T",
+            categories=[],
+            tags=["a"],
         )
         slot2 = TimelineSlot(
             type="regular",
@@ -607,7 +657,10 @@ class TestReportEntries:
             duration=timedelta(hours=1),
             actual_duration=timedelta(hours=1),
             productive_duration=timedelta(0),
-            project="P", task="T", categories=[], tags=["b"],
+            project="P",
+            task="T",
+            categories=[],
+            tags=["b"],
         )
 
         report_timeline = ReportEntries(
@@ -633,7 +686,10 @@ class TestReportEntries:
             duration=timedelta(hours=1),
             actual_duration=timedelta(hours=1),
             productive_duration=timedelta(0),
-            project="P", task="T", categories=[], tags=[],
+            project="P",
+            task="T",
+            categories=[],
+            tags=[],
         )
         gap_slot = TimelineSlot(
             type="offline",
@@ -642,7 +698,10 @@ class TestReportEntries:
             duration=timedelta(hours=1),
             actual_duration=timedelta(0),
             productive_duration=timedelta(0),
-            project="", task="", categories=[], tags=[],
+            project="",
+            task="",
+            categories=[],
+            tags=[],
         )
         slot2 = TimelineSlot(
             type="regular",
@@ -651,7 +710,10 @@ class TestReportEntries:
             duration=timedelta(hours=1),
             actual_duration=timedelta(hours=1),
             productive_duration=timedelta(0),
-            project="P", task="T", categories=[], tags=[],
+            project="P",
+            task="T",
+            categories=[],
+            tags=[],
         )
 
         report_timeline = ReportEntries(
@@ -683,15 +745,15 @@ class TestReportEntries:
             duration=timedelta(hours=2),
             actual_duration=timedelta(hours=2),
             productive_duration=timedelta(0),
-            project="P", task="T", categories=[], tags=[],
+            project="P",
+            task="T",
+            categories=[],
+            tags=[],
         )
 
-        report_timeline = ReportEntries(
-            slots_list=[ReportTimelineSlot.from_timeline_slot(slot)]
-        )
+        report_timeline = ReportEntries(slots_list=[ReportTimelineSlot.from_timeline_slot(slot)])
 
         bucketed = report_timeline.bucket("day")
         # Single-day slot stays in one bucket
         assert len(bucketed.slots()) == 1
         assert bucketed.slots()[0].bucket_start_date == date(2026, 7, 23)
-

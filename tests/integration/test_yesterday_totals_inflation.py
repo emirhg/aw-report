@@ -4,6 +4,7 @@ Integration test to reproduce the :yesterday 40-minute totals inflation.
 This test captures the real data flow and identifies where the inflation occurs
 during metrics accumulation and day/period total calculation.
 """
+
 import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch, MagicMock
@@ -37,12 +38,12 @@ class TestYesterdayTotalsInflation:
             Event(
                 timestamp=yesterday.replace(hour=9, minute=0),
                 duration=timedelta(hours=3, minutes=30),
-                data={"status": "not-afk"}
+                data={"status": "not-afk"},
             ),
             Event(
                 timestamp=yesterday.replace(hour=14, minute=0),
                 duration=timedelta(hours=9),
-                data={"status": "not-afk"}
+                data={"status": "not-afk"},
             ),
         ]
 
@@ -54,17 +55,52 @@ class TestYesterdayTotalsInflation:
         # These are individual window activity events that might overlap
         window_events = [
             # First not-afk period: 9:00-12:30
-            Event(timestamp=yesterday.replace(hour=9, minute=0), duration=timedelta(minutes=45), data={"app": "VSCode", "title": "code.py", "$category": ["Programming"]}),
-            Event(timestamp=yesterday.replace(hour=9, minute=45), duration=timedelta(minutes=30), data={"app": "Browser", "title": "GitHub", "$category": ["Work"]}),
-            Event(timestamp=yesterday.replace(hour=10, minute=15), duration=timedelta(minutes=60), data={"app": "VSCode", "title": "code.py", "$category": ["Programming"]}),
-            Event(timestamp=yesterday.replace(hour=11, minute=15), duration=timedelta(minutes=75), data={"app": "Terminal", "title": "bash", "$category": ["Programming"]}),
-
+            Event(
+                timestamp=yesterday.replace(hour=9, minute=0),
+                duration=timedelta(minutes=45),
+                data={"app": "VSCode", "title": "code.py", "$category": ["Programming"]},
+            ),
+            Event(
+                timestamp=yesterday.replace(hour=9, minute=45),
+                duration=timedelta(minutes=30),
+                data={"app": "Browser", "title": "GitHub", "$category": ["Work"]},
+            ),
+            Event(
+                timestamp=yesterday.replace(hour=10, minute=15),
+                duration=timedelta(minutes=60),
+                data={"app": "VSCode", "title": "code.py", "$category": ["Programming"]},
+            ),
+            Event(
+                timestamp=yesterday.replace(hour=11, minute=15),
+                duration=timedelta(minutes=75),
+                data={"app": "Terminal", "title": "bash", "$category": ["Programming"]},
+            ),
             # Second not-afk period: 14:00-23:00
-            Event(timestamp=yesterday.replace(hour=14, minute=0), duration=timedelta(minutes=120), data={"app": "Slack", "title": "messages", "$category": ["Communication"]}),
-            Event(timestamp=yesterday.replace(hour=16, minute=0), duration=timedelta(minutes=90), data={"app": "VSCode", "title": "code.py", "$category": ["Programming"]}),
-            Event(timestamp=yesterday.replace(hour=17, minute=30), duration=timedelta(minutes=45), data={"app": "Browser", "title": "docs", "$category": ["Research"]}),
-            Event(timestamp=yesterday.replace(hour=18, minute=15), duration=timedelta(minutes=120), data={"app": "VSCode", "title": "code.py", "$category": ["Programming"]}),
-            Event(timestamp=yesterday.replace(hour=20, minute=15), duration=timedelta(minutes=165), data={"app": "Meetings", "title": "zoom call", "$category": ["Communication"]}),
+            Event(
+                timestamp=yesterday.replace(hour=14, minute=0),
+                duration=timedelta(minutes=120),
+                data={"app": "Slack", "title": "messages", "$category": ["Communication"]},
+            ),
+            Event(
+                timestamp=yesterday.replace(hour=16, minute=0),
+                duration=timedelta(minutes=90),
+                data={"app": "VSCode", "title": "code.py", "$category": ["Programming"]},
+            ),
+            Event(
+                timestamp=yesterday.replace(hour=17, minute=30),
+                duration=timedelta(minutes=45),
+                data={"app": "Browser", "title": "docs", "$category": ["Research"]},
+            ),
+            Event(
+                timestamp=yesterday.replace(hour=18, minute=15),
+                duration=timedelta(minutes=120),
+                data={"app": "VSCode", "title": "code.py", "$category": ["Programming"]},
+            ),
+            Event(
+                timestamp=yesterday.replace(hour=20, minute=15),
+                duration=timedelta(minutes=165),
+                data={"app": "Meetings", "title": "zoom call", "$category": ["Communication"]},
+            ),
         ]
 
         window_sum = sum((e.duration for e in window_events), timedelta(0))
@@ -72,9 +108,36 @@ class TestYesterdayTotalsInflation:
 
         # Task events (TaskWarrior tracking)
         task_events = [
-            Event(timestamp=yesterday.replace(hour=9, minute=0), duration=timedelta(hours=4), data={"project": "MyProject", "description": "Feature A", "uuid": "task-1", "tags": []}),
-            Event(timestamp=yesterday.replace(hour=13, minute=0), duration=timedelta(hours=1, minutes=30), data={"project": "MyProject", "description": "Code Review", "uuid": "task-2", "tags": []}),
-            Event(timestamp=yesterday.replace(hour=14, minute=30), duration=timedelta(hours=8), data={"project": "MyProject", "description": "Feature B", "uuid": "task-3", "tags": ["offline"]}),
+            Event(
+                timestamp=yesterday.replace(hour=9, minute=0),
+                duration=timedelta(hours=4),
+                data={
+                    "project": "MyProject",
+                    "description": "Feature A",
+                    "uuid": "task-1",
+                    "tags": [],
+                },
+            ),
+            Event(
+                timestamp=yesterday.replace(hour=13, minute=0),
+                duration=timedelta(hours=1, minutes=30),
+                data={
+                    "project": "MyProject",
+                    "description": "Code Review",
+                    "uuid": "task-2",
+                    "tags": [],
+                },
+            ),
+            Event(
+                timestamp=yesterday.replace(hour=14, minute=30),
+                duration=timedelta(hours=8),
+                data={
+                    "project": "MyProject",
+                    "description": "Feature B",
+                    "uuid": "task-3",
+                    "tags": ["offline"],
+                },
+            ),
         ]
 
         return {
@@ -95,23 +158,32 @@ class TestYesterdayTotalsInflation:
         data = self.create_mock_aw_client_yesterday()
 
         # Convert to typed event objects for builder
-        afk_events = [AFKEvent(
-            timestamp=e.timestamp,
-            duration=e.duration,
-            data=e.data,
-        ) for e in data["not_afk_events"]]
+        afk_events = [
+            AFKEvent(
+                timestamp=e.timestamp,
+                duration=e.duration,
+                data=e.data,
+            )
+            for e in data["not_afk_events"]
+        ]
 
-        window_events = [WindowEvent(
-            timestamp=e.timestamp,
-            duration=e.duration,
-            data=e.data,
-        ) for e in data["window_events"]]
+        window_events = [
+            WindowEvent(
+                timestamp=e.timestamp,
+                duration=e.duration,
+                data=e.data,
+            )
+            for e in data["window_events"]
+        ]
 
-        task_events = [TaskWarriorEvent(
-            timestamp=e.timestamp,
-            duration=e.duration,
-            data=e.data,
-        ) for e in data["task_events"]]
+        task_events = [
+            TaskWarriorEvent(
+                timestamp=e.timestamp,
+                duration=e.duration,
+                data=e.data,
+            )
+            for e in data["task_events"]
+        ]
 
         # Use new builder API (Phase 2 refactor)
         slots = build_timeslot_timeline(
@@ -123,7 +195,9 @@ class TestYesterdayTotalsInflation:
         print(f"\nGenerated {len(slots)} slots from builder")
 
         # Sum actual_duration across all slots (represents active work time)
-        total_active_duration = sum((s.actual_duration or timedelta(0) for s in slots), timedelta(0))
+        total_active_duration = sum(
+            (s.actual_duration or timedelta(0) for s in slots), timedelta(0)
+        )
         print(f"Total active_duration from slots: {total_active_duration}")
         print(f"Window events sum (reference): {data['window_sum']}")
 
@@ -132,11 +206,11 @@ class TestYesterdayTotalsInflation:
         # Total should not exceed the span of input events
         max_time = max(
             (e.timestamp + e.duration for e in data["window_events"] + data["task_events"]),
-            default=datetime.now(timezone.utc)
+            default=datetime.now(timezone.utc),
         )
         min_time = min(
             (e.timestamp for e in data["window_events"] + data["task_events"]),
-            default=datetime.now(timezone.utc)
+            default=datetime.now(timezone.utc),
         )
         span = max_time - min_time
 
@@ -145,8 +219,9 @@ class TestYesterdayTotalsInflation:
         print(f"Total slot span: {total_slot_span}")
 
         # Verify no inflation: total slot span should not exceed input span
-        assert total_slot_span <= span + timedelta(seconds=1), \
+        assert total_slot_span <= span + timedelta(seconds=1), (
             f"Inflation detected: slots_span={total_slot_span} exceeds input_span={span}"
+        )
 
     def test_builder_correctness_trace(self):
         """
@@ -167,23 +242,32 @@ class TestYesterdayTotalsInflation:
         print(f"  Unaccounted (gap): {not_afk_sum - window_sum}")
 
         # Step 2: Create slots using new builder
-        afk_events = [AFKEvent(
-            timestamp=e.timestamp,
-            duration=e.duration,
-            data=e.data,
-        ) for e in data["not_afk_events"]]
+        afk_events = [
+            AFKEvent(
+                timestamp=e.timestamp,
+                duration=e.duration,
+                data=e.data,
+            )
+            for e in data["not_afk_events"]
+        ]
 
-        window_events = [WindowEvent(
-            timestamp=e.timestamp,
-            duration=e.duration,
-            data=e.data,
-        ) for e in data["window_events"]]
+        window_events = [
+            WindowEvent(
+                timestamp=e.timestamp,
+                duration=e.duration,
+                data=e.data,
+            )
+            for e in data["window_events"]
+        ]
 
-        task_events = [TaskWarriorEvent(
-            timestamp=e.timestamp,
-            duration=e.duration,
-            data=e.data,
-        ) for e in data["task_events"]]
+        task_events = [
+            TaskWarriorEvent(
+                timestamp=e.timestamp,
+                duration=e.duration,
+                data=e.data,
+            )
+            for e in data["task_events"]
+        ]
 
         slots = build_timeslot_timeline(
             afk_events=afk_events,
@@ -216,12 +300,15 @@ class TestYesterdayTotalsInflation:
                 next_slot = sorted_slots[i + 1]
                 if slot.end > next_slot.start:
                     print(f"    WARNING: Overlaps with next slot!")
-                    assert False, f"Slots overlap: {i} ends at {slot.end}, {i+1} starts at {next_slot.start}"
+                    assert False, (
+                        f"Slots overlap: {i} ends at {slot.end}, {i + 1} starts at {next_slot.start}"
+                    )
 
         # Builder guarantees non-overlapping slots at construction time
         print(f"\nStep 4: Invariant verification")
         print(f"  All slots non-overlapping: PASS")
         print(f"  Total wall-clock accounted: {slots_wall_clock_sum}")
+
 
 if __name__ == "__main__":
     # Run with pytest -xvs tests/integration/test_yesterday_totals_inflation.py

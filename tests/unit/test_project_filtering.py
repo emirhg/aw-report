@@ -74,9 +74,7 @@ class TestGetEventsByProject:
         start, end = time_range
         mock_client.get_events.return_value = sample_events
 
-        result = get_events_by_project(
-            mock_client, "aw-watcher-taskwarrior_host", start, end
-        )
+        result = get_events_by_project(mock_client, "aw-watcher-taskwarrior_host", start, end)
 
         assert len(result) == 3
         assert result == sample_events
@@ -93,9 +91,7 @@ class TestGetEventsByProject:
         assert len(result) == 2
         assert all("Climb" in e.data.get("project", "") for e in result)
 
-    def test_get_events_by_project_case_insensitive(
-        self, mock_client, time_range, sample_events
-    ):
+    def test_get_events_by_project_case_insensitive(self, mock_client, time_range, sample_events):
         """Test that project filtering is case-insensitive."""
         start, end = time_range
         mock_client.get_events.return_value = sample_events
@@ -106,9 +102,7 @@ class TestGetEventsByProject:
 
         assert len(result) == 2
 
-    def test_get_events_by_project_no_matches(
-        self, mock_client, time_range, sample_events
-    ):
+    def test_get_events_by_project_no_matches(self, mock_client, time_range, sample_events):
         """Test filtering with no matching projects."""
         start, end = time_range
         mock_client.get_events.return_value = sample_events
@@ -182,9 +176,7 @@ class TestGetEventsByProjects:
         start, end = time_range
         mock_client.get_events.return_value = sample_events
 
-        result = get_events_by_projects(
-            mock_client, "aw-watcher-taskwarrior_host", start, end
-        )
+        result = get_events_by_projects(mock_client, "aw-watcher-taskwarrior_host", start, end)
 
         assert len(result) == 3
         assert result == sample_events
@@ -201,14 +193,15 @@ class TestGetEventsByProjects:
         assert len(result) == 2
         assert all("Climb" in e.data.get("project", "") for e in result)
 
-    def test_get_events_by_projects_multiple_patterns_or_match(self, mock_client, time_range, sample_events):
+    def test_get_events_by_projects_multiple_patterns_or_match(
+        self, mock_client, time_range, sample_events
+    ):
         """Test filtering by multiple project patterns (OR match)."""
         start, end = time_range
         mock_client.get_events.return_value = sample_events
 
         result = get_events_by_projects(
-            mock_client, "aw-watcher-taskwarrior_host", start, end,
-            projects=["Climb", "Mercado"]
+            mock_client, "aw-watcher-taskwarrior_host", start, end, projects=["Climb", "Mercado"]
         )
 
         assert len(result) == 3  # All events match one of the patterns
@@ -219,8 +212,7 @@ class TestGetEventsByProjects:
         mock_client.get_events.return_value = sample_events
 
         result = get_events_by_projects(
-            mock_client, "aw-watcher-taskwarrior_host", start, end,
-            projects=["climb"]
+            mock_client, "aw-watcher-taskwarrior_host", start, end, projects=["climb"]
         )
 
         assert len(result) == 2
@@ -231,8 +223,7 @@ class TestGetEventsByProjects:
         mock_client.get_events.return_value = sample_events
 
         result = get_events_by_projects(
-            mock_client, "aw-watcher-taskwarrior_host", start, end,
-            projects=["NonExistent"]
+            mock_client, "aw-watcher-taskwarrior_host", start, end, projects=["NonExistent"]
         )
 
         assert result == []
@@ -243,8 +234,7 @@ class TestGetEventsByProjects:
         mock_client.get_events.return_value = []
 
         result = get_events_by_projects(
-            mock_client, "aw-watcher-taskwarrior_host", start, end,
-            projects=["Climb", "Mercado"]
+            mock_client, "aw-watcher-taskwarrior_host", start, end, projects=["Climb", "Mercado"]
         )
 
         assert result == []
@@ -259,9 +249,7 @@ class TestIsUuidLike:
 
     def test_valid_uuid_case_insensitive(self):
         """Should recognize UUID regardless of case."""
-        assert (
-            _is_uuid_like("550E8400-E29B-41D4-A716-446655440000") is True
-        )
+        assert _is_uuid_like("550E8400-E29B-41D4-A716-446655440000") is True
 
     def test_invalid_uuid_wrong_format(self):
         """Should reject strings with wrong UUID format."""
@@ -273,9 +261,7 @@ class TestIsUuidLike:
 
     def test_invalid_uuid_extra_chars(self):
         """Should reject UUID with extra characters."""
-        assert (
-            _is_uuid_like("550e8400-e29b-41d4-a716-446655440000-extra") is False
-        )
+        assert _is_uuid_like("550e8400-e29b-41d4-a716-446655440000-extra") is False
 
     def test_numeric_string(self):
         """Should reject plain numeric strings as UUIDs."""
@@ -302,9 +288,7 @@ class TestResolveProjectFilterValue:
 
     def test_resolve_uuid_to_project(self):
         """Should resolve UUID to project name."""
-        task_json = [
-            {"uuid": "550e8400-e29b-41d4-a716-446655440000", "project": "Work > Dev"}
-        ]
+        task_json = [{"uuid": "550e8400-e29b-41d4-a716-446655440000", "project": "Work > Dev"}]
 
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = Mock(
@@ -312,9 +296,7 @@ class TestResolveProjectFilterValue:
                 returncode=0,
             )
 
-            resolved, error = resolve_project_filter_value(
-                "550e8400-e29b-41d4-a716-446655440000"
-            )
+            resolved, error = resolve_project_filter_value("550e8400-e29b-41d4-a716-446655440000")
 
             assert error is None
             assert resolved == "Work > Dev"

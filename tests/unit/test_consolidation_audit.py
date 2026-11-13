@@ -11,7 +11,7 @@ import sys
 import os
 
 # Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../src"))
 
 from tw_report.pipeline.consolidation import consolidate_sessions
 
@@ -301,13 +301,14 @@ class TestRenderingLayerAudit:
         """Verify rendering code can be imported for analysis."""
         try:
             from tw_report.pipeline import timeline_render
+
             print("\n✓ timeline_render module imports successfully")
 
             # Check for key functions
             functions = [
-                'print_timeline_report',
-                'split_slots_spanning_days',
-                'filter_short_slots',
+                "print_timeline_report",
+                "split_slots_spanning_days",
+                "filter_short_slots",
             ]
             for func_name in functions:
                 if hasattr(timeline_render, func_name):
@@ -323,7 +324,10 @@ class TestRenderingLayerAudit:
         # Placeholder: minimal test to ensure function exists and doesn't crash
         try:
             from tw_report.pipeline.timeline_render import split_slots_spanning_days
-            assert callable(split_slots_spanning_days), "split_slots_spanning_days should be callable"
+
+            assert callable(split_slots_spanning_days), (
+                "split_slots_spanning_days should be callable"
+            )
         except ImportError:
             pytest.skip("timeline_render not available")
 
@@ -332,6 +336,7 @@ class TestRenderingLayerAudit:
         # Grouping functions should work without requiring full pipeline context
         # Placeholder: verify print_timeline_report exists and is callable
         from tw_report.pipeline.timeline_render import print_timeline_report
+
         assert callable(print_timeline_report), "print_timeline_report should be callable"
 
 

@@ -37,12 +37,9 @@ class TestOnlineTimeCalculation:
         ]
 
         expected_online = timedelta(hours=2)
-        actual_online = sum(
-            (event.duration for event in afk_events), timedelta(0)
-        )
+        actual_online = sum((event.duration for event in afk_events), timedelta(0))
 
-        assert actual_online == expected_online, \
-            "Online time should be 2 hours (all active)"
+        assert actual_online == expected_online, "Online time should be 2 hours (all active)"
 
     def test_online_time_with_afk_break(self, base_time):
         """Online Time includes both active and AFK periods."""
@@ -67,12 +64,9 @@ class TestOnlineTimeCalculation:
 
         # Online Time should be sum of all (1:00 + 0:30 + 1:00 = 2:30)
         expected_online = timedelta(hours=2, minutes=30)
-        actual_online = sum(
-            (event.duration for event in afk_events), timedelta(0)
-        )
+        actual_online = sum((event.duration for event in afk_events), timedelta(0))
 
-        assert actual_online == expected_online, \
-            "Online time should be 2:30 (all periods combined)"
+        assert actual_online == expected_online, "Online time should be 2:30 (all periods combined)"
 
     def test_active_time_excludes_afk(self, base_time):
         """Active Time only counts 'not-afk' periods."""
@@ -97,12 +91,9 @@ class TestOnlineTimeCalculation:
         # Active Time should only be not-afk (1:00 + 1:00 = 2:00)
         active_events = [e for e in afk_events if e.data.get("status") == "not-afk"]
         expected_active = timedelta(hours=2)
-        actual_active = sum(
-            (event.duration for event in active_events), timedelta(0)
-        )
+        actual_active = sum((event.duration for event in active_events), timedelta(0))
 
-        assert actual_active == expected_active, \
-            "Active time should be 2:00 (not-afk only)"
+        assert actual_active == expected_active, "Active time should be 2:00 (not-afk only)"
 
     def test_afk_time_calculation(self, base_time):
         """AFK Time only counts 'afk' periods."""
@@ -132,12 +123,9 @@ class TestOnlineTimeCalculation:
         # AFK Time should be sum of afk (0:30 + 0:20 = 0:50)
         afk_only = [e for e in afk_events if e.data.get("status") == "afk"]
         expected_afk = timedelta(minutes=50)
-        actual_afk = sum(
-            (event.duration for event in afk_only), timedelta(0)
-        )
+        actual_afk = sum((event.duration for event in afk_only), timedelta(0))
 
-        assert actual_afk == expected_afk, \
-            "AFK time should be 0:50 (afk only)"
+        assert actual_afk == expected_afk, "AFK time should be 0:50 (afk only)"
 
 
 class TestOfflineTimeCalculation:
@@ -155,8 +143,9 @@ class TestOfflineTimeCalculation:
 
         expected_offline = timedelta(minutes=30)
 
-        assert offline_duration == expected_offline, \
+        assert offline_duration == expected_offline, (
             "Offline time should be 0:30 (wall-clock - online)"
+        )
 
     def test_no_offline_if_all_recorded(self):
         """No offline time if system was recording entire duration."""
@@ -166,8 +155,7 @@ class TestOfflineTimeCalculation:
 
         expected_offline = timedelta(0)
 
-        assert offline_duration == expected_offline, \
-            "Offline time should be 0 if fully recorded"
+        assert offline_duration == expected_offline, "Offline time should be 0 if fully recorded"
 
     def test_offline_with_window_activity(self):
         """Offline time is system-off gap, not window activity during offline."""
@@ -187,12 +175,13 @@ class TestOfflineTimeCalculation:
         # Wrong calculation (what the bug does)
         wrong_offline = window_activity_during_offline_period
 
-        assert correct_offline == timedelta(minutes=30), \
-            "Correct offline time = 0:30"
-        assert wrong_offline == timedelta(hours=1, minutes=20), \
+        assert correct_offline == timedelta(minutes=30), "Correct offline time = 0:30"
+        assert wrong_offline == timedelta(hours=1, minutes=20), (
             "Wrong offline time = 1:20 (if using offline_extension_duration)"
-        assert correct_offline != wrong_offline, \
+        )
+        assert correct_offline != wrong_offline, (
             "BUG: Consolidated report uses wrong field for offline time"
+        )
 
 
 class TestDayWeekAccumulation:
@@ -238,8 +227,9 @@ class TestDayWeekAccumulation:
         assert total_online == timedelta(hours=2, minutes=30)
         assert total_afk == timedelta(minutes=30)
         assert total_active == timedelta(hours=2)
-        assert total_online == total_active + total_afk, \
+        assert total_online == total_active + total_afk, (
             "Online should equal Active + AFK (no double-counting)"
+        )
 
 
 class TestProjectTrackingCalculation:
@@ -257,10 +247,9 @@ class TestProjectTrackingCalculation:
         tracked_time = timedelta(hours=5)
 
         # Expected: 5 / 8 = 62.5%
-        pct = (tracked_time.total_seconds() / total_time.total_seconds() * 100)
+        pct = tracked_time.total_seconds() / total_time.total_seconds() * 100
 
-        assert abs(pct - 62.5) < 0.01, \
-            f"Project tracking should be 62.5%, got {pct}%"
+        assert abs(pct - 62.5) < 0.01, f"Project tracking should be 62.5%, got {pct}%"
 
     def test_tracking_denominator_without_afk_time(self):
         """BUG TEST: Fallback calculation missing AFK time."""
@@ -275,18 +264,21 @@ class TestProjectTrackingCalculation:
 
         # Correct calculation
         correct_denom = non_afk_time + afk_time + offline_time  # 8 hours
-        correct_pct = (tracked_time.total_seconds() / correct_denom.total_seconds() * 100)
+        correct_pct = tracked_time.total_seconds() / correct_denom.total_seconds() * 100
 
         # Buggy fallback calculation
         buggy_denom = non_afk_time + offline_time  # 7 hours (missing afk_time)
-        buggy_pct = (tracked_time.total_seconds() / buggy_denom.total_seconds() * 100)
+        buggy_pct = tracked_time.total_seconds() / buggy_denom.total_seconds() * 100
 
-        assert correct_pct == pytest.approx(62.5, abs=0.01), \
+        assert correct_pct == pytest.approx(62.5, abs=0.01), (
             f"Correct should be 62.5%, got {correct_pct}%"
-        assert buggy_pct == pytest.approx(71.43, abs=0.01), \
+        )
+        assert buggy_pct == pytest.approx(71.43, abs=0.01), (
             f"Buggy should be 71.43%, got {buggy_pct}%"
-        assert correct_pct != buggy_pct, \
+        )
+        assert correct_pct != buggy_pct, (
             "BUG: Project tracking % differs when AFK time not included in denominator"
+        )
 
 
 class TestAFKOptimizationMode:
@@ -305,12 +297,9 @@ class TestAFKOptimizationMode:
         canonical_events = []
 
         # Check for category data
-        has_category_data = any(
-            rep.event.data.get("$category") for rep in canonical_events
-        )
+        has_category_data = any(rep.event.data.get("$category") for rep in canonical_events)
 
-        assert not has_category_data, \
-            "No window events = no category data"
+        assert not has_category_data, "No window events = no category data"
 
         # In this mode, productive/unscored/distracting all become 0
         # BUG: User can't distinguish "untracked" from "unproductive"
@@ -318,6 +307,7 @@ class TestAFKOptimizationMode:
 
     def test_metrics_with_category_data(self):
         """Metrics should be calculated when category data is available."""
+
         # Mock scenario: with window events
         class MockEvent:
             def __init__(self, duration, category=None):
@@ -334,12 +324,9 @@ class TestAFKOptimizationMode:
             MockReportEvent(timedelta(minutes=30), "Social"),
         ]
 
-        has_category_data = any(
-            rep.event.data.get("$category") for rep in canonical_events
-        )
+        has_category_data = any(rep.event.data.get("$category") for rep in canonical_events)
 
-        assert has_category_data, \
-            "Should have category data from window events"
+        assert has_category_data, "Should have category data from window events"
 
 
 class TestNonAFKTimeNaming:
@@ -369,8 +356,7 @@ class TestNonAFKTimeNaming:
             timedelta(0),
         )
 
-        assert non_afk_time == timedelta(hours=1), \
-            "non_afk_time should be 1:00 (Active Time)"
+        assert non_afk_time == timedelta(hours=1), "non_afk_time should be 1:00 (Active Time)"
 
         # BUG: parameter name "non_afk_time" suggests it's "Online Time"
         # Should be renamed to "active_time" for clarity
@@ -419,8 +405,9 @@ class TestMetricsConsistency:
             timedelta(0),
         )
 
-        assert afk_from_bucket == afk_from_consolidated == timedelta(minutes=50), \
+        assert afk_from_bucket == afk_from_consolidated == timedelta(minutes=50), (
             "AFK time should be consistent between bucket and slot representations"
+        )
 
     def test_online_time_consistency(self):
         """Online time should be consistent: Active + AFK = Online."""
@@ -431,8 +418,7 @@ class TestMetricsConsistency:
 
         expected_online = timedelta(hours=7)
 
-        assert online_time == expected_online, \
-            "Online = Active + AFK (fundamental relationship)"
+        assert online_time == expected_online, "Online = Active + AFK (fundamental relationship)"
 
 
 class TestTotalTimeRelationships:
@@ -445,8 +431,7 @@ class TestTotalTimeRelationships:
 
         total_time = online_time + offline_time
 
-        assert total_time == timedelta(hours=9), \
-            "Total = Online + Offline"
+        assert total_time == timedelta(hours=9), "Total = Online + Offline"
 
     def test_online_time_breakdown(self):
         """Online Time = Active Time + AFK Time."""
@@ -455,16 +440,14 @@ class TestTotalTimeRelationships:
 
         online_time = active_time + afk_time
 
-        assert online_time == timedelta(hours=8), \
-            "Online = Active + AFK"
+        assert online_time == timedelta(hours=8), "Online = Active + AFK"
 
     def test_productive_within_online(self):
         """Productive Time must be <= Online Time."""
         online_time = timedelta(hours=8)
         productive_time = timedelta(hours=3)
 
-        assert productive_time <= online_time, \
-            "Productive time can't exceed online time"
+        assert productive_time <= online_time, "Productive time can't exceed online time"
 
     def test_untracked_within_productive(self):
         """Untracked = Productive + Distracting + Unscored."""
@@ -474,8 +457,9 @@ class TestTotalTimeRelationships:
 
         untracked = productive_time + distracting_time + unscored_time
 
-        assert untracked == timedelta(hours=3, minutes=30), \
+        assert untracked == timedelta(hours=3, minutes=30), (
             "Untracked categories must sum correctly"
+        )
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ import sys
 import os
 from datetime import datetime, timedelta, timezone
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../src"))
 
 from tw_report.pipeline.timeline_render import (
     split_slots_spanning_days,
@@ -61,9 +61,7 @@ class TestRenderingFunctionAudit:
         print(f"\nOUTPUT after split_slots_spanning_days:")
         print(f"  Count: {len(result)}")
         for i, slot in enumerate(result):
-            print(
-                f"    Slot {i}: {slot['start']} to {slot['end']} ({slot['duration']})"
-            )
+            print(f"    Slot {i}: {slot['start']} to {slot['end']} ({slot['duration']})")
 
         # HYPOTHESIS: If result has >1 slot, the function re-split the consolidated slot
         assert len(result) == 1, (

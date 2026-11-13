@@ -5,7 +5,7 @@ import sys
 import os
 from datetime import datetime, timedelta, timezone
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../src"))
 
 from tw_report.pipeline.consolidation import _merge_group
 
@@ -56,10 +56,10 @@ class TestMergeGroupEdgeCases:
         print(f"  Merged: {result['start']} to {result['end']}")
         print(f"  Duration: {result['duration']}")
 
-        assert result['start'] == slot1_start
-        assert result['end'] == slot2_end
+        assert result["start"] == slot1_start
+        assert result["end"] == slot2_end
         expected_duration = slot2_end - slot1_start
-        assert result['duration'] == expected_duration
+        assert result["duration"] == expected_duration
 
     def test_merge_group_with_null_end(self):
         """Test behavior when end field is None (edge case)."""
@@ -88,8 +88,8 @@ class TestMergeGroupEdgeCases:
             result = _merge_group([slot1, slot2])
             print(f"  Merged result: {result['start']} to {result['end']}")
             print(f"  Duration: {result['duration']}")
-            assert result['end'] == slot2_end
-            assert result['end'] is not None
+            assert result["end"] == slot2_end
+            assert result["end"] is not None
         except Exception as e:
             print(f"  ERROR: {type(e).__name__}: {e}")
             raise
@@ -115,8 +115,8 @@ class TestMergeGroupEdgeCases:
         print(f"  Merged start tz: {result['start'].tzinfo}")
         print(f"  Merged end tz: {result['end'].tzinfo}")
 
-        assert result['start'].tzinfo == tz_minus6
-        assert result['end'].tzinfo == tz_minus6
+        assert result["start"].tzinfo == tz_minus6
+        assert result["end"].tzinfo == tz_minus6
 
 
 if __name__ == "__main__":

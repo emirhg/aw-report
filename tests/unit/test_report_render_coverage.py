@@ -58,7 +58,7 @@ def summary(capsys, **overrides):
 def line_value(out: str, label: str) -> str:
     for line in out.splitlines():
         if line.strip().startswith(label.strip()):
-            return line.strip()[len(label.strip()):].strip()
+            return line.strip()[len(label.strip()) :].strip()
     raise AssertionError(f"no line starting with {label!r} in:\n{out}")
 
 
@@ -124,7 +124,11 @@ def test_summary_session_and_productivity_score_lines(capsys):
 
 def test_summary_without_optional_fields_still_prints_header_and_totals(capsys):
     out = print_report_summary(
-        title="Bare", period="p", start_time=T0, end_time=T0 + h(1), total_duration=h(1),
+        title="Bare",
+        period="p",
+        start_time=T0,
+        end_time=T0 + h(1),
+        total_duration=h(1),
         task_based=True,
     )
     assert out is None
@@ -429,16 +433,7 @@ def _header(capsys, **overrides):
     return capsys.readouterr().out
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Known bug: print_report_header subtracts productive_task_time from productive_time "
-        "without a guard (task and non-task branches), so productive_time=None raises "
-        "TypeError. print_report_summary guards this; the header is not called by production "
-        "code (candidate for removal)."
-    ),
-)
-def test_header_without_productive_time_does_not_crash(capsys):
+def test_header_without_productive_time_treats_it_as_zero(capsys):
     out = _header(capsys, productive_time=None)
     assert "Focus time" in out
 

@@ -7,7 +7,7 @@ Handles all argument parsing, data fetching, processing, and report generation.
 import logging
 import sys
 from datetime import datetime, timedelta
-from typing import List, Optional, Tuple
+from typing import List, Optional, Sequence, Tuple, Type, TypeVar
 
 from aw_client import ActivityWatchClient
 from aw_core.models import Event
@@ -15,6 +15,7 @@ from aw_transform import filter_keyvals
 
 from tw_report.cli.args import parse_args, parse_positional_args
 from tw_report.config import load_user_config, resolve_settings
+from tw_report.core.aw_events import AFKEvent
 from tw_report.core.categories import (
     categorize_event,
     compile_category_rules,
@@ -35,6 +36,7 @@ from tw_report.core.project_filtering import (
     get_events_by_projects,
     resolve_project_filter_value,
 )
+from tw_report.core.report_slot import ReportTimelineSlot
 from tw_report.core.task_filtering import (
     get_events_by_task,
     get_events_by_tasks,
@@ -95,7 +97,7 @@ def _excluded(name: str, exclusions: Optional[List[str]]) -> bool:
     return any(excl.lower() in name.lower() for excl in exclusions)
 
 
-def _get_time_ranges_from_events(events: List[Event]) -> List[Tuple[datetime, datetime]]:
+def _get_time_ranges_from_events(events: Sequence[Event]) -> List[Tuple[datetime, datetime]]:
     """Extract non-overlapping time ranges from a list of events.
 
     Merges overlapping or adjacent events into continuous time windows.
@@ -106,7 +108,7 @@ def _get_time_ranges_from_events(events: List[Event]) -> List[Tuple[datetime, da
 
     # Sort by start time
     sorted_events = sorted(events, key=lambda e: e.timestamp)
-    ranges = []
+    ranges: List[Tuple[datetime, datetime]] = []
 
     for event in sorted_events:
         event_start = event.timestamp
@@ -122,12 +124,15 @@ def _get_time_ranges_from_events(events: List[Event]) -> List[Tuple[datetime, da
     return ranges
 
 
+E = TypeVar("E", bound=Event)
+
+
 def _fetch_events_for_ranges(
     client: ActivityWatchClient,
     bucket_name: str,
     time_ranges: List[Tuple[datetime, datetime]],
-    event_cls: type = Event,
-) -> List[Event]:
+    event_cls: Type[E],
+) -> List[E]:
     """Fetch events from specified bucket for multiple time ranges.
 
     More efficient than fetching for entire period when events are sparse.
@@ -141,7 +146,7 @@ def _fetch_events_for_ranges(
     for start, end in time_ranges:
         # Add small buffer (1 second) to ensure boundary events are included
         buffer = timedelta(seconds=1)
-        range_events = get_events(
+        range_events: List[E] = get_events(
             client, bucket_id, start - buffer, end + buffer, event_cls=event_cls
         )
         events.extend(range_events)
@@ -150,7 +155,7 @@ def _fetch_events_for_ranges(
 
 def _compute_app_bounded_ranges(
     task_time_ranges: Optional[List[Tuple[datetime, datetime]]],
-    app_matching_windows: List[Event],
+    app_matching_windows: Sequence[Event],
 ) -> List[Tuple[datetime, datetime]]:
     """Bound time ranges to the envelope of app usage (min start -> max end).
 
@@ -326,7 +331,7 @@ def _run(profiler: StageProfiler):
     # Example: tw-report --project "Higuera" :all fetches only Higuera's time windows for
     # AFK/window,
     # not the entire :all period.
-    task_events_early = None
+    task_events_early: Optional[Sequence[Event]] = None
     task_time_ranges = None
     task_events = None  # Will be populated later; used for window-fetch decision
 
@@ -377,13 +382,11 @@ def _run(profiler: StageProfiler):
             task_time_ranges = _get_time_ranges_from_events(task_events_early)
 
     window_events = []
-    afk_events = []
+    afk_events: List[AFKEvent] = []
 
     # For opt-out: fetch windows by default, skip only in constrained cases
     # AFK data is always needed for metrics and OFFLINE reconciliation
     # Fetch AFK events (always required for metrics and OFFLINE reconciliation)
-    from tw_report.core.aw_events import AFKEvent
-
     if task_time_ranges:
         # Smart optimization: only fetch AFK for times when tasks exist
         # This dramatically reduces data volume for sparse task data (e.g., :year, :all)
@@ -463,7 +466,7 @@ def _run(profiler: StageProfiler):
     afk_events = merge_overlapping_afk_periods(afk_events)
 
     # Not-afk events feed the current-session and break metrics below
-    not_afk_events = filter_keyvals(afk_events, "status", ["not-afk"])
+    not_afk_events = filter_keyvals(list(afk_events), "status", ["not-afk"])
 
     # Calculate current session and last break metrics
     current_session_start = None
@@ -592,8 +595,6 @@ def _run(profiler: StageProfiler):
             # Re-fetch AFK events using app-bounded time ranges (PHASE 14 optimization)
             # This reduces AFK data volume when filtering by app, whether alone or combined
             # with project/task filters. Bounding envelope preserves AFK context for gaps.
-            from tw_report.core.aw_events import AFKEvent
-
             afk_events = _fetch_events_for_ranges(
                 client, "afk", app_time_ranges, event_cls=AFKEvent
             )
@@ -681,7 +682,7 @@ def _run(profiler: StageProfiler):
 
     # Snapshot single-state slots for the productivity split BEFORE consolidation merges
     # online/AFK/offline states into one slot (consolidated spans dilute window coverage)
-    productivity_source_slots = None
+    productivity_source_slots: Optional[List[ReportTimelineSlot]] = None
     if not args.no_productivity:
         from tw_report.core.report_slot import ReportTimelineSlot
 
@@ -802,7 +803,7 @@ def _run(profiler: StageProfiler):
 
     # Productivity split uses the same filtered slots as TOTALS (filter before metrics)
     productivity_breakdown = None
-    if not args.no_productivity:
+    if productivity_source_slots is not None:
         productivity_breakdown = compute_productivity_breakdown(
             productivity_source_slots,
             window_events,

@@ -24,8 +24,14 @@ class TestAFKWindowBucketCrossValidation:
     def base_time(self):
         return datetime(2026, 7, 28, tzinfo=timezone.utc)
 
-    def create_afk_event(self, base_time: datetime, hour: int, minute: int,
-                        duration_minutes: int, status: str = "afk") -> Event:
+    def create_afk_event(
+        self,
+        base_time: datetime,
+        hour: int,
+        minute: int,
+        duration_minutes: int,
+        status: str = "afk",
+    ) -> Event:
         """Create an AFK bucket event."""
         return Event(
             timestamp=base_time.replace(hour=hour, minute=minute),
@@ -33,8 +39,9 @@ class TestAFKWindowBucketCrossValidation:
             data={"status": status},
         )
 
-    def create_window_event(self, base_time: datetime, hour: int, minute: int,
-                           duration_seconds: int, app: str = "test") -> Event:
+    def create_window_event(
+        self, base_time: datetime, hour: int, minute: int, duration_seconds: int, app: str = "test"
+    ) -> Event:
         """Create a window bucket event."""
         return Event(
             timestamp=base_time.replace(hour=hour, minute=minute),
@@ -42,8 +49,7 @@ class TestAFKWindowBucketCrossValidation:
             data={"app": app, "title": "test"},
         )
 
-    def afk_has_window_overlap(self, afk_event: Event,
-                               window_events: List[Event]) -> bool:
+    def afk_has_window_overlap(self, afk_event: Event, window_events: List[Event]) -> bool:
         """Check if AFK event has any overlapping window events."""
         afk_start = afk_event.timestamp
         afk_end = afk_event.timestamp + afk_event.duration
@@ -95,10 +101,10 @@ class TestAFKWindowBucketCrossValidation:
         """Pipeline should filter out AFK events without window overlap."""
         # Mixed AFK events: some with windows, some without
         afk_events = [
-            self.create_afk_event(base_time, 9, 0, 30, "afk"),   # Has window
+            self.create_afk_event(base_time, 9, 0, 30, "afk"),  # Has window
             self.create_afk_event(base_time, 10, 0, 60, "afk"),  # NO window (false positive)
             self.create_afk_event(base_time, 12, 0, 45, "afk"),  # Has window
-            self.create_afk_event(base_time, 14, 0, 120, "afk"), # NO window (false positive)
+            self.create_afk_event(base_time, 14, 0, 120, "afk"),  # NO window (false positive)
         ]
 
         window_events = [
@@ -117,7 +123,7 @@ class TestAFKWindowBucketCrossValidation:
                 false_positive_afk += afk.duration
 
         # Verify separation
-        assert true_online_afk == timedelta(minutes=75)   # 30 + 45
+        assert true_online_afk == timedelta(minutes=75)  # 30 + 45
         assert false_positive_afk == timedelta(minutes=180)  # 60 + 120
         assert true_online_afk + false_positive_afk == timedelta(minutes=255)
 
@@ -145,13 +151,17 @@ class TestAFKWindowBucketCrossValidation:
 
         # Validate: AFK during offline should be flagged as false positives
         false_positives = sum(
-            (afk.duration for afk in afk_during_offline
-             if not self.afk_has_window_overlap(afk, window_events)),
-            timedelta(0)
+            (
+                afk.duration
+                for afk in afk_during_offline
+                if not self.afk_has_window_overlap(afk, window_events)
+            ),
+            timedelta(0),
         )
 
-        assert false_positives == timedelta(minutes=95), \
+        assert false_positives == timedelta(minutes=95), (
             "All AFK during offline period should be false positives"
+        )
 
     def test_afk_active_time_consistency(self, base_time):
         """Active time (NOT-AFK) should all be true online time."""
@@ -214,7 +224,7 @@ class TestMetricsWithValidatedAFK:
         assert online == active_time + validated_afk
         assert total == online + offline_time
         assert validated_afk < online  # AFK is subset of online
-        assert active_time < online   # Active is subset of online
+        assert active_time < online  # Active is subset of online
 
 
 class TestPipelineValidationRequirements:

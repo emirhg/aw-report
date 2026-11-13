@@ -13,8 +13,9 @@ from typing import Dict, List, Optional
 UTC = timezone.utc
 
 
-def make_datetime(year: int, month: int, day: int,
-                  hour: int = 0, minute: int = 0, second: int = 0) -> datetime:
+def make_datetime(
+    year: int, month: int, day: int, hour: int = 0, minute: int = 0, second: int = 0
+) -> datetime:
     """Helper to create UTC datetime objects."""
     return datetime(year, month, day, hour, minute, second, tzinfo=UTC)
 
@@ -27,6 +28,7 @@ def make_event(timestamp: datetime, duration: timedelta, data: Dict) -> Event:
 # ============================================================================
 # BASIC FIXTURES (Used by multiple test classes)
 # ============================================================================
+
 
 @pytest.fixture
 def tz():
@@ -44,17 +46,14 @@ def sample_date():
 # WINDOW EVENT FIXTURES
 # ============================================================================
 
+
 @pytest.fixture
 def window_event_vscode(sample_date):
     """Window event: VSCode, 1 hour of coding."""
     return make_event(
         timestamp=sample_date.replace(hour=14),
         duration=timedelta(hours=1),
-        data={
-            "app": "VSCode",
-            "title": "tw-report.py - GitHub",
-            "class": "VSCode"
-        }
+        data={"app": "VSCode", "title": "tw-report.py - GitHub", "class": "VSCode"},
     )
 
 
@@ -64,11 +63,7 @@ def window_event_firefox(sample_date):
     return make_event(
         timestamp=sample_date.replace(hour=15),
         duration=timedelta(minutes=30),
-        data={
-            "app": "firefox",
-            "title": "Gmail - Inbox",
-            "class": "firefox"
-        }
+        data={"app": "firefox", "title": "Gmail - Inbox", "class": "firefox"},
     )
 
 
@@ -80,19 +75,19 @@ def window_events_for_consolidation(sample_date):
         make_event(
             timestamp=sample_date.replace(hour=10),
             duration=timedelta(hours=1),
-            data={"app": "VSCode", "title": "Code", "class": "VSCode"}
+            data={"app": "VSCode", "title": "Code", "class": "VSCode"},
         ),
         # Event 2: Firefox, 30 min (same task)
         make_event(
             timestamp=sample_date.replace(hour=11),
             duration=timedelta(minutes=30),
-            data={"app": "firefox", "title": "Gmail", "class": "firefox"}
+            data={"app": "firefox", "title": "Gmail", "class": "firefox"},
         ),
         # Event 3: VSCode, 1 hour (after break, same task)
         make_event(
             timestamp=sample_date.replace(hour=13),
             duration=timedelta(hours=1),
-            data={"app": "VSCode", "title": "Code", "class": "VSCode"}
+            data={"app": "VSCode", "title": "Code", "class": "VSCode"},
         ),
     ]
 
@@ -101,13 +96,14 @@ def window_events_for_consolidation(sample_date):
 # AFK EVENT FIXTURES
 # ============================================================================
 
+
 @pytest.fixture
 def afk_event_not_afk(sample_date):
     """AFK event: status='not-afk' (user active), 1 hour."""
     return make_event(
         timestamp=sample_date.replace(hour=14),
         duration=timedelta(hours=1),
-        data={"status": "not-afk"}
+        data={"status": "not-afk"},
     )
 
 
@@ -117,7 +113,7 @@ def afk_event_afk(sample_date):
     return make_event(
         timestamp=sample_date.replace(hour=15, minute=15),
         duration=timedelta(minutes=10),
-        data={"status": "afk"}
+        data={"status": "afk"},
     )
 
 
@@ -129,19 +125,19 @@ def afk_events_with_gaps(sample_date):
         make_event(
             timestamp=sample_date.replace(hour=8),
             duration=timedelta(hours=1),
-            data={"status": "not-afk"}
+            data={"status": "not-afk"},
         ),
         # Not-AFK: 09:30-10:30 (30 min gap creates potential OFFLINE marker)
         make_event(
             timestamp=sample_date.replace(hour=9, minute=30),
             duration=timedelta(hours=1),
-            data={"status": "not-afk"}
+            data={"status": "not-afk"},
         ),
         # AFK: 10:45-10:55 (small gap)
         make_event(
             timestamp=sample_date.replace(hour=10, minute=45),
             duration=timedelta(minutes=10),
-            data={"status": "afk"}
+            data={"status": "afk"},
         ),
     ]
 
@@ -149,6 +145,7 @@ def afk_events_with_gaps(sample_date):
 # ============================================================================
 # TASK EVENT FIXTURES
 # ============================================================================
+
 
 @pytest.fixture
 def task_event_climb(sample_date):
@@ -161,8 +158,8 @@ def task_event_climb(sample_date):
             "task": "Task1",
             "label": "Task1",
             "tags": ["work", "climbing"],
-            "title": "Climb > Task1"
-        }
+            "title": "Climb > Task1",
+        },
     )
 
 
@@ -177,8 +174,8 @@ def task_event_offline(sample_date):
             "task": "Tratamiento de residuos",
             "label": "Residuos",
             "tags": ["offline", "ecosistema"],  # KEY: offline tag
-            "title": "Ecosistema > Tratamiento de residuos"
-        }
+            "title": "Ecosistema > Tratamiento de residuos",
+        },
     )
 
 
@@ -190,12 +187,7 @@ def task_events_with_offline(sample_date):
         make_event(
             timestamp=sample_date.replace(hour=10),
             duration=timedelta(hours=1),
-            data={
-                "project": "Climb",
-                "task": "Task1",
-                "tags": ["work"],
-                "title": "Climb > Task1"
-            }
+            data={"project": "Climb", "task": "Task1", "tags": ["work"], "title": "Climb > Task1"},
         ),
         # OFFLINE task 1
         make_event(
@@ -205,8 +197,8 @@ def task_events_with_offline(sample_date):
                 "project": "Ecosistema",
                 "task": "Residuos",
                 "tags": ["offline"],  # OFFLINE tag
-                "title": "Ecosistema > Residuos"
-            }
+                "title": "Ecosistema > Residuos",
+            },
         ),
         # OFFLINE task 2 (same task, later occurrence)
         make_event(
@@ -216,8 +208,8 @@ def task_events_with_offline(sample_date):
                 "project": "Ecosistema",
                 "task": "Residuos",
                 "tags": ["offline"],  # OFFLINE tag
-                "title": "Ecosistema > Residuos"
-            }
+                "title": "Ecosistema > Residuos",
+            },
         ),
     ]
 
@@ -225,6 +217,7 @@ def task_events_with_offline(sample_date):
 # ============================================================================
 # ISSUE #1: OFFLINE TASK DURATION
 # ============================================================================
+
 
 @pytest.fixture
 def issue_1_offline_task_data():
@@ -242,7 +235,7 @@ def issue_1_offline_task_data():
         "duration": timedelta(hours=4, minutes=22, seconds=30),
         "tags": ["offline"],
         "expected_in_report": False,  # When --exclude-non-project is set
-        "issue": "Synthetic OFFLINE slots not filtered like regular slots"
+        "issue": "Synthetic OFFLINE slots not filtered like regular slots",
     }
 
 
@@ -260,6 +253,7 @@ def issue_1_no_project_entry():
 # ============================================================================
 # ISSUE #3: INCOMPLETE --exclude-non-project FILTER
 # ============================================================================
+
 
 @pytest.fixture
 def issue_3_filter_data():
@@ -288,13 +282,14 @@ def issue_3_filter_data():
             "task": "Some task",
             "should_filter": True,  # BUG: Currently NOT filtered (Issue #1)
         },
-        "issue": "--exclude-non-project not applied uniformly to all entry types"
+        "issue": "--exclude-non-project not applied uniformly to all entry types",
     }
 
 
 # ============================================================================
 # FILTER CONFIGURATION FIXTURES
 # ============================================================================
+
 
 @pytest.fixture
 def filter_no_options():
@@ -332,6 +327,7 @@ def filter_exclude_non_project_and_project_pattern():
 # CONSOLIDATED REPORT FIXTURES (For integration tests)
 # ============================================================================
 
+
 @pytest.fixture
 def consolidate_report_args():
     """Standard arguments for consolidated report testing."""
@@ -358,6 +354,7 @@ def consolidate_report_args_with_filter():
 # CATEGORY FIXTURES
 # ============================================================================
 
+
 @pytest.fixture
 def sample_categories():
     """Sample category rules for testing."""
@@ -365,17 +362,17 @@ def sample_categories():
         {
             "name": ["Work", "Programming", "Terminal"],
             "data": {"score": 100},
-            "rule": {"type": "regex", "regex": ".*terminal.*|.*bash.*", "ignore_case": True}
+            "rule": {"type": "regex", "regex": ".*terminal.*|.*bash.*", "ignore_case": True},
         },
         {
             "name": ["Work", "Email"],
             "data": {"score": 50},
-            "rule": {"type": "regex", "regex": ".*gmail.*|.*outlook.*", "ignore_case": True}
+            "rule": {"type": "regex", "regex": ".*gmail.*|.*outlook.*", "ignore_case": True},
         },
         {
             "name": ["Media", "Video"],
             "data": {"score": -50},
-            "rule": {"type": "regex", "regex": ".*youtube.*|.*netflix.*", "ignore_case": True}
+            "rule": {"type": "regex", "regex": ".*youtube.*|.*netflix.*", "ignore_case": True},
         },
     ]
 
@@ -384,9 +381,12 @@ def sample_categories():
 # MARKERS FOR KNOWN ISSUES (xfail tests)
 # ============================================================================
 
+
 def issue_1_marker():
     """Pytest marker for Issue #1 tests (OFFLINE task duration 0:00:00)."""
-    return pytest.mark.xfail(reason="Issue #1: OFFLINE task duration becomes 0:00:00 with --exclude-non-project")
+    return pytest.mark.xfail(
+        reason="Issue #1: OFFLINE task duration becomes 0:00:00 with --exclude-non-project"
+    )
 
 
 def issue_2_marker():
@@ -396,7 +396,9 @@ def issue_2_marker():
 
 def issue_3_marker():
     """Pytest marker for Issue #3 tests (Incomplete filter)."""
-    return pytest.mark.xfail(reason="Issue #3: --exclude-non-project doesn't filter OFFLINE gaps or synthetic slots")
+    return pytest.mark.xfail(
+        reason="Issue #3: --exclude-non-project doesn't filter OFFLINE gaps or synthetic slots"
+    )
 
 
 def pytest_addoption(parser):

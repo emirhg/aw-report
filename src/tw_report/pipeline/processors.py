@@ -1,7 +1,7 @@
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Sequence, Tuple, TypeVar
 
 from aw_core.models import Event
 
@@ -237,8 +237,8 @@ def compute_metrics(
 
 def build_context(
     consolidated_slots: List["ReportTimelineSlot"],
-    task_events: Optional[List[Event]],
-    afk_events: List[Event],
+    task_events: Optional[Sequence[Event]],
+    afk_events: Sequence[Event],
     cat_score_map: Dict[str, float],
     is_task_based_report: bool,
     metrics: ReportMetrics,
@@ -251,8 +251,8 @@ def build_context(
 
     # Organize events into typed BucketEvents collection
     bucket_events = BucketEvents(
-        afk=afk_events,
-        taskwarrior=task_events or [],
+        afk=list(afk_events),
+        taskwarrior=list(task_events or []),
         window=[],  # Window events not stored in context (fetched on-demand)
     )
 
@@ -265,7 +265,10 @@ def build_context(
     )
 
 
-def merge_overlapping_afk_periods(afk_events: List[Event]) -> List[Event]:
+E = TypeVar("E", bound=Event)
+
+
+def merge_overlapping_afk_periods(afk_events: List[E]) -> List[E]:
     """Merge overlapping/touching AFK periods and bridge micro-gaps.
 
     Merges:

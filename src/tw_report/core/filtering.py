@@ -23,14 +23,14 @@ _UNASSIGNED_PROJECT_SPELLINGS = {"", "no project", NO_PROJECT.lower()}
 _UNASSIGNED_TASK_SPELLINGS = {"", "no task", "no task tracked", NO_TASK.lower()}
 
 
-def normalize_project(value: Optional[str]) -> Optional[str]:
+def normalize_project(value: Optional[str]) -> str:
     """Map every untracked project spelling (and None) to NO_PROJECT; keep real names unchanged."""
     if value is None or str(value).strip().lower() in _UNASSIGNED_PROJECT_SPELLINGS:
         return NO_PROJECT
     return value
 
 
-def normalize_task(value: Optional[str]) -> Optional[str]:
+def normalize_task(value: Optional[str]) -> str:
     """Map every untracked task spelling (and None) to NO_TASK; keep real names unchanged."""
     if value is None or str(value).strip().lower() in _UNASSIGNED_TASK_SPELLINGS:
         return NO_TASK

@@ -35,14 +35,18 @@ class TestConsolidateFlag:
                 duration=duration,
                 data={"project": project, "task": task, "tags": []},
             ),
-            categories=[{
-                "category": "Work",
-                "apps": [{
-                    "app": "VSCode",
-                    "duration": duration,
-                    "titles": [{"title": "main.py", "duration": duration}]
-                }]
-            }],
+            categories=[
+                {
+                    "category": "Work",
+                    "apps": [
+                        {
+                            "app": "VSCode",
+                            "duration": duration,
+                            "titles": [{"title": "main.py", "duration": duration}],
+                        }
+                    ],
+                }
+            ],
         )
 
     def test_consolidate_merges_same_project_task(self, base_time):
@@ -58,8 +62,9 @@ class TestConsolidateFlag:
         # (not three separate lines)
 
         total_duration = sum((s.duration for s in slots), timedelta(0))
-        assert total_duration == timedelta(hours=2.5), \
+        assert total_duration == timedelta(hours=2.5), (
             f"Expected 2.5 hours total, got {total_duration}"
+        )
 
     def test_consolidate_separate_tasks(self, base_time):
         """Consolidate should NOT merge different tasks, even same project."""

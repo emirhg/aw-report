@@ -43,9 +43,7 @@ class TestCLITotalsOutputAccuracy:
                     continue
 
                 # Parse metric line: "    Active Time                     04:34:57"
-                match = re.search(
-                    r"^\s*([^0-9]+?)\s{2,}([\d:]+)(?:\s+\[\w+\s+[\d%]+\])?", line
-                )
+                match = re.search(r"^\s*([^0-9]+?)\s{2,}([\d:]+)(?:\s+\[\w+\s+[\d%]+\])?", line)
                 if match:
                     metric_name = match.group(1).strip()
                     time_value = match.group(2)
@@ -83,14 +81,12 @@ class TestCLITotalsOutputAccuracy:
         project_afk_1 = timedelta(minutes=29, seconds=56)
         project_afk_2 = timedelta(minutes=42, seconds=57)
 
-        total_afk_expected = (
-            unassigned_afk_1 + unassigned_afk_2 + project_afk_1 + project_afk_2
-        )
+        total_afk_expected = unassigned_afk_1 + unassigned_afk_2 + project_afk_1 + project_afk_2
 
         # Verify math
-        assert total_afk_expected == timedelta(
-            hours=11, minutes=48, seconds=28
-        ), "Timeline AFK slots should sum to this"
+        assert total_afk_expected == timedelta(hours=11, minutes=48, seconds=28), (
+            "Timeline AFK slots should sum to this"
+        )
 
     def test_online_time_does_not_equal_day_total(self):
         """REGRESSION TEST: Online time should NOT be day total.

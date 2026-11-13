@@ -222,9 +222,7 @@ class TestGetEventsByUuid:
         start, end = time_range
         mock_client.get_events.return_value = sample_events
 
-        result = get_events_by_uuid(
-            mock_client, "aw-watcher-taskwarrior_host", start, end, None
-        )
+        result = get_events_by_uuid(mock_client, "aw-watcher-taskwarrior_host", start, end, None)
 
         assert len(result) == 3
         assert result == sample_events

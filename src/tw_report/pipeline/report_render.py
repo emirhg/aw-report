@@ -118,7 +118,11 @@ def print_report_summary(
     if tracked_activity or (first_event_time and last_event_time):
         from tw_report.utils.formatting import format_duration
 
-        tracked_duration = tracked_activity or last_event_time - first_event_time
+        if tracked_activity:
+            tracked_duration = tracked_activity
+        else:
+            assert first_event_time is not None and last_event_time is not None
+            tracked_duration = last_event_time - first_event_time
 
         duration_str = format_duration(tracked_duration)
         print(f"Tracked Activity{' ' * (32 - 16)}{duration_str}")
@@ -151,7 +155,7 @@ def print_report_summary(
             proj_track_str = f"{task_time_pct:.1f}% ({format_duration(total_duration)})"
             print(f"Project Tracking{' ' * (32 - 16)}{proj_track_str}")
 
-            task_productive_pct = 0
+            task_productive_pct: float = 0
             if productive_task_time and total_duration.total_seconds() > 0:
                 task_productive_pct = (
                     productive_task_time.total_seconds() / total_duration.total_seconds() * 100
@@ -174,7 +178,7 @@ def print_report_summary(
                 print(f"Untracked productivity{' ' * (32 - 21)}{untracked_str}")
 
         # Calculate productivity percentage of total time
-        total_productive_pct = 0
+        total_productive_pct: float = 0
         if productive_time and total_tracking_time.total_seconds() > 0:
             total_productive_pct = (
                 productive_time.total_seconds() / total_tracking_time.total_seconds() * 100
@@ -456,14 +460,14 @@ def print_report_header(
         )
 
         # Calculate productivity percentage of total time
-        total_productive_pct = 0
+        total_productive_pct: float = 0
         if productive_time and non_afk_time.total_seconds() > 0:
             total_productive_pct = (
                 productive_time.total_seconds() / non_afk_time.total_seconds() * 100
             )
 
         # Calculate productivity percentage of task time
-        task_productive_pct = 0
+        task_productive_pct: float = 0
         if productive_task_time and total_duration.total_seconds() > 0:
             task_productive_pct = (
                 productive_task_time.total_seconds() / total_duration.total_seconds() * 100
@@ -477,11 +481,13 @@ def print_report_header(
             if task_time_pct > 0:
                 print(
                     f"  • Focus time: {task_productive_pct:.1f}% "
-                    f"({format_duration(productive_task_time)})"
+                    f"({format_duration(productive_task_time or timedelta(0))})"
                 )
             if total_score is not None:
                 print(f"  • Task Productivity Score: {total_score:.2f}")
-            untracked_productive_time = productive_time - productive_task_time
+            untracked_productive_time = (productive_time or timedelta(0)) - (
+                productive_task_time or timedelta(0)
+            )
             untracked_productive_pct = (
                 (untracked_productive_time / non_afk_time * 100) if non_afk_time else 0
             )
@@ -491,14 +497,16 @@ def print_report_header(
             )
             print(
                 f"  • Overall productivity: {total_productive_pct:.1f}% "
-                f"({format_duration(productive_time)})"
+                f"({format_duration(productive_time or timedelta(0))})"
             )
         else:
             # Non-task-based mode: show tracked projects as 0
             print(f"  • Tracked projects: 0.0% ({format_duration(timedelta(0))})")
             if total_score is not None:
                 print(f"  • Overall Productivity Score: {total_score:.2f}")
-            untracked_productive_time = productive_time - productive_task_time
+            untracked_productive_time = (productive_time or timedelta(0)) - (
+                productive_task_time or timedelta(0)
+            )
             untracked_productive_pct = (
                 (untracked_productive_time / non_afk_time * 100) if non_afk_time else 0
             )
@@ -508,7 +516,7 @@ def print_report_header(
             )
             print(
                 f"  • Overall productivity: {total_productive_pct:.1f}% "
-                f"({format_duration(productive_time)})"
+                f"({format_duration(productive_time or timedelta(0))})"
             )
 
         # Print distracting and unscored time (common to both modes)
@@ -767,13 +775,15 @@ def print_report(
         # Fallback: calculate break time from event window (legacy formula)
         # Break time = event window - worked time
         event_window = last_event_time - first_event_time
-        worked_time = online_time_for_totals + (total_offline_time or timedelta(0))
+        worked_time = (online_time_for_totals or timedelta(0)) + (
+            total_offline_time or timedelta(0)
+        )
         calculated_break_time = event_window - worked_time
         if calculated_break_time < timedelta(0):
             calculated_break_time = timedelta(0)
 
     print_report_totals(
-        total_time_all=online_time_for_totals,
+        total_time_all=online_time_for_totals or timedelta(0),
         total_productive_all=productive_task_time or timedelta(0),
         total_afk=afk_time,
         total_offline=total_offline_time,

@@ -63,6 +63,7 @@ class TestGetSlotLogicalDate:
 
     def test_works_with_reporttimelineslot_object(self):
         """Function handles ReportTimelineSlot objects as well as dicts."""
+
         # Create a mock object with .start attribute
         class MockSlot:
             def __init__(self, start_time):
@@ -134,7 +135,7 @@ class TestGetSlotWeekKey:
         # These two times are on different calendar days but same logical day
         # (logical day Aug 31 when day_start_hour=4)
         slot1 = {"start": datetime(2026, 8, 31, 22, 0, 0)}  # Aug 31 22:00
-        slot2 = {"start": datetime(2026, 9, 1, 2, 0, 0)}   # Sep  1 02:00
+        slot2 = {"start": datetime(2026, 9, 1, 2, 0, 0)}  # Sep  1 02:00
 
         key1 = get_slot_week_key(slot1, day_start_hour=4)
         key2 = get_slot_week_key(slot2, day_start_hour=4)
@@ -183,21 +184,21 @@ class TestLogicalDateBugReproduction:
         Expected: All entries in logical day Aug 31 should be W36.
         """
         times = [
-            datetime(2026, 8, 31, 22, 0, 0),   # 22:00 Aug 31
-            datetime(2026, 8, 31, 22, 9, 0),   # 22:09 Aug 31
+            datetime(2026, 8, 31, 22, 0, 0),  # 22:00 Aug 31
+            datetime(2026, 8, 31, 22, 9, 0),  # 22:09 Aug 31
             datetime(2026, 8, 31, 23, 13, 0),  # 23:13 Aug 31
-            datetime(2026, 9, 1, 0, 14, 0),    # 00:14 Sep  1 (still logical Aug 31)
-            datetime(2026, 9, 1, 1, 37, 0),    # 01:37 Sep  1 (still logical Aug 31)
+            datetime(2026, 9, 1, 0, 14, 0),  # 00:14 Sep  1 (still logical Aug 31)
+            datetime(2026, 9, 1, 1, 37, 0),  # 01:37 Sep  1 (still logical Aug 31)
         ]
 
         week_keys = [get_slot_week_key({"start": t}, day_start_hour=4) for t in times]
         logical_dates = [get_slot_logical_date({"start": t}, day_start_hour=4) for t in times]
 
         # All should be in logical day Aug 31 (Monday, W36)
-        assert all(ld == date(2026, 8, 31) for ld in logical_dates), \
+        assert all(ld == date(2026, 8, 31) for ld in logical_dates), (
             f"Not all times in logical day Aug 31: {logical_dates}"
-        assert all(wk == "2026-W36" for wk in week_keys), \
-            f"Not all times in W36: {week_keys}"
+        )
+        assert all(wk == "2026-W36" for wk in week_keys), f"Not all times in W36: {week_keys}"
 
     def test_crossing_logical_day_boundary_changes_week(self):
         """Verify that crossing the logical day boundary does change the week key."""

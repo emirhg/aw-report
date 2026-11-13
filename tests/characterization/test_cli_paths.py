@@ -47,8 +47,9 @@ class _Stub:
         self.calls.append(list(args))
         identifier = args[1]
         if identifier in self.known:
-            payload = [{"uuid": self.known[identifier], "project": "Higuera",
-                        "description": "Refactor"}]
+            payload = [
+                {"uuid": self.known[identifier], "project": "Higuera", "description": "Refactor"}
+            ]
             return subprocess.CompletedProcess(args, 0, stdout=__import__("json").dumps(payload))
         raise subprocess.CalledProcessError(1, args)
 
@@ -216,8 +217,11 @@ def test_window_without_app_name_is_ignored_by_app_grouping(monkeypatch, capsys)
     buckets = scenario_buckets()
     key = f"aw-watcher-window_{HOST}"
     buckets[key] = buckets[key] + [
-        make_event(datetime(2026, 8, 30, 12, 0, tzinfo=timezone.utc), 5,
-                   {"app": "", "title": "untitled", "class": ""}),
+        make_event(
+            datetime(2026, 8, 30, 12, 0, tzinfo=timezone.utc),
+            5,
+            {"app": "", "title": "untitled", "class": ""},
+        ),
     ]
     client = FakeActivityWatchClient(buckets)
     out, code, err = run_cli(monkeypatch, capsys, ["--app", "VSCode", DAY], client)
@@ -264,19 +268,30 @@ def test_time_ranges_from_no_events_is_empty():
 def test_time_ranges_merge_overlapping_and_adjacent_events():
     events = [
         make_event(datetime(2026, 8, 30, 9, 0, tzinfo=timezone.utc), 60, {}),
-        make_event(datetime(2026, 8, 30, 10, 0, tzinfo=timezone.utc), 30, {}),   # adjacent
+        make_event(datetime(2026, 8, 30, 10, 0, tzinfo=timezone.utc), 30, {}),  # adjacent
         make_event(datetime(2026, 8, 30, 10, 20, tzinfo=timezone.utc), 60, {}),  # overlapping
-        make_event(datetime(2026, 8, 30, 13, 0, tzinfo=timezone.utc), 15, {}),   # separate
+        make_event(datetime(2026, 8, 30, 13, 0, tzinfo=timezone.utc), 15, {}),  # separate
     ]
     ranges = cli_main._get_time_ranges_from_events(events)
     assert ranges == [
-        (datetime(2026, 8, 30, 9, 0, tzinfo=timezone.utc), datetime(2026, 8, 30, 11, 20, tzinfo=timezone.utc)),
-        (datetime(2026, 8, 30, 13, 0, tzinfo=timezone.utc), datetime(2026, 8, 30, 13, 15, tzinfo=timezone.utc)),
+        (
+            datetime(2026, 8, 30, 9, 0, tzinfo=timezone.utc),
+            datetime(2026, 8, 30, 11, 20, tzinfo=timezone.utc),
+        ),
+        (
+            datetime(2026, 8, 30, 13, 0, tzinfo=timezone.utc),
+            datetime(2026, 8, 30, 13, 15, tzinfo=timezone.utc),
+        ),
     ]
 
 
 def test_app_bounded_ranges_without_matching_windows_keep_task_ranges():
-    ranges = [(datetime(2026, 8, 30, 9, tzinfo=timezone.utc), datetime(2026, 8, 30, 10, tzinfo=timezone.utc))]
+    ranges = [
+        (
+            datetime(2026, 8, 30, 9, tzinfo=timezone.utc),
+            datetime(2026, 8, 30, 10, tzinfo=timezone.utc),
+        )
+    ]
     assert cli_main._compute_app_bounded_ranges(ranges, []) == ranges
     assert cli_main._compute_app_bounded_ranges(None, []) == []
 
@@ -300,8 +315,11 @@ def test_empty_app_name_in_a_slot_category_is_ignored(monkeypatch, capsys):
     key = f"aw-watcher-window_{HOST}"
     # Overlaps the Climb/Task1 slot (09:00-10:30): the unnamed app becomes a category entry.
     buckets[key] = buckets[key] + [
-        make_event(datetime(2026, 8, 30, 9, 30, tzinfo=timezone.utc), 5,
-                   {"app": "", "title": "unnamed", "class": ""}),
+        make_event(
+            datetime(2026, 8, 30, 9, 30, tzinfo=timezone.utc),
+            5,
+            {"app": "", "title": "unnamed", "class": ""},
+        ),
     ]
     client = FakeActivityWatchClient(buckets)
     out, code, err = run_cli(monkeypatch, capsys, ["--app", "VSCode", DAY], client)

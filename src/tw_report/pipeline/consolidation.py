@@ -13,15 +13,15 @@ Example:
 """
 
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, Dict, List, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Sequence, Union
 
 if TYPE_CHECKING:
     from tw_report.core.report_slot import ReportTimelineSlot
 
 
 def consolidate_sessions(
-    slots: List[Union[Dict[str, Any], "ReportTimelineSlot"]],
-) -> List[Union[Dict[str, Any], "ReportTimelineSlot"]]:
+    slots: Sequence[Union[Dict[str, Any], "ReportTimelineSlot"]],
+) -> List[Dict[str, Any]]:
     """Merge consecutive sessions of the same (project, task) into one slot.
 
     Sessions of the same task are merged even with gaps between them,

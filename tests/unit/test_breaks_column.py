@@ -144,10 +144,10 @@ class TestColumnAlignment:
     def test_column_header_alignment(self):
         """All column headers aligned with consistent spacing."""
         headers = {
-            "BREAK": "00:00:00",      # 8 chars (HH:MM:SS)
-            "OFFLINE": "00:00:00",    # 8 chars (HH:MM:SS)
-            "AFK": "00:00:00",        # 8 chars (HH:MM:SS)
-            "ACTIVE": "00:00:00",     # 8 chars (HH:MM:SS)
+            "BREAK": "00:00:00",  # 8 chars (HH:MM:SS)
+            "OFFLINE": "00:00:00",  # 8 chars (HH:MM:SS)
+            "AFK": "00:00:00",  # 8 chars (HH:MM:SS)
+            "ACTIVE": "00:00:00",  # 8 chars (HH:MM:SS)
         }
 
         # All columns should have same width (8 chars for time format)
@@ -171,10 +171,14 @@ class TestBreakSlotDetection:
 
     def test_get_gap_between_slots(self):
         """Extract gap time between two slots."""
-        slot1 = {"start": datetime(2026, 8, 30, 14, 0, 0, tzinfo=timezone.utc),
-                 "end": datetime(2026, 8, 30, 14, 30, 0, tzinfo=timezone.utc)}
-        slot2 = {"start": datetime(2026, 8, 30, 14, 45, 0, tzinfo=timezone.utc),
-                 "end": datetime(2026, 8, 30, 15, 0, 0, tzinfo=timezone.utc)}
+        slot1 = {
+            "start": datetime(2026, 8, 30, 14, 0, 0, tzinfo=timezone.utc),
+            "end": datetime(2026, 8, 30, 14, 30, 0, tzinfo=timezone.utc),
+        }
+        slot2 = {
+            "start": datetime(2026, 8, 30, 14, 45, 0, tzinfo=timezone.utc),
+            "end": datetime(2026, 8, 30, 15, 0, 0, tzinfo=timezone.utc),
+        }
 
         gap = get_gap_between_slots(slot1, slot2)
 
@@ -182,10 +186,14 @@ class TestBreakSlotDetection:
 
     def test_no_gap_adjacent_slots(self):
         """Adjacent slots have zero gap."""
-        slot1 = {"start": datetime(2026, 8, 30, 14, 0, 0, tzinfo=timezone.utc),
-                 "end": datetime(2026, 8, 30, 14, 30, 0, tzinfo=timezone.utc)}
-        slot2 = {"start": datetime(2026, 8, 30, 14, 30, 0, tzinfo=timezone.utc),
-                 "end": datetime(2026, 8, 30, 15, 0, 0, tzinfo=timezone.utc)}
+        slot1 = {
+            "start": datetime(2026, 8, 30, 14, 0, 0, tzinfo=timezone.utc),
+            "end": datetime(2026, 8, 30, 14, 30, 0, tzinfo=timezone.utc),
+        }
+        slot2 = {
+            "start": datetime(2026, 8, 30, 14, 30, 0, tzinfo=timezone.utc),
+            "end": datetime(2026, 8, 30, 15, 0, 0, tzinfo=timezone.utc),
+        }
 
         gap = get_gap_between_slots(slot1, slot2)
 
@@ -230,8 +238,8 @@ class TestBreakColumnIntegration:
         )
 
         # Slot should have start/end/duration
-        assert hasattr(slot, 'start')
-        assert hasattr(slot, 'end')
+        assert hasattr(slot, "start")
+        assert hasattr(slot, "end")
         assert slot.duration == timedelta(minutes=30)
 
     def test_break_not_shown_for_regular_slots(self):
@@ -253,6 +261,7 @@ class TestBreakColumnIntegration:
 
 
 # Test fixtures
+
 
 @pytest.fixture
 def sample_slot_pair():

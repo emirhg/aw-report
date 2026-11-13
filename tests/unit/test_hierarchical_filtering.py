@@ -36,14 +36,18 @@ class TestHierarchicalFilteringConsistency:
                 duration=duration,
                 data={"project": project, "task": task, "tags": []},
             ),
-            categories=[{
-                "category": category,
-                "apps": [{
-                    "app": f"{project} App",
-                    "duration": duration,
-                    "titles": [{"title": f"{project}: {task}", "duration": duration}]
-                }]
-            }],
+            categories=[
+                {
+                    "category": category,
+                    "apps": [
+                        {
+                            "app": f"{project} App",
+                            "duration": duration,
+                            "titles": [{"title": f"{project}: {task}", "duration": duration}],
+                        }
+                    ],
+                }
+            ],
         )
 
     @pytest.fixture
@@ -68,7 +72,9 @@ class TestHierarchicalFilteringConsistency:
         )
 
         # Should have 3 projects when grouping by project
-        assert len(report_data) == 3, f"Expected 3 projects, got {len(report_data)}: {list(report_data.keys())}"
+        assert len(report_data) == 3, (
+            f"Expected 3 projects, got {len(report_data)}: {list(report_data.keys())}"
+        )
         project_names = set(report_data.keys())
         assert project_names == {"Climb", "Work", "Personal"}
 
@@ -87,12 +93,15 @@ class TestHierarchicalFilteringConsistency:
 
         # Filter the slots
         filtered_slots = [
-            s for s in sample_slots
-            if event_filter.should_include_entry({
-                "project": s.project,
-                "task": s.task,
-                "type": "regular",
-            })
+            s
+            for s in sample_slots
+            if event_filter.should_include_entry(
+                {
+                    "project": s.project,
+                    "task": s.task,
+                    "type": "regular",
+                }
+            )
         ]
 
         # Build hierarchy from FILTERED slots
@@ -105,7 +114,9 @@ class TestHierarchicalFilteringConsistency:
         )
 
         # Should have ONLY Climb project (report_data is dict keyed by project name)
-        assert len(report_data) == 1, f"Expected 1 project, got {len(report_data)}: {list(report_data.keys())}"
+        assert len(report_data) == 1, (
+            f"Expected 1 project, got {len(report_data)}: {list(report_data.keys())}"
+        )
         assert "Climb" in report_data, f"Expected Climb in {list(report_data.keys())}"
 
     def test_filtered_hierarchy_total_matches_metrics(self, sample_slots):
@@ -122,12 +133,15 @@ class TestHierarchicalFilteringConsistency:
 
         # Filter slots
         filtered_slots = [
-            s for s in sample_slots
-            if event_filter.should_include_entry({
-                "project": s.project,
-                "task": s.task,
-                "type": "regular",
-            })
+            s
+            for s in sample_slots
+            if event_filter.should_include_entry(
+                {
+                    "project": s.project,
+                    "task": s.task,
+                    "type": "regular",
+                }
+            )
         ]
 
         # Build hierarchy from filtered slots
@@ -140,7 +154,13 @@ class TestHierarchicalFilteringConsistency:
         )
 
         # Calculate metrics from filtered slots (what display should show)
-        total_duration = sum((s.actual_duration if isinstance(s.actual_duration, timedelta) else timedelta(0) for s in filtered_slots), timedelta(0))
+        total_duration = sum(
+            (
+                s.actual_duration if isinstance(s.actual_duration, timedelta) else timedelta(0)
+                for s in filtered_slots
+            ),
+            timedelta(0),
+        )
 
         # Sum all entries in hierarchy (dict values)
         hierarchy_total = timedelta(0)
@@ -148,8 +168,9 @@ class TestHierarchicalFilteringConsistency:
             hierarchy_total += project_data.get("total_duration", timedelta(0))
 
         # They must match
-        assert hierarchy_total == total_duration, \
+        assert hierarchy_total == total_duration, (
             f"Hierarchy total ({hierarchy_total}) != metrics total ({total_duration})"
+        )
 
     def test_filtered_hierarchy_excludes_work_and_personal(self, sample_slots):
         """Verify filtered hierarchy only shows filtered project's data."""
@@ -164,12 +185,15 @@ class TestHierarchicalFilteringConsistency:
         )
 
         filtered_slots = [
-            s for s in sample_slots
-            if event_filter.should_include_entry({
-                "project": s.project,
-                "task": s.task,
-                "type": "regular",
-            })
+            s
+            for s in sample_slots
+            if event_filter.should_include_entry(
+                {
+                    "project": s.project,
+                    "task": s.task,
+                    "type": "regular",
+                }
+            )
         ]
 
         report_data, _ = aggregate_hierarchy_from_slots(
@@ -182,7 +206,9 @@ class TestHierarchicalFilteringConsistency:
 
         project_names = set(report_data.keys())
         assert "Work" not in project_names, "Work project should not be in filtered hierarchy"
-        assert "Personal" not in project_names, "Personal project should not be in filtered hierarchy"
+        assert "Personal" not in project_names, (
+            "Personal project should not be in filtered hierarchy"
+        )
         assert "Climb" in project_names, "Climb project must be in filtered hierarchy"
 
     def test_filter_by_multiple_projects(self, sample_slots):
@@ -198,12 +224,15 @@ class TestHierarchicalFilteringConsistency:
         )
 
         filtered_slots = [
-            s for s in sample_slots
-            if event_filter.should_include_entry({
-                "project": s.project,
-                "task": s.task,
-                "type": "regular",
-            })
+            s
+            for s in sample_slots
+            if event_filter.should_include_entry(
+                {
+                    "project": s.project,
+                    "task": s.task,
+                    "type": "regular",
+                }
+            )
         ]
 
         report_data, _ = aggregate_hierarchy_from_slots(
@@ -225,12 +254,15 @@ class TestHierarchicalFilteringConsistency:
         event_filter = EventFilter()  # Empty filter = no restrictions
 
         filtered_slots = [
-            s for s in sample_slots
-            if event_filter.should_include_entry({
-                "project": s.project,
-                "task": s.task,
-                "type": "regular",
-            })
+            s
+            for s in sample_slots
+            if event_filter.should_include_entry(
+                {
+                    "project": s.project,
+                    "task": s.task,
+                    "type": "regular",
+                }
+            )
         ]
 
         report_data, _ = aggregate_hierarchy_from_slots(
@@ -278,12 +310,15 @@ class TestHierarchicalTaskBasedFiltering:
         )
 
         filtered_slots = [
-            s for s in task_based_slots
-            if event_filter.should_include_entry({
-                "project": s.project,
-                "task": s.task,
-                "type": "regular",
-            })
+            s
+            for s in task_based_slots
+            if event_filter.should_include_entry(
+                {
+                    "project": s.project,
+                    "task": s.task,
+                    "type": "regular",
+                }
+            )
         ]
 
         report_data, _ = aggregate_hierarchy_from_slots(

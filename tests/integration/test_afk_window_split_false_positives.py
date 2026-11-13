@@ -26,8 +26,14 @@ class TestAFKWindowSplitDetection:
     def base_time(self):
         return datetime(2026, 7, 28, tzinfo=timezone.utc)
 
-    def create_afk_event(self, base_time: datetime, hour: int, minute: int,
-                        duration_minutes: int, status: str = "afk") -> Event:
+    def create_afk_event(
+        self,
+        base_time: datetime,
+        hour: int,
+        minute: int,
+        duration_minutes: int,
+        status: str = "afk",
+    ) -> Event:
         """Create AFK bucket event."""
         return Event(
             timestamp=base_time.replace(hour=hour, minute=minute),
@@ -35,8 +41,9 @@ class TestAFKWindowSplitDetection:
             data={"status": status},
         )
 
-    def create_window_event(self, base_time: datetime, hour: int, minute: int,
-                           duration_seconds: int) -> Event:
+    def create_window_event(
+        self, base_time: datetime, hour: int, minute: int, duration_seconds: int
+    ) -> Event:
         """Create window bucket event."""
         return Event(
             timestamp=base_time.replace(hour=hour, minute=minute),
@@ -44,8 +51,7 @@ class TestAFKWindowSplitDetection:
             data={"app": "kitty", "title": "test"},
         )
 
-    def get_afk_window_coverage(self, afk_event: Event,
-                                window_events: List[Event]) -> float:
+    def get_afk_window_coverage(self, afk_event: Event, window_events: List[Event]) -> float:
         """Calculate percentage of AFK period covered by window events."""
         if afk_event.duration == timedelta(0):
             return 0.0
@@ -135,7 +141,7 @@ class TestAFKWindowSplitDetection:
 
         # Window segments: 30min at start, 30min at end
         windows = [
-            self.create_window_event(base_time, 10, 0, 1800),   # 30 min
+            self.create_window_event(base_time, 10, 0, 1800),  # 30 min
             self.create_window_event(base_time, 13, 30, 1800),  # 30 min
         ]
 
@@ -151,7 +157,7 @@ class TestAFKWindowSplitDetection:
 
         # Window events before and after AFK period
         windows = [
-            self.create_window_event(base_time, 9, 30, 600),   # Before AFK
+            self.create_window_event(base_time, 9, 30, 600),  # Before AFK
             self.create_window_event(base_time, 11, 30, 600),  # After AFK
         ]
 

@@ -66,9 +66,7 @@ class TestConsolidationSessionMerging:
         """Two consecutive sessions of same task merge into one."""
         slots = [
             self._make_slot(base_time, timedelta(hours=1), task="TaskA"),
-            self._make_slot(
-                base_time + timedelta(hours=1), timedelta(hours=1), task="TaskA"
-            ),
+            self._make_slot(base_time + timedelta(hours=1), timedelta(hours=1), task="TaskA"),
         ]
 
         # After consolidation, should have 1 slot
@@ -99,9 +97,7 @@ class TestConsolidationSessionMerging:
             self._make_slot(
                 base_time + timedelta(hours=1), timedelta(hours=1), task="TaskB"
             ),  # Different task
-            self._make_slot(
-                base_time + timedelta(hours=2), timedelta(hours=1), task="TaskA"
-            ),
+            self._make_slot(base_time + timedelta(hours=2), timedelta(hours=1), task="TaskA"),
         ]
 
         # After consolidation, should have 3 slots (TaskB interrupts)
@@ -115,15 +111,9 @@ class TestConsolidationSessionMerging:
         """Multiple sessions of same task (with other tasks between) merge separately."""
         slots = [
             self._make_slot(base_time, timedelta(minutes=30), task="TaskA"),
-            self._make_slot(
-                base_time + timedelta(minutes=30), timedelta(minutes=30), task="TaskA"
-            ),
-            self._make_slot(
-                base_time + timedelta(hours=1), timedelta(hours=1), task="TaskB"
-            ),
-            self._make_slot(
-                base_time + timedelta(hours=2), timedelta(minutes=45), task="TaskA"
-            ),
+            self._make_slot(base_time + timedelta(minutes=30), timedelta(minutes=30), task="TaskA"),
+            self._make_slot(base_time + timedelta(hours=1), timedelta(hours=1), task="TaskB"),
+            self._make_slot(base_time + timedelta(hours=2), timedelta(minutes=45), task="TaskA"),
             self._make_slot(
                 base_time + timedelta(hours=2, minutes=45),
                 timedelta(minutes=15),
@@ -145,9 +135,7 @@ class TestConsolidationSessionMerging:
         """Without --consolidate flag, sessions don't merge."""
         slots = [
             self._make_slot(base_time, timedelta(hours=1), task="TaskA"),
-            self._make_slot(
-                base_time + timedelta(hours=1), timedelta(hours=1), task="TaskA"
-            ),
+            self._make_slot(base_time + timedelta(hours=1), timedelta(hours=1), task="TaskA"),
         ]
 
         # Without consolidation, should have 2 slots
@@ -208,9 +196,7 @@ class TestConsolidationSessionMerging:
         # For now, just return the slots as-is and mark as xfail
         return self._merge_consecutive_sessions(slots)
 
-    def _merge_consecutive_sessions(
-        self, slots: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+    def _merge_consecutive_sessions(self, slots: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Merge consecutive sessions of the same (project, task)."""
         if not slots:
             return []
@@ -271,17 +257,20 @@ class TestConsolidationWithPeriodGrouping:
         # Should show one line per (day, project, task) instead of (day, project)
         # Placeholder: verify consolidation methods exist
         from tw_report.core.report_slot import ReportEntries
-        assert hasattr(ReportEntries, 'consolidate_by_task'), "consolidate_by_task method required"
+
+        assert hasattr(ReportEntries, "consolidate_by_task"), "consolidate_by_task method required"
 
     def test_consolidate_with_by_week(self):
         """--consolidate --by-week merges sessions per week."""
         from tw_report.core.report_slot import ReportEntries
-        assert hasattr(ReportEntries, 'consolidate_by_task'), "consolidate_by_task method required"
+
+        assert hasattr(ReportEntries, "consolidate_by_task"), "consolidate_by_task method required"
 
     def test_consolidate_alone_no_period_grouping(self):
         """--consolidate without --by-X merges within default day grouping."""
         from tw_report.core.report_slot import ReportEntries
-        assert hasattr(ReportEntries, 'consolidate_by_task'), "consolidate_by_task method required"
+
+        assert hasattr(ReportEntries, "consolidate_by_task"), "consolidate_by_task method required"
 
 
 class TestConsolidationCLIIntegration:
@@ -291,23 +280,27 @@ class TestConsolidationCLIIntegration:
         """CLI accepts --consolidate flag."""
         # Verify --consolidate flag is defined in CLI args
         from tw_report.cli import args as cli_args
+
         # Check that parsing functions exist
-        assert hasattr(cli_args, 'parse_args'), "--consolidate parsing should be available"
+        assert hasattr(cli_args, "parse_args"), "--consolidate parsing should be available"
 
     def test_cli_consolidate_with_by_day(self):
         """CLI accepts --consolidate --by-day together."""
         from tw_report.cli import args as cli_args
-        assert hasattr(cli_args, 'parse_args'), "CLI arg parsing should exist"
+
+        assert hasattr(cli_args, "parse_args"), "CLI arg parsing should exist"
 
     def test_cli_consolidate_not_mutually_exclusive_with_by_flags(self):
         """--consolidate is not mutually exclusive with --by-day/week/month/year."""
         from tw_report.cli import args as cli_args
-        assert hasattr(cli_args, 'parse_args'), "CLI arg parsing should exist"
+
+        assert hasattr(cli_args, "parse_args"), "CLI arg parsing should exist"
 
     def test_cli_consolidate_rejected_with_by_project(self):
         """--consolidate is ignored/rejected with --by-project (already consolidated)."""
         from tw_report.cli import args as cli_args
-        assert hasattr(cli_args, 'parse_args'), "CLI arg parsing should exist"
+
+        assert hasattr(cli_args, "parse_args"), "CLI arg parsing should exist"
 
 
 if __name__ == "__main__":

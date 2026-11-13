@@ -94,43 +94,58 @@ def wide_terminal(monkeypatch):
 
 
 def test_untracked_slot_overlapping_offline_period_is_dropped(capsys):
-    out = render(capsys, [
-        offline(D1, 10, 12),
-        regular(D1, 11, 11.5, project="No project assigned", task="No task assigned"),
-    ])
+    out = render(
+        capsys,
+        [
+            offline(D1, 10, 12),
+            regular(D1, 11, 11.5, project="No project assigned", task="No task assigned"),
+        ],
+    )
     assert "No project assigned" not in out
 
 
 def test_same_task_slot_overlapping_offline_period_is_dropped(capsys):
-    out = render(capsys, [
-        offline(D1, 10, 12),
-        regular(D1, 10.5, 11, project="Climb", task="Writing"),
-    ])
+    out = render(
+        capsys,
+        [
+            offline(D1, 10, 12),
+            regular(D1, 10.5, 11, project="Climb", task="Writing"),
+        ],
+    )
     assert "Writing" in out  # the offline row itself remains
     assert out.count("Writing") == 1
 
 
 def test_other_task_is_kept_next_to_offline_period(capsys):
-    out = render(capsys, [
-        offline(D1, 10, 12),
-        regular(D1, 13, 14, project="Climb", task="Other"),
-    ])
+    out = render(
+        capsys,
+        [
+            offline(D1, 10, 12),
+            regular(D1, 13, 14, project="Climb", task="Other"),
+        ],
+    )
     assert "Other" in out
 
 
 def test_slot_touching_offline_boundary_is_kept(capsys):
-    out = render(capsys, [
-        offline(D1, 10, 12),
-        regular(D1, 12, 13, project="No project assigned", task="No task assigned"),
-    ])
+    out = render(
+        capsys,
+        [
+            offline(D1, 10, 12),
+            regular(D1, 12, 13, project="No project assigned", task="No task assigned"),
+        ],
+    )
     assert "No project assigned" in out
 
 
 def test_untracked_slot_not_overlapping_offline_is_kept(capsys):
-    out = render(capsys, [
-        offline(D1, 10, 12),
-        regular(D1, 13, 14, project="No project assigned", task="No task assigned"),
-    ])
+    out = render(
+        capsys,
+        [
+            offline(D1, 10, 12),
+            regular(D1, 13, 14, project="No project assigned", task="No task assigned"),
+        ],
+    )
     assert "No project assigned" in out
 
 
@@ -139,14 +154,6 @@ def test_untracked_slot_not_overlapping_offline_is_kept(capsys):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Known bug: the dict-to-object conversion only runs when the FIRST slot is a dict, so "
-        "a list that starts with an object and then holds a dict crashes on dict.project. "
-        "Production passes dicts only (unaffected). Fix in Phase 3 by converting per element."
-    ),
-)
 def test_mixed_object_and_dict_slots_render_together(capsys):
     obj = ReportTimelineSlot.from_dict(regular(D1, 9, 10, project="Obj", task="T"))
     out = render(capsys, [obj, regular(D1, 11, 12, project="Dict", task="T")])
@@ -205,9 +212,7 @@ def test_wide_terminal_renders_timeline(wide_terminal, capsys):
 
 
 def test_day_total_line_uses_displayed_values(capsys):
-    format_and_print_day_total_displayed(
-        h(1), h(0.5), h(2), h(1.5), 100, h(0.25)
-    )
+    format_and_print_day_total_displayed(h(1), h(0.5), h(2), h(1.5), 100, h(0.25))
     out = capsys.readouterr().out
     assert "Day total:" in out
     assert "01:00:00" in out
@@ -295,12 +300,15 @@ def test_date_change_within_a_week_separates_day_totals(capsys):
 
 
 def test_offline_periods_for_the_same_task_each_remove_their_own_overlaps(capsys):
-    out = render(capsys, [
-        offline(D1, 10, 11),
-        offline(D1, 12, 13),
-        regular(D1, 12.25, 12.5, project="Climb", task="Writing"),   # inside 2nd offline
-        regular(D1, 11.25, 11.5, project="Climb", task="Writing"),   # between the two
-    ])
+    out = render(
+        capsys,
+        [
+            offline(D1, 10, 11),
+            offline(D1, 12, 13),
+            regular(D1, 12.25, 12.5, project="Climb", task="Writing"),  # inside 2nd offline
+            regular(D1, 11.25, 11.5, project="Climb", task="Writing"),  # between the two
+        ],
+    )
     assert "11:15 - 11:30" in out
     assert "12:15 - 12:30" not in out
 
@@ -308,22 +316,26 @@ def test_offline_periods_for_the_same_task_each_remove_their_own_overlaps(capsys
 def test_slot_outside_a_single_day_period_is_not_rendered_and_no_week_total_appears(capsys):
     # Slots are restricted to [start, end) before rendering, so a slot in another week cannot
     # appear inside a single-day period and no week-change totals are needed.
-    out = render(capsys, [regular(D1, 9, 10), regular(D3, 9, 10, task="Other")],
-                 end_time=D1 + h(23))
+    out = render(
+        capsys, [regular(D1, 9, 10), regular(D3, 9, 10, task="Other")], end_time=D1 + h(23)
+    )
     assert "W31" not in out
     assert "Other" not in out
     assert "Week total" not in out
 
+
 def test_very_wide_week_change_uses_full_width_separator(very_wide_terminal, capsys):
-    out = render(capsys, [regular(D1, 9, 10), regular(D3, 9, 10, task="Other")],
-                 end_time=D3 + h(23))
+    out = render(
+        capsys, [regular(D1, 9, 10), regular(D3, 9, 10, task="Other")], end_time=D3 + h(23)
+    )
     assert out.count("Day total:") == 2
     assert "Week total (tracked):" in out
 
 
 def test_very_wide_date_change_uses_full_width_separator(very_wide_terminal, capsys):
-    out = render(capsys, [regular(D1, 9, 10), regular(D2, 9, 10, task="Other")],
-                 end_time=D2 + h(23))
+    out = render(
+        capsys, [regular(D1, 9, 10), regular(D2, 9, 10, task="Other")], end_time=D2 + h(23)
+    )
     assert out.count("Day total:") == 2
 
 
@@ -336,7 +348,9 @@ def test_very_wide_date_change_uses_full_width_separator(very_wide_terminal, cap
     ),
 )
 def test_detail_level_one_hides_task_names(capsys):
-    out = render(capsys, [regular(D1, 9, 10, project="Platform", task="Code Review")], detail_level=1)
+    out = render(
+        capsys, [regular(D1, 9, 10, project="Platform", task="Code Review")], detail_level=1
+    )
     assert "Platform" in out
     assert "Code Review" not in out
 

@@ -52,9 +52,7 @@ class TestPeriodKeywords:
         start, end = parse_period(":lastweek", day_start_hour=0)
         now = datetime.now().astimezone()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        start_of_last_week = today_start - timedelta(
-            days=now.weekday(), weeks=1
-        )
+        start_of_last_week = today_start - timedelta(days=now.weekday(), weeks=1)
 
         assert start == start_of_last_week
         # End should be 6 days after start (full week)

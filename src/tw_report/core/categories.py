@@ -111,13 +111,9 @@ def compile_category_rules(
                     # Store parent paths for inheritance lookup
                     for i in range(len(cat_list) - 1, 0, -1):
                         parent_path = " > ".join(cat_list[:i])
-                        if (
-                            parent_path in explicit_scores
-                            and explicit_scores[parent_path] is not None
-                        ):
-                            parent_score = explicit_scores[parent_path]
-                            if parent_path not in cat_score_map:
-                                cat_score_map[parent_path] = parent_score
+                        parent_score = explicit_scores.get(parent_path)
+                        if parent_score is not None and parent_path not in cat_score_map:
+                            cat_score_map[parent_path] = parent_score
             except re.error as e:
                 logger.error(f"Failed to compile regex for rule {rule_item}: {e}")
                 raise CategoryValidationError(

@@ -409,7 +409,7 @@ class ReportTimelineSlot:
     tags: List[str] = field(default_factory=list)
     categories: List[Dict[str, Any]] = field(default_factory=list)
     apps: Optional[List[Dict[str, Any]]] = None
-    source_slots: List["ReportTimelineSlot"] = field(default_factory=list)
+    source_slots: List[Union["ReportTimelineSlot", TimelineSlot]] = field(default_factory=list)
     is_consolidated: bool = False
     bucket_mode: Optional[Literal["day", "week", "month", "year"]] = None
     bucket_start_date: Optional[date] = None
@@ -574,7 +574,7 @@ class ReportTimelineSlot:
             start=slot.start,
             end=slot.end,
             duration=slot.duration,
-            actual_duration=slot.actual_duration,
+            actual_duration=_required(slot.actual_duration),
             productive_duration=slot.productive_duration,
             task_event=task_event,
             window_events=[],
@@ -613,6 +613,7 @@ class ReportTimelineSlot:
         duration = d.get("duration", timedelta(0))
         # Compute end if not provided (start + duration)
         end = d.get("end") or (start + duration if start else None)
+        assert start is not None and end is not None, "slot dict requires start"
 
         # Extract task_event if project/task are present (using sentinel-checked logic)
         task_event = None
@@ -708,7 +709,7 @@ class ReportTimelineSlot:
         duration = end - start
 
         # Accumulate durations (true sums)
-        actual_duration = sum((s.actual_duration for s in group), timedelta(0))
+        actual_duration = sum((_required(s.actual_duration) for s in group), timedelta(0))
         productive_duration = sum((s.productive_duration for s in group), timedelta(0))
 
         # AFK duration: sum afk_duration field directly across all slots
@@ -1030,7 +1031,7 @@ class ReportTimelineSlot:
             start=work_slot.start,
             end=work_slot.end,
             duration=work_slot.duration,
-            actual_duration=work_slot.actual_duration,
+            actual_duration=_required(work_slot.actual_duration),
             productive_duration=work_slot.productive_duration,
             task_event=task_event,
             window_events=[],
@@ -1041,7 +1042,7 @@ class ReportTimelineSlot:
             tags=work_slot.tags,
             categories=work_slot.categories,
             apps=work_slot.apps,
-            source_slots=[work_slot] + afk_slots,  # Traceability: all contributors
+            source_slots=[work_slot, *afk_slots],  # Traceability: all contributors
             is_consolidated=False,  # Not a merge (different data sources)
         )
 
@@ -1349,8 +1350,8 @@ class ReportEntries:
         if not self.slots_list:
             return ReportEntries()
 
-        consolidated = []
-        current_group = []
+        consolidated: List[ReportTimelineSlot] = []
+        current_group: List[ReportTimelineSlot] = []
 
         for report_slot in self.slots_list:
             # Skip bare offline gap markers: empty/missing project + task + zero online duration
@@ -1446,7 +1447,7 @@ class ReportEntries:
     @deprecated("Not used by the report pipeline; main() uses from_timeline() and as_dicts() only.")
     def grouped_by_project_date(
         self, day_start_hour: int = 4
-    ) -> List[Tuple[str, date, List[ReportTimelineSlot]]]:
+    ) -> List[Tuple[Optional[str], Optional[date], List[ReportTimelineSlot]]]:
         """
         Group slots by (project, date) without merging.
 
@@ -1460,10 +1461,10 @@ class ReportEntries:
         Returns:
             List of (project, date, slots_list) tuples
         """
-        groups = []
-        current_project = None
-        current_date = None
-        current_group = []
+        groups: List[Tuple[Optional[str], Optional[date], List[ReportTimelineSlot]]] = []
+        current_project: Optional[str] = None
+        current_date: Optional[date] = None
+        current_group: List[ReportTimelineSlot] = []
 
         for report_slot in sorted(
             self.slots_list,
@@ -1511,7 +1512,7 @@ class ReportEntries:
             split_pieces.extend(report_slot.split_at_boundaries(mode, day_start_hour))
 
         # Global groupby (bucket, project, task), excluding bare offline gaps
-        bucket_groups = {}
+        bucket_groups: Dict[Tuple[Optional[date], str, str], List[ReportTimelineSlot]] = {}
         for piece in split_pieces:
             # Skip bare offline gap markers (these are synthetic AFK-only slots with no real task)
             # Identified by being AFK-only type (not offline_task)
@@ -1559,7 +1560,7 @@ class ReportEntries:
         # Sort by (bucket_date, -project_duration_desc, -task_duration_desc)
         # (simplified: just bucket_date for now; render layer can further sort by project/task if
         # needed)
-        bucketed.sort(key=lambda s: s.bucket_start_date)
+        bucketed.sort(key=_bucket_date)
 
         return ReportEntries(slots_list=bucketed)
 
@@ -1575,7 +1576,7 @@ class ReportEntries:
         Returns:
             ReportEntries with one row per (bucket, project), durations summed
         """
-        by_bucket_project = {}
+        by_bucket_project: Dict[Tuple[Optional[date], str], List[ReportTimelineSlot]] = {}
 
         for report_slot in self.slots_list:
             key = (report_slot.bucket_start_date, report_slot.project)
@@ -1782,7 +1783,7 @@ class ReportEntries:
                     start=slot.start,
                     end=slot.end,
                     duration=slot.duration,
-                    actual_duration=slot.actual_duration,
+                    actual_duration=_required(slot.actual_duration),
                     productive_duration=slot.productive_duration,
                     project=slot.project,
                     task=slot.task,
@@ -1805,6 +1806,18 @@ class ReportEntries:
         consolidated.sort(key=lambda s: s.start)
 
         return ReportEntries(slots_list=consolidated)
+
+
+def _required(value: Optional[timedelta]) -> timedelta:
+    """Return a duration that TimelineSlot validation guarantees to be present."""
+    assert value is not None, "TimelineSlot validation guarantees actual_duration is set"
+    return value
+
+
+def _bucket_date(slot: "ReportTimelineSlot") -> date:
+    """Return the period bucket a split piece belongs to (set by bucket())."""
+    assert slot.bucket_start_date is not None, "bucket() always sets bucket_start_date"
+    return slot.bucket_start_date
 
 
 @deprecated("Private helper of deprecated from_timeline_slots().")
