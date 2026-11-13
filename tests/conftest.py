@@ -397,3 +397,13 @@ def issue_2_marker():
 def issue_3_marker():
     """Pytest marker for Issue #3 tests (Incomplete filter)."""
     return pytest.mark.xfail(reason="Issue #3: --exclude-non-project doesn't filter OFFLINE gaps or synthetic slots")
+
+
+def pytest_addoption(parser):
+    """--update-golden: rewrite characterization snapshots instead of asserting them."""
+    parser.addoption(
+        "--update-golden",
+        action="store_true",
+        default=False,
+        help="Regenerate tests/characterization/golden/*.txt from current output",
+    )
