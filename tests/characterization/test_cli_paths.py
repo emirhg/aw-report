@@ -347,3 +347,43 @@ def test_app_names_are_collected_from_category_entries_and_empty_names_skipped()
         categories = None
 
     assert cli_main._get_apps_from_slot(_Empty()) == []
+
+
+def _write_config(tmp_path, text):
+    config_dir = tmp_path / "xdg" / "tw-report"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    (config_dir / "config.toml").write_text(text, encoding="utf-8")
+    return str(tmp_path / "xdg")
+
+
+def test_configured_bucket_ids_are_used_and_match_the_default_report(monkeypatch, capsys, tmp_path):
+    baseline, _, _ = run_cli(
+        monkeypatch, capsys, [DAY], FakeActivityWatchClient(scenario_buckets())
+    )
+    buckets = scenario_buckets()
+    renamed = {
+        "aw-watcher-afk_custom": buckets[f"aw-watcher-afk_{HOST}"],
+        "aw-watcher-window_custom": buckets[f"aw-watcher-window_{HOST}"],
+        "aw-watcher-taskwarrior_custom": buckets[f"aw-watcher-taskwarrior_{HOST}"],
+    }
+    xdg = _write_config(
+        tmp_path,
+        '[buckets]\nafk = "aw-watcher-afk_custom"\nwindow = "aw-watcher-window_custom"\n'
+        'tasks = "aw-watcher-taskwarrior_custom"\n',
+    )
+    monkeypatch.setenv("XDG_CONFIG_HOME", xdg)
+    client = FakeActivityWatchClient(renamed)
+    out, code, err = run_cli(monkeypatch, capsys, [DAY], client)
+    assert code == 0
+    assert out == baseline
+    assert {c["bucket_id"] for c in client.calls} == set(renamed)
+
+
+def test_invalid_bucket_config_reports_an_error_and_exits_with_1(monkeypatch, capsys, tmp_path):
+    xdg = _write_config(tmp_path, '[buckets]\nwindw = "typo"\n')
+    monkeypatch.setenv("XDG_CONFIG_HOME", xdg)
+    client = FakeActivityWatchClient(scenario_buckets())
+    out, code, err = run_cli(monkeypatch, capsys, [DAY], client)
+    assert code == 1
+    assert "Unknown key(s) in [buckets]: windw" in err
+    assert client.calls == []

@@ -17,6 +17,7 @@ from aw_transform import filter_keyvals
 from tw_report.cli.args import parse_args, parse_positional_args
 from tw_report.config import load_user_config, resolve_settings
 from tw_report.core.aw_events import AFKEvent
+from tw_report.core.buckets import resolve_buckets
 from tw_report.core.categories import (
     categorize_event,
     compile_category_rules,
@@ -24,7 +25,6 @@ from tw_report.core.categories import (
     load_categories,
 )
 from tw_report.core.events import (
-    get_bucket_id,
     get_events,
 )
 from tw_report.core.filtering import EventFilter, _is_unassigned_project
@@ -49,6 +49,7 @@ from tw_report.core.task_uuid_filtering import (
 )
 from tw_report.core.timeline import Timeline, TimelineSlot
 from tw_report.core.timeslot_builder import build_timeslot_timeline
+from tw_report.exceptions import ConfigParsingError
 
 # generate_untracked_gap_events removed in Phase 2 refactor — builder handles gaps
 from tw_report.pipeline.presenters import HierarchicalReport, TimelineReport
@@ -130,7 +131,7 @@ E = TypeVar("E", bound=Event)
 
 def _fetch_events_for_ranges[E: Event](
     client: ActivityWatchClient,
-    bucket_name: str,
+    bucket_id: str,
     time_ranges: list[tuple[datetime, datetime]],
     event_cls: type[E],
 ) -> list[E]:
@@ -143,7 +144,6 @@ def _fetch_events_for_ranges[E: Event](
         TaskWarriorEvent)
     """
     events = []
-    bucket_id = get_bucket_id(bucket_name)
     for start, end in time_ranges:
         # Add small buffer (1 second) to ensure boundary events are included
         buffer = timedelta(seconds=1)
@@ -203,7 +203,12 @@ def _run(profiler: StageProfiler):
     profiler.checkpoint("ActivityWatchClient created")
 
     # Load config file and resolve settings (CLI args > config file > defaults)
-    user_config = load_user_config()
+    try:
+        user_config = load_user_config()
+        buckets = resolve_buckets(user_config.get("buckets"))
+    except ConfigParsingError as config_error:
+        print(f"Error: {config_error}", file=sys.stderr)
+        return 1
     resolved_settings = resolve_settings(
         cli_args={"day_start_hour": args.day_start_hour}, user_config=user_config
     )
@@ -337,7 +342,7 @@ def _run(profiler: StageProfiler):
     task_events = None  # Will be populated later; used for window-fetch decision
 
     if not args.no_taskwarrior:
-        task_bucket = get_bucket_id("taskwarrior")
+        task_bucket = buckets.tasks
 
         # Fetch TaskWarrior with ANY available filter (UUID, project, task)
         # This determines the actual time window we need to fetch AFK/window for
@@ -391,10 +396,12 @@ def _run(profiler: StageProfiler):
     if task_time_ranges:
         # Smart optimization: only fetch AFK for times when tasks exist
         # This dramatically reduces data volume for sparse task data (e.g., :year, :all)
-        afk_events = _fetch_events_for_ranges(client, "afk", task_time_ranges, event_cls=AFKEvent)
+        afk_events = _fetch_events_for_ranges(
+            client, buckets.afk, task_time_ranges, event_cls=AFKEvent
+        )
     else:
         # No task time ranges: fetch entire period
-        afk_bucket = get_bucket_id("afk")
+        afk_bucket = buckets.afk
         profiler.checkpoint(f"Fetching AFK events from {start_time.date()} to {end_time.date()}")
         afk_events = get_events(client, afk_bucket, start_time, end_time, event_cls=AFKEvent)
         profiler.checkpoint(f"Fetched {len(afk_events)} AFK events")
@@ -439,11 +446,11 @@ def _run(profiler: StageProfiler):
     if task_time_ranges:
         # Smart optimization: only fetch windows for times when tasks exist
         window_events = _fetch_events_for_ranges(
-            client, "window", task_time_ranges, event_cls=WindowEvent
+            client, buckets.window, task_time_ranges, event_cls=WindowEvent
         )
     else:
         # No task time ranges: fetch entire period
-        window_bucket = get_bucket_id("window")
+        window_bucket = buckets.window
         profiler.checkpoint(f"Fetching window events from {start_time.date()} to {end_time.date()}")
         window_events = get_events(
             client, window_bucket, start_time, end_time, event_cls=WindowEvent
@@ -512,7 +519,7 @@ def _run(profiler: StageProfiler):
     if is_task_based_report and task_events is None:
         # TaskWarrior events not fetched early (no filter specified)
         # Fetch for full period now
-        task_bucket = get_bucket_id("taskwarrior")
+        task_bucket = buckets.tasks
         task_events = get_events(client, task_bucket, start_time, end_time)
         # Note: time_ranges will remain None, so AFK/window will use full period
         # This is correct because we need the full system state when no filter is applied
@@ -597,7 +604,7 @@ def _run(profiler: StageProfiler):
             # This reduces AFK data volume when filtering by app, whether alone or combined
             # with project/task filters. Bounding envelope preserves AFK context for gaps.
             afk_events = _fetch_events_for_ranges(
-                client, "afk", app_time_ranges, event_cls=AFKEvent
+                client, buckets.afk, app_time_ranges, event_cls=AFKEvent
             )
 
     # Tracked Activity from event times (includes all buckets: AFK + window + task)

@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 E = TypeVar("E", bound=Event)
 
 
-def get_bucket_id(bucket_name: str) -> str:
+def get_bucket_id(bucket_name: str, hostname: str | None = None) -> str:
     """Construct the full bucket ID from its name and the machine's hostname.
 
     Args:
@@ -28,7 +28,8 @@ def get_bucket_id(bucket_name: str) -> str:
     Returns:
         Full bucket ID (e.g., "aw-watcher-window_hostname")
     """
-    hostname = platform.node()
+    if hostname is None:
+        hostname = platform.node()
     return f"aw-watcher-{bucket_name}_{hostname}"
 
 
