@@ -7,15 +7,10 @@ Fallback: ~/.config/tw-report/config.toml
 """
 
 import os
-import sys
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
+from typing import Any
 
 from tw_report.exceptions import ConfigParsingError
 
@@ -26,11 +21,11 @@ class ResolvedSettings:
 
     detail_level: int
     day_start_hour: int = 4
-    exclude_projects: Optional[list] = None
-    exclude_tasks: Optional[list] = None
-    exclude_apps: Optional[list] = None
-    terminal_width: Optional[int] = None
-    categories_file: Optional[str] = None
+    exclude_projects: list | None = None
+    exclude_tasks: list | None = None
+    exclude_apps: list | None = None
+    terminal_width: int | None = None
+    categories_file: str | None = None
 
 
 def get_config_path() -> Path:
@@ -56,7 +51,7 @@ def get_config_path() -> Path:
     return config_dir / "config.toml"
 
 
-def load_user_config(path: Optional[Path] = None) -> Dict[str, Any]:
+def load_user_config(path: Path | None = None) -> dict[str, Any]:
     """Load user configuration from TOML file.
 
     Args:
@@ -82,9 +77,9 @@ def load_user_config(path: Optional[Path] = None) -> Dict[str, Any]:
 
 
 def resolve_settings(
-    cli_args: Optional[Dict[str, Any]] = None,
-    user_config: Optional[Dict[str, Any]] = None,
-    defaults: Optional[Dict[str, Any]] = None,
+    cli_args: dict[str, Any] | None = None,
+    user_config: dict[str, Any] | None = None,
+    defaults: dict[str, Any] | None = None,
 ) -> ResolvedSettings:
     """Resolve final settings from CLI args, config file, and defaults.
 

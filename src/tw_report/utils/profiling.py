@@ -10,7 +10,7 @@ appended to afterwards; no file handle is kept open between checkpoints.
 import os
 import sys
 import time
-from typing import Callable, Mapping, Optional
+from collections.abc import Callable, Mapping
 
 PROFILE_LOG_PATH = "/tmp/tw_report_profile.log"
 PROFILE_ENV_VAR = "TW_REPORT_PROFILE"
@@ -32,7 +32,7 @@ class StageProfiler:
         self._wrote_any = False
 
     @classmethod
-    def from_env(cls, environ: Optional[Mapping[str, str]] = None, **kwargs) -> "StageProfiler":
+    def from_env(cls, environ: Mapping[str, str] | None = None, **kwargs) -> StageProfiler:
         env = os.environ if environ is None else environ
         return cls(enabled=bool(env.get(PROFILE_ENV_VAR)), **kwargs)
 
@@ -51,7 +51,7 @@ class StageProfiler:
         self._wrote_any = True
 
 
-def enable_unbuffered_output(environ: Optional[Mapping[str, str]] = None) -> None:
+def enable_unbuffered_output(environ: Mapping[str, str] | None = None) -> None:
     """Make stdout/stderr unbuffered when ``TW_REPORT_DEBUG`` is set (for long runs)."""
     env = os.environ if environ is None else environ
     if env.get("TW_REPORT_DEBUG"):

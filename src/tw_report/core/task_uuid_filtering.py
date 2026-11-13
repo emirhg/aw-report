@@ -10,14 +10,13 @@ import json
 import logging
 import subprocess
 from datetime import datetime
-from typing import List, Optional
 
 from aw_core.models import Event
 
 logger = logging.getLogger(__name__)
 
 
-def _export_task(identifier) -> Optional[dict]:
+def _export_task(identifier) -> dict | None:
     """Export TaskWarrior task data by ID or UUID.
 
     Uses 'task <identifier> export' to fetch full task data.
@@ -54,7 +53,7 @@ def _export_task(identifier) -> Optional[dict]:
         return None
 
 
-def get_task_uuid(task_id: int) -> Optional[str]:
+def get_task_uuid(task_id: int) -> str | None:
     """Get UUID for a TaskWarrior task by ID.
 
     Uses 'task <id> export' to fetch task data and extracts the uuid field.
@@ -81,7 +80,7 @@ def get_task_uuid(task_id: int) -> Optional[str]:
     return uuid
 
 
-def get_task_project(identifier) -> Optional[str]:
+def get_task_project(identifier) -> str | None:
     """Get project field for a TaskWarrior task by ID or UUID.
 
     Uses 'task <identifier> export' to fetch task data and extracts the project field.
@@ -107,7 +106,7 @@ def get_task_project(identifier) -> Optional[str]:
     return task.get("project")
 
 
-def get_task_description(identifier) -> Optional[str]:
+def get_task_description(identifier) -> str | None:
     """Get description (name) for a TaskWarrior task by ID or UUID.
 
     Uses 'task <identifier> export' to fetch task data and extracts the description field.
@@ -138,8 +137,8 @@ def get_events_by_uuid(
     bucket_id: str,
     start: datetime,
     end: datetime,
-    uuid: Optional[str] = None,
-) -> List[Event]:
+    uuid: str | None = None,
+) -> list[Event]:
     """Fetch events from a bucket and optionally filter by UUID.
 
     Fetches events from the specified bucket within the time range.

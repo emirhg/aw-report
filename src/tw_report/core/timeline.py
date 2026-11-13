@@ -10,7 +10,7 @@ Timeline: Manages a sorted collection of TimelineSlots
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from tw_report.core.report_slot import ReportEntries
@@ -67,13 +67,13 @@ class TimelineSlot:
     task: str
     duration: timedelta
     productive_duration: timedelta = field(default_factory=lambda: timedelta(0))
-    categories: List[Dict[str, Any]] = field(default_factory=list)
-    tags: List[str] = field(default_factory=list)
-    actual_duration: Optional[timedelta] = None
-    afk_duration: Optional[timedelta] = None
-    offline_extension_duration: Optional[timedelta] = None
-    event_duration: Optional[timedelta] = None
-    apps: Optional[List[Dict[str, Any]]] = None
+    categories: list[dict[str, Any]] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+    actual_duration: timedelta | None = None
+    afk_duration: timedelta | None = None
+    offline_extension_duration: timedelta | None = None
+    event_duration: timedelta | None = None
+    apps: list[dict[str, Any]] | None = None
 
     def __post_init__(self):
         """Validate and normalize slot data.
@@ -121,7 +121,7 @@ class TimelineSlot:
                 "event_duration is required to compute the offline/online split display."
             )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dict format for compatibility with existing code."""
         d = {
             "type": self.type,
@@ -150,7 +150,7 @@ class TimelineSlot:
         return d
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "TimelineSlot":
+    def from_dict(cls, d: dict[str, Any]) -> TimelineSlot:
         """Create TimelineSlot from dict (for compatibility).
 
         HARDENING: This method enforces all required fields to prevent silent data loss.
@@ -217,7 +217,7 @@ class TimelineSlot:
             apps=d.get("apps"),
         )
 
-    def overlaps(self, other: "TimelineSlot") -> bool:
+    def overlaps(self, other: TimelineSlot) -> bool:
         """Check if this slot overlaps with another slot."""
         return self.start < other.end and self.end > other.start
 
@@ -237,7 +237,7 @@ class Timeline:
 
     def __init__(self):
         """Initialize empty timeline."""
-        self.slots: List[TimelineSlot] = []
+        self.slots: list[TimelineSlot] = []
 
     def add_slot(self, slot: TimelineSlot) -> None:
         """
@@ -249,7 +249,7 @@ class Timeline:
         self.slots.append(slot)
         self._sort()
 
-    def add_slots(self, slots: List[TimelineSlot]) -> None:
+    def add_slots(self, slots: list[TimelineSlot]) -> None:
         """
         Add multiple slots, maintaining sort order.
 
@@ -259,7 +259,7 @@ class Timeline:
         self.slots.extend(slots)
         self._sort()
 
-    def add_from_dict(self, slot_dict: Dict[str, Any]) -> None:
+    def add_from_dict(self, slot_dict: dict[str, Any]) -> None:
         """
         Add a slot from dict format (for compatibility).
 
@@ -269,15 +269,15 @@ class Timeline:
         slot = TimelineSlot.from_dict(slot_dict)
         self.add_slot(slot)
 
-    def get_slots(self) -> List[TimelineSlot]:
+    def get_slots(self) -> list[TimelineSlot]:
         """Get all slots in chronological order."""
         return list(self.slots)
 
-    def get_slots_as_dicts(self) -> List[Dict[str, Any]]:
+    def get_slots_as_dicts(self) -> list[dict[str, Any]]:
         """Get all slots as dicts (for compatibility)."""
         return [slot.to_dict() for slot in self.slots]
 
-    def get_slots_in_range(self, start: datetime, end: datetime) -> List[TimelineSlot]:
+    def get_slots_in_range(self, start: datetime, end: datetime) -> list[TimelineSlot]:
         """
         Get slots within a time range.
 
@@ -290,15 +290,15 @@ class Timeline:
         """
         return [s for s in self.slots if s.start < end and s.end > start]
 
-    def get_slots_by_project(self, project: str) -> List[TimelineSlot]:
+    def get_slots_by_project(self, project: str) -> list[TimelineSlot]:
         """Get all slots for a specific project."""
         return [s for s in self.slots if s.project == project]
 
-    def get_slots_by_task(self, project: str, task: str) -> List[TimelineSlot]:
+    def get_slots_by_task(self, project: str, task: str) -> list[TimelineSlot]:
         """Get all slots for a specific (project, task) pair."""
         return [s for s in self.slots if s.project == project and s.task == task]
 
-    def get_slots_by_type(self, slot_type: str) -> List[TimelineSlot]:
+    def get_slots_by_type(self, slot_type: str) -> list[TimelineSlot]:
         """Get all slots of a specific type."""
         return [s for s in self.slots if s.type == slot_type]
 
@@ -318,7 +318,7 @@ class Timeline:
         """Get number of slots in timeline."""
         return len(self.slots)
 
-    def to_report_timeline(self) -> "ReportEntries":
+    def to_report_timeline(self) -> ReportEntries:
         """
         Convert this Timeline to a ReportEntries for reporting/consolidation operations.
 

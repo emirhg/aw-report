@@ -12,16 +12,17 @@ Example:
   Output: Task A (2.5h) → Task B (1h)  [gap is bridged]
 """
 
+from collections.abc import Sequence
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, Dict, List, Sequence, Union
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from tw_report.core.report_slot import ReportTimelineSlot
 
 
 def consolidate_sessions(
-    slots: Sequence[Union[Dict[str, Any], "ReportTimelineSlot"]],
-) -> List[Dict[str, Any]]:
+    slots: Sequence[dict[str, Any] | ReportTimelineSlot],
+) -> list[dict[str, Any]]:
     """Merge consecutive sessions of the same (project, task) into one slot.
 
     Sessions of the same task are merged even with gaps between them,
@@ -72,7 +73,7 @@ def consolidate_sessions(
     return merged
 
 
-def _to_dict(slot: Union[Dict[str, Any], Any]) -> Dict[str, Any]:
+def _to_dict(slot: dict[str, Any] | Any) -> dict[str, Any]:
     """Convert slot to dict if it's an object."""
     if isinstance(slot, dict):
         return slot
@@ -92,7 +93,7 @@ def _to_dict(slot: Union[Dict[str, Any], Any]) -> Dict[str, Any]:
     }
 
 
-def _same_group(slot: Dict[str, Any], last_slot: Dict[str, Any]) -> bool:
+def _same_group(slot: dict[str, Any], last_slot: dict[str, Any]) -> bool:
     """Check if two slots belong to the same consolidation group."""
     same = slot.get("project") == last_slot.get("project") and slot.get("task") == last_slot.get(
         "task"
@@ -101,7 +102,7 @@ def _same_group(slot: Dict[str, Any], last_slot: Dict[str, Any]) -> bool:
     return same
 
 
-def _merge_group(group: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _merge_group(group: list[dict[str, Any]]) -> dict[str, Any]:
     """Merge a group of consecutive slots of the same task into one.
 
     The merged slot spans from the start of the first slot to the end of

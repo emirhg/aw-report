@@ -8,7 +8,7 @@ in --task filter values, resolving them to task descriptions.
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from tw_report.core.aw_events import TaskWarriorEvent
@@ -21,8 +21,8 @@ def get_events_by_task(
     bucket_id: str,
     start: datetime,
     end: datetime,
-    task: Optional[str] = None,
-) -> List["TaskWarriorEvent"]:
+    task: str | None = None,
+) -> list[TaskWarriorEvent]:
     """Fetch taskwarrior events, optionally filtered by task name.
 
     Filters events where the task name matches the given pattern
@@ -73,7 +73,7 @@ def get_events_by_task(
     return filtered
 
 
-def resolve_task_filter_value(value: str) -> Tuple[Optional[str], Optional[str]]:
+def resolve_task_filter_value(value: str) -> tuple[str | None, str | None]:
     """Resolve a task filter value to a concrete task description.
 
     Supports three forms:
@@ -104,7 +104,7 @@ def resolve_task_filter_value(value: str) -> Tuple[Optional[str], Optional[str]]
     from tw_report.core.task_uuid_filtering import get_task_description
 
     # Detect if value is an ID or UUID that needs resolution
-    identifier: Union[int, str]
+    identifier: int | str
     if value.isdigit():
         identifier = int(value)
     elif _is_uuid_like(value):
@@ -126,8 +126,8 @@ def get_events_by_tasks(
     bucket_id: str,
     start: datetime,
     end: datetime,
-    tasks: Optional[List[str]] = None,
-) -> List["TaskWarriorEvent"]:
+    tasks: list[str] | None = None,
+) -> list[TaskWarriorEvent]:
     """Fetch taskwarrior events filtered by multiple task name patterns (PHASE 14).
 
     More efficient than calling get_events_by_task() multiple times because

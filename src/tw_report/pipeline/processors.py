@@ -1,7 +1,8 @@
+from collections.abc import Callable, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Sequence, Tuple, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from aw_core.models import Event
 
@@ -14,13 +15,13 @@ if TYPE_CHECKING:
 
 
 def aggregate_hierarchy_from_slots(
-    consolidated_slots: List["ReportTimelineSlot"],
+    consolidated_slots: list[ReportTimelineSlot],
     task_based: bool,
-    cat_score_map: Dict[str, float],
-    get_category_score: Callable[[str, Dict[str, float]], float],
+    cat_score_map: dict[str, float],
+    get_category_score: Callable[[str, dict[str, float]], float],
     normalize_title: Callable[[str], str],
-    event_filter: Optional[EventFilter] = None,
-) -> Tuple[Dict, bool]:
+    event_filter: EventFilter | None = None,
+) -> tuple[dict, bool]:
     """
     Build hierarchical report structure from consolidated slots (Phase 2 refactor).
 
@@ -59,7 +60,7 @@ def aggregate_hierarchy_from_slots(
             )
         ]
 
-    report: Dict = {}
+    report: dict = {}
 
     # Determine actual task_based mode: use True if ANY slot has project/task data (even NO_PROJECT)
     # This ensures "No project assigned" time is always shown hierarchically with project/task level
@@ -166,9 +167,9 @@ def aggregate_hierarchy_from_slots(
 
 
 def compute_metrics(
-    consolidated_slots: List["ReportTimelineSlot"],
-    cat_score_map: Dict[str, float],
-    get_category_score: Callable[[str, Dict[str, float]], float],
+    consolidated_slots: list[ReportTimelineSlot],
+    cat_score_map: dict[str, float],
+    get_category_score: Callable[[str, dict[str, float]], float],
     non_afk_time: timedelta,
     first_event_time,
     last_event_time,
@@ -236,10 +237,10 @@ def compute_metrics(
 
 
 def build_context(
-    consolidated_slots: List["ReportTimelineSlot"],
-    task_events: Optional[Sequence[Event]],
+    consolidated_slots: list[ReportTimelineSlot],
+    task_events: Sequence[Event] | None,
     afk_events: Sequence[Event],
-    cat_score_map: Dict[str, float],
+    cat_score_map: dict[str, float],
     is_task_based_report: bool,
     metrics: ReportMetrics,
 ) -> ReportContext:
@@ -268,7 +269,7 @@ def build_context(
 E = TypeVar("E", bound=Event)
 
 
-def merge_overlapping_afk_periods(afk_events: List[E]) -> List[E]:
+def merge_overlapping_afk_periods[E: Event](afk_events: list[E]) -> list[E]:
     """Merge overlapping/touching AFK periods and bridge micro-gaps.
 
     Merges:
@@ -352,7 +353,7 @@ class ProductivityBreakdown:
     afk_undefined: timedelta = timedelta(0)
 
 
-def _score_bucket(score: Optional[float]) -> str:
+def _score_bucket(score: float | None) -> str:
     """Map a category score to 'productive', 'unproductive' or 'undefined'."""
     if not score:
         return "undefined"
@@ -363,9 +364,9 @@ def _split_by_window_categories(
     start,
     end,
     duration: timedelta,
-    window_events: List,
-    cat_score_map: Dict[str, float],
-) -> Dict[str, timedelta]:
+    window_events: list,
+    cat_score_map: dict[str, float],
+) -> dict[str, timedelta]:
     """Split duration across buckets using window-category coverage of [start, end].
 
     Window time with a scored category goes to that bucket; window-uncovered
@@ -394,7 +395,7 @@ def _split_by_window_categories(
     return parts
 
 
-def _fit_to_total(parts: Dict[str, timedelta], target: timedelta) -> Dict[str, timedelta]:
+def _fit_to_total(parts: dict[str, timedelta], target: timedelta) -> dict[str, timedelta]:
     """Rescale productive/unproductive so the three parts sum exactly to target.
 
     Undefined takes the remainder. If the raw parts sum to zero, the whole
@@ -413,11 +414,11 @@ def _fit_to_total(parts: Dict[str, timedelta], target: timedelta) -> Dict[str, t
 
 
 def compute_productivity_breakdown(
-    filtered_slots: List["ReportTimelineSlot"],
-    window_events: List,
-    cat_score_map: Dict[str, float],
-    active_total: Optional[timedelta] = None,
-    afk_total: Optional[timedelta] = None,
+    filtered_slots: list[ReportTimelineSlot],
+    window_events: list,
+    cat_score_map: dict[str, float],
+    active_total: timedelta | None = None,
+    afk_total: timedelta | None = None,
 ) -> ProductivityBreakdown:
     """Split Active and AFK time into productive / unproductive / undefined.
 
@@ -445,7 +446,7 @@ def compute_productivity_breakdown(
     }
     has_consolidated_afk = any(s.afk_duration is not None for s in filtered_slots)
 
-    def add(parts: Dict[str, timedelta], split: Dict[str, timedelta]) -> None:
+    def add(parts: dict[str, timedelta], split: dict[str, timedelta]) -> None:
         for bucket, amount in split.items():
             parts[bucket] += amount
 

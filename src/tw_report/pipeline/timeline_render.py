@@ -59,7 +59,7 @@ This approach was chosen over fixed-column padding because:
 
 import contextlib
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union, overload
+from typing import TYPE_CHECKING, Any, overload
 
 from aw_core.models import Event
 
@@ -108,7 +108,7 @@ def calculate_break_duration(slot_end: datetime, next_slot_start: datetime) -> t
 
 
 @deprecated("Not used by the report pipeline.")
-def get_gap_between_slots(slot1: Dict[str, Any], slot2: Dict[str, Any]) -> timedelta:
+def get_gap_between_slots(slot1: dict[str, Any], slot2: dict[str, Any]) -> timedelta:
     """Extract gap time between two slots.
 
     Args:
@@ -122,7 +122,7 @@ def get_gap_between_slots(slot1: Dict[str, Any], slot2: Dict[str, Any]) -> timed
 
 
 @deprecated("Not used by the report pipeline.")
-def format_break_column(break_duration: Optional[timedelta]) -> str:
+def format_break_column(break_duration: timedelta | None) -> str:
     """Format break duration for timeline column display.
 
     Args:
@@ -141,7 +141,7 @@ def format_break_column(break_duration: Optional[timedelta]) -> str:
 # These are separated to enable unit testing and reuse
 
 
-def compute_afk_offline_totals(slots: List["ReportTimelineSlot"]) -> Tuple[timedelta, timedelta]:
+def compute_afk_offline_totals(slots: list[ReportTimelineSlot]) -> tuple[timedelta, timedelta]:
     """Compute total AFK and Offline duration from normalized report slots.
 
     This calculation is used by both timeline and hierarchical reports to ensure
@@ -183,7 +183,7 @@ def compute_afk_offline_totals(slots: List["ReportTimelineSlot"]) -> Tuple[timed
     return total_afk_time, total_offline_time
 
 
-def get_slot_week_key(slot: Union[Dict, "ReportTimelineSlot"], day_start_hour: int = 4) -> str:
+def get_slot_week_key(slot: dict | ReportTimelineSlot, day_start_hour: int = 4) -> str:
     """Get ISO week key for a slot based on its logical date.
 
     Calculates which ISO week a slot belongs to, accounting for day_start_hour.
@@ -210,7 +210,7 @@ def get_slot_week_key(slot: Union[Dict, "ReportTimelineSlot"], day_start_hour: i
     return f"{iso_year}-W{iso_week:02d}"
 
 
-def get_slot_logical_date(slot: Union[Dict, "ReportTimelineSlot"], day_start_hour: int = 4):
+def get_slot_logical_date(slot: dict | ReportTimelineSlot, day_start_hour: int = 4):
     """Get logical date for a slot.
 
     Determines which logical day a slot belongs to, accounting for day_start_hour.
@@ -235,7 +235,7 @@ def get_slot_logical_date(slot: Union[Dict, "ReportTimelineSlot"], day_start_hou
     return logical_date(start_time, day_start_hour)
 
 
-def _get_displayed_duration(slot: Union[Dict, "ReportTimelineSlot"]) -> timedelta:
+def _get_displayed_duration(slot: dict | ReportTimelineSlot) -> timedelta:
     """Return the duration that's actually displayed for this slot.
 
     Matches the exact logic used in rendering code to ensure totals are consistent:
@@ -277,19 +277,19 @@ def _get_displayed_duration(slot: Union[Dict, "ReportTimelineSlot"]) -> timedelt
 
 @overload
 def split_slots_spanning_days(
-    slots: List[Dict[str, Any]], day_start_hour: int = 4
-) -> List[Dict[str, Any]]: ...
+    slots: list[dict[str, Any]], day_start_hour: int = 4
+) -> list[dict[str, Any]]: ...
 
 
 @overload
 def split_slots_spanning_days(
-    slots: List["ReportTimelineSlot"], day_start_hour: int = 4
-) -> List["ReportTimelineSlot"]: ...
+    slots: list[ReportTimelineSlot], day_start_hour: int = 4
+) -> list[ReportTimelineSlot]: ...
 
 
 def split_slots_spanning_days(
-    slots: Union[List[Dict[str, Any]], List["ReportTimelineSlot"]], day_start_hour: int = 4
-) -> Union[List[Dict[str, Any]], List["ReportTimelineSlot"]]:
+    slots: list[dict[str, Any]] | list[ReportTimelineSlot], day_start_hour: int = 4
+) -> list[dict[str, Any]] | list[ReportTimelineSlot]:
     """Split slots that span multiple days into single-day pieces.
 
     Accepts both dicts and ReportTimelineSlot objects for backward compatibility.
@@ -308,7 +308,7 @@ def split_slots_spanning_days(
     # Output takes the form of the input: dict slots in, dict slots out (per the first element)
     input_is_dict = bool(slots) and isinstance(slots[0], dict)
 
-    report_slots: List[ReportTimelineSlot] = []
+    report_slots: list[ReportTimelineSlot] = []
     for item in slots:
         if isinstance(item, dict):
             try:
@@ -320,7 +320,7 @@ def split_slots_spanning_days(
             report_slots.append(item)
 
     # Split each slot at day boundaries
-    split_slots: List[ReportTimelineSlot] = []
+    split_slots: list[ReportTimelineSlot] = []
     for slot in report_slots:
         split_slots.extend(slot.split_at_boundaries("day", day_start_hour))
 
@@ -330,9 +330,7 @@ def split_slots_spanning_days(
     return split_slots
 
 
-def _render_slot_detail(
-    slot: Union[Dict, "ReportTimelineSlot"], detail_level: int, width: int
-) -> None:
+def _render_slot_detail(slot: dict | ReportTimelineSlot, detail_level: int, width: int) -> None:
     """Render category/app/title sub-rows for a slot according to detail_level.
 
     detail_level controls depth:
@@ -372,9 +370,9 @@ def format_and_print_day_total_displayed(
     displayed_offline: timedelta,
     displayed_afk: timedelta,
     displayed_active: timedelta,
-    productive_duration: Optional[timedelta],
+    productive_duration: timedelta | None,
     width: int = 120,
-    displayed_break: Optional[timedelta] = None,
+    displayed_break: timedelta | None = None,
 ) -> None:
     """Format and print day total using actual displayed column values.
 
@@ -445,30 +443,30 @@ def format_and_print_day_total_displayed(
 
 
 def print_timeline_report(
-    slots: List[Union[Dict, "ReportTimelineSlot"]],
+    slots: list[dict | ReportTimelineSlot],
     period: str,
     start_time: datetime,
     end_time: datetime,
     detail_level: int = 1,
-    non_afk_time: Optional[timedelta] = None,
-    productive_time: Optional[timedelta] = None,
-    productive_task_time: Optional[timedelta] = None,
-    first_event_time: Optional[datetime] = None,
-    last_event_time: Optional[datetime] = None,
+    non_afk_time: timedelta | None = None,
+    productive_time: timedelta | None = None,
+    productive_task_time: timedelta | None = None,
+    first_event_time: datetime | None = None,
+    last_event_time: datetime | None = None,
     task_based: bool = True,
-    distracting_time: Optional[timedelta] = None,
-    unscored_time: Optional[timedelta] = None,
-    current_session_start: Optional[datetime] = None,
-    current_session_end: Optional[datetime] = None,
-    current_session_duration: Optional[timedelta] = None,
-    last_break_start: Optional[datetime] = None,
-    last_break_end: Optional[datetime] = None,
-    last_break_duration: Optional[timedelta] = None,
-    afk_events: Optional[List[Event]] = None,
+    distracting_time: timedelta | None = None,
+    unscored_time: timedelta | None = None,
+    current_session_start: datetime | None = None,
+    current_session_end: datetime | None = None,
+    current_session_duration: timedelta | None = None,
+    last_break_start: datetime | None = None,
+    last_break_end: datetime | None = None,
+    last_break_duration: timedelta | None = None,
+    afk_events: list[Event] | None = None,
     day_start_hour: int = 4,
-    total_break: Optional[timedelta] = None,
-    tracked_activity: Optional[timedelta] = None,
-    productivity: Optional["ProductivityBreakdown"] = None,
+    total_break: timedelta | None = None,
+    tracked_activity: timedelta | None = None,
+    productivity: ProductivityBreakdown | None = None,
 ):
     """Print a timeline report: continuous time slots with date/week headers and totals.
 
@@ -545,7 +543,7 @@ def print_timeline_report(
     # Normalise every input to ReportTimelineSlot. Dict slots that cannot be built are skipped.
     from tw_report.core.report_slot import ReportTimelineSlot
 
-    normalized: List[ReportTimelineSlot] = []
+    normalized: list[ReportTimelineSlot] = []
     for slot_item in slots:
         if isinstance(slot_item, dict):
             # Skip malformed slots
@@ -786,7 +784,7 @@ def print_timeline_report(
     # ARCHITECTURAL NOTE: This filtering should ideally happen at slot generation time
     # (OfflineTaskProcessor.consumed_window_event_ids in offline.py), not in rendering.
     # Currently kept here as the proper generation-layer fix requires additional investigation.
-    offline_slots_by_task: Dict[Tuple[Any, Any], List[ReportTimelineSlot]] = {}
+    offline_slots_by_task: dict[tuple[Any, Any], list[ReportTimelineSlot]] = {}
 
     # Helper to check if slot has event_duration (field-driven offline_task detection)
     def is_offline_task_slot(s):

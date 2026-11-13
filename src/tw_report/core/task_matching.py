@@ -6,7 +6,7 @@ extracting task metadata, and detecting offline-tagged tasks.
 """
 
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING
 
 from aw_core.models import Event
 
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from tw_report.core.aw_events import TaskWarriorEvent
 
 
-def find_active_task(event: Event, task_events: List[Event]) -> Optional[Event]:
+def find_active_task(event: Event, task_events: list[Event]) -> Event | None:
     """Find the taskwarrior event that overlaps with the given window event.
 
     Performs interval intersection: returns the first task event that overlaps
@@ -40,7 +40,7 @@ def find_active_task(event: Event, task_events: List[Event]) -> Optional[Event]:
     )
 
 
-def get_task_info(active_task: "TaskWarriorEvent") -> Tuple[str, str]:
+def get_task_info(active_task: TaskWarriorEvent) -> tuple[str, str]:
     """Extract task name and project from a TaskWarrior event.
 
     Extracts identifying information from a TaskWarrior task event.
@@ -72,7 +72,7 @@ def get_task_info(active_task: "TaskWarriorEvent") -> Tuple[str, str]:
 
 
 @deprecated("Not used by the report pipeline; offline tags are read from event data directly.")
-def task_has_offline_tag(task_event: "TaskWarriorEvent") -> bool:
+def task_has_offline_tag(task_event: TaskWarriorEvent) -> bool:
     """Check if a task event has the 'offline' tag (case-insensitive).
 
     Args:
@@ -90,9 +90,9 @@ def task_has_offline_tag(task_event: "TaskWarriorEvent") -> bool:
 
 def build_offline_category_structure(
     duration: timedelta,
-    start_time: Optional[datetime] = None,
-    end_time: Optional[datetime] = None,
-) -> Dict:
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
+) -> dict:
     """Build an Offline category structure for both hierarchical and timeline reports.
 
     Constructs a category dict representing offline time, with different formats

@@ -9,12 +9,11 @@ import argparse
 import os
 import re
 import sys
-from typing import List, Optional, Tuple
 
 DEFAULT_CATEGORIES_FILE = os.path.expanduser("~/.config/activitywatch/aw-server/settings.json")
 
 
-def reorder_arguments(argv: List[str]) -> List[str]:
+def reorder_arguments(argv: list[str]) -> list[str]:
     """Reorder arguments to put all optional arguments before positional ones.
 
     This allows flexible argument ordering like:
@@ -78,7 +77,7 @@ def reorder_arguments(argv: List[str]) -> List[str]:
     return optional_args + positional_args
 
 
-def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse command-line arguments.
 
     Args:
@@ -311,7 +310,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     return parser.parse_args(reordered_argv)
 
 
-def parse_positional_args(args_list: List[str]) -> Tuple[str, Optional[str]]:
+def parse_positional_args(args_list: list[str]) -> tuple[str, str | None]:
     """Parse positional arguments to separate period from search terms.
 
     Period specifications:

@@ -6,8 +6,9 @@ Handles all argument parsing, data fetching, processing, and report generation.
 
 import logging
 import sys
+from collections.abc import Sequence
 from datetime import datetime, timedelta
-from typing import List, Optional, Sequence, Tuple, Type, TypeVar
+from typing import TypeVar
 
 from aw_client import ActivityWatchClient
 from aw_core.models import Event
@@ -67,7 +68,7 @@ from tw_report.utils.profiling import StageProfiler, enable_unbuffered_output
 logger = logging.getLogger(__name__)
 
 
-def _get_apps_from_slot(slot) -> List[str]:
+def _get_apps_from_slot(slot) -> list[str]:
     """Extract all unique app names from slot's categories."""
     apps = set()
     for cat_entry in slot.categories or []:
@@ -79,7 +80,7 @@ def _get_apps_from_slot(slot) -> List[str]:
 
 
 @deprecated("Not called by the CLI; scheduled for removal.")
-def _matches_any(name: str, patterns: Optional[List[str]], exact: bool) -> bool:
+def _matches_any(name: str, patterns: list[str] | None, exact: bool) -> bool:
     """Check if name matches any pattern (case-insensitive substring or exact)."""
     if not patterns:
         return False
@@ -90,14 +91,14 @@ def _matches_any(name: str, patterns: Optional[List[str]], exact: bool) -> bool:
 
 
 @deprecated("Not called by the CLI; scheduled for removal.")
-def _excluded(name: str, exclusions: Optional[List[str]]) -> bool:
+def _excluded(name: str, exclusions: list[str] | None) -> bool:
     """Check if name is in exclusion list (case-insensitive substring match)."""
     if not exclusions:
         return False
     return any(excl.lower() in name.lower() for excl in exclusions)
 
 
-def _get_time_ranges_from_events(events: Sequence[Event]) -> List[Tuple[datetime, datetime]]:
+def _get_time_ranges_from_events(events: Sequence[Event]) -> list[tuple[datetime, datetime]]:
     """Extract non-overlapping time ranges from a list of events.
 
     Merges overlapping or adjacent events into continuous time windows.
@@ -108,7 +109,7 @@ def _get_time_ranges_from_events(events: Sequence[Event]) -> List[Tuple[datetime
 
     # Sort by start time
     sorted_events = sorted(events, key=lambda e: e.timestamp)
-    ranges: List[Tuple[datetime, datetime]] = []
+    ranges: list[tuple[datetime, datetime]] = []
 
     for event in sorted_events:
         event_start = event.timestamp
@@ -127,12 +128,12 @@ def _get_time_ranges_from_events(events: Sequence[Event]) -> List[Tuple[datetime
 E = TypeVar("E", bound=Event)
 
 
-def _fetch_events_for_ranges(
+def _fetch_events_for_ranges[E: Event](
     client: ActivityWatchClient,
     bucket_name: str,
-    time_ranges: List[Tuple[datetime, datetime]],
-    event_cls: Type[E],
-) -> List[E]:
+    time_ranges: list[tuple[datetime, datetime]],
+    event_cls: type[E],
+) -> list[E]:
     """Fetch events from specified bucket for multiple time ranges.
 
     More efficient than fetching for entire period when events are sparse.
@@ -146,7 +147,7 @@ def _fetch_events_for_ranges(
     for start, end in time_ranges:
         # Add small buffer (1 second) to ensure boundary events are included
         buffer = timedelta(seconds=1)
-        range_events: List[E] = get_events(
+        range_events: list[E] = get_events(
             client, bucket_id, start - buffer, end + buffer, event_cls=event_cls
         )
         events.extend(range_events)
@@ -154,9 +155,9 @@ def _fetch_events_for_ranges(
 
 
 def _compute_app_bounded_ranges(
-    task_time_ranges: Optional[List[Tuple[datetime, datetime]]],
+    task_time_ranges: list[tuple[datetime, datetime]] | None,
     app_matching_windows: Sequence[Event],
-) -> List[Tuple[datetime, datetime]]:
+) -> list[tuple[datetime, datetime]]:
     """Bound time ranges to the envelope of app usage (min start -> max end).
 
     Uses a single bounding envelope rather than fragmented per-window ranges,
@@ -331,7 +332,7 @@ def _run(profiler: StageProfiler):
     # Example: tw-report --project "Higuera" :all fetches only Higuera's time windows for
     # AFK/window,
     # not the entire :all period.
-    task_events_early: Optional[Sequence[Event]] = None
+    task_events_early: Sequence[Event] | None = None
     task_time_ranges = None
     task_events = None  # Will be populated later; used for window-fetch decision
 
@@ -382,7 +383,7 @@ def _run(profiler: StageProfiler):
             task_time_ranges = _get_time_ranges_from_events(task_events_early)
 
     window_events = []
-    afk_events: List[AFKEvent] = []
+    afk_events: list[AFKEvent] = []
 
     # For opt-out: fetch windows by default, skip only in constrained cases
     # AFK data is always needed for metrics and OFFLINE reconciliation
@@ -682,7 +683,7 @@ def _run(profiler: StageProfiler):
 
     # Snapshot single-state slots for the productivity split BEFORE consolidation merges
     # online/AFK/offline states into one slot (consolidated spans dilute window coverage)
-    productivity_source_slots: Optional[List[ReportTimelineSlot]] = None
+    productivity_source_slots: list[ReportTimelineSlot] | None = None
     if not args.no_productivity:
         from tw_report.core.report_slot import ReportTimelineSlot
 

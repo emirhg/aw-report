@@ -2,3 +2,4 @@ __pycache__
 sentinel-warrior-cli
 .coverage
 htmlcov/
+.venv/

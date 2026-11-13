@@ -7,7 +7,6 @@ start/end datetime tuples for querying activity data.
 
 import sys
 from datetime import date, datetime, time, timedelta
-from typing import Tuple
 
 
 def logical_date(dt: datetime, day_start_hour: int) -> date:
@@ -45,7 +44,7 @@ def day_boundary(d: date, day_start_hour: int, tzinfo) -> datetime:
     return datetime.combine(d, time(hour=day_start_hour), tzinfo=tzinfo)
 
 
-def parse_period(period_str: str, day_start_hour: int = 4) -> Tuple[datetime, datetime]:
+def parse_period(period_str: str, day_start_hour: int = 4) -> tuple[datetime, datetime]:
     """
     Convert a human-readable period string into a start and end datetime tuple.
 

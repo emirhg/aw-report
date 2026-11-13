@@ -12,7 +12,6 @@ a single source of truth for how to extract each bucket's schema.
 """
 
 from datetime import timedelta
-from typing import List, Optional
 
 from aw_core.models import Event
 
@@ -33,22 +32,22 @@ class WindowEvent(Event):
         return self.data.get("title", "No Title")
 
     @property
-    def category(self) -> List[str]:
+    def category(self) -> list[str]:
         """Category breakdown (app classification)."""
         return self.data.get("$category", ["Uncategorized"])
 
     @category.setter
-    def category(self, value: List[str]) -> None:
+    def category(self, value: list[str]) -> None:
         """Set category breakdown."""
         self.data["$category"] = value
 
     @property
-    def offline_extension_duration(self) -> Optional[timedelta]:
+    def offline_extension_duration(self) -> timedelta | None:
         """OFFLINE gap duration detected within this window event."""
         return self.data.get("offline_extension_duration")
 
     @offline_extension_duration.setter
-    def offline_extension_duration(self, value: Optional[timedelta]) -> None:
+    def offline_extension_duration(self, value: timedelta | None) -> None:
         """Set offline extension duration."""
         if value is None:
             self.data.pop("offline_extension_duration", None)
@@ -110,11 +109,11 @@ class TaskWarriorEvent(Event):
         return "No task"
 
     @property
-    def uuid(self) -> Optional[str]:
+    def uuid(self) -> str | None:
         """TaskWarrior UUID."""
         return self.data.get("uuid")
 
     @property
-    def tags(self) -> List[str]:
+    def tags(self) -> list[str]:
         """Task tags."""
         return self.data.get("tags", [])

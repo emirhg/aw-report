@@ -21,7 +21,7 @@ Key design:
 
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 from tw_report.core.filtering import NO_PROJECT, NO_TASK
 from tw_report.core.period import day_boundary, logical_date
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 def _break_gap_within_day(
     prev_end: datetime, next_start: datetime, day_start_hour: int
-) -> Optional[timedelta]:
+) -> timedelta | None:
     """Gap between two chronologically consecutive instants, or None if they
     fall on different logical days — a break can never span a day boundary.
 
@@ -55,10 +55,10 @@ def _break_gap_within_day(
 
 
 def compute_daily_break_totals(
-    slots: List["ReportTimelineSlot"],
+    slots: list[ReportTimelineSlot],
     day_start_hour: int = 4,
     min_break: timedelta = timedelta(minutes=1),
-) -> Dict[date, timedelta]:
+) -> dict[date, timedelta]:
     """Sum break time (gaps between consecutive slots) per logical day.
 
     Slots are sorted chronologically; a gap is only counted if both the
@@ -75,8 +75,8 @@ def compute_daily_break_totals(
         Dictionary mapping logical dates to accumulated break time for that day.
         Days with no breaks are not present in the dict.
     """
-    totals: Dict[date, timedelta] = {}
-    prev_end: Optional[datetime] = None
+    totals: dict[date, timedelta] = {}
+    prev_end: datetime | None = None
 
     for slot in sorted(slots, key=lambda s: s.start):
         slot_end = slot.start + slot.duration
@@ -91,7 +91,7 @@ def compute_daily_break_totals(
 
 
 def compute_total_break_time(
-    slots: List["ReportTimelineSlot"],
+    slots: list[ReportTimelineSlot],
     day_start_hour: int = 4,
     min_break: timedelta = timedelta(minutes=1),
 ) -> timedelta:
@@ -253,10 +253,10 @@ class DisplayColumns:
     @classmethod
     def from_slot_dict(
         cls,
-        slot: Union[Dict[str, Any], "ReportTimelineSlot"],
+        slot: dict[str, Any] | ReportTimelineSlot,
         start_time: datetime,
         end_time: datetime,
-    ) -> "DisplayColumns":
+    ) -> DisplayColumns:
         """Create DisplayColumns from a dict or ReportTimelineSlot (timeline rendering pipeline).
 
         Args:
@@ -400,19 +400,19 @@ class ReportTimelineSlot:
     duration: timedelta
     actual_duration: timedelta
     productive_duration: timedelta = field(default_factory=lambda: timedelta(0))
-    task_event: Optional["TaskWarriorEvent"] = None
-    window_events: List["WindowEvent"] = field(default_factory=list)
-    afk_events: List["AFKEvent"] = field(default_factory=list)
-    afk_duration: Optional[timedelta] = None
-    offline_extension_duration: Optional[timedelta] = None
-    event_duration: Optional[timedelta] = None
-    tags: List[str] = field(default_factory=list)
-    categories: List[Dict[str, Any]] = field(default_factory=list)
-    apps: Optional[List[Dict[str, Any]]] = None
-    source_slots: List[Union["ReportTimelineSlot", TimelineSlot]] = field(default_factory=list)
+    task_event: TaskWarriorEvent | None = None
+    window_events: list[WindowEvent] = field(default_factory=list)
+    afk_events: list[AFKEvent] = field(default_factory=list)
+    afk_duration: timedelta | None = None
+    offline_extension_duration: timedelta | None = None
+    event_duration: timedelta | None = None
+    tags: list[str] = field(default_factory=list)
+    categories: list[dict[str, Any]] = field(default_factory=list)
+    apps: list[dict[str, Any]] | None = None
+    source_slots: list[ReportTimelineSlot | TimelineSlot] = field(default_factory=list)
     is_consolidated: bool = False
-    bucket_mode: Optional[Literal["day", "week", "month", "year"]] = None
-    bucket_start_date: Optional[date] = None
+    bucket_mode: Literal["day", "week", "month", "year"] | None = None
+    bucket_start_date: date | None = None
 
     def __post_init__(self) -> None:
         """Validate slot integrity: reject zero-duration slots and normalize timezones."""
@@ -498,7 +498,7 @@ class ReportTimelineSlot:
             and self.event_duration is None
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dict format for backward compatibility.
 
         Returns a dict representation matching the old TimelineSlot.to_dict() format.
@@ -536,7 +536,7 @@ class ReportTimelineSlot:
         return slot_dict
 
     @classmethod
-    def from_timeline_slot(cls, slot: TimelineSlot) -> "ReportTimelineSlot":
+    def from_timeline_slot(cls, slot: TimelineSlot) -> ReportTimelineSlot:
         """
         Convert a TimelineSlot to the new merged ReportTimelineSlot shape.
 
@@ -590,7 +590,7 @@ class ReportTimelineSlot:
         )
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "ReportTimelineSlot":
+    def from_dict(cls, d: dict[str, Any]) -> ReportTimelineSlot:
         """
         Create a ReportTimelineSlot directly from a dict (no TimelineSlot bridge needed).
 
@@ -657,10 +657,10 @@ class ReportTimelineSlot:
     @deprecated("Not used by the report pipeline; only deprecated consolidation methods call it.")
     def from_timeline_slots(
         cls,
-        group: List[TimelineSlot],
+        group: list[TimelineSlot],
         *,
         allow_mixed_types: bool = False,
-    ) -> "ReportTimelineSlot":
+    ) -> ReportTimelineSlot:
         """
         Merge multiple TimelineSlots into a single ReportTimelineSlot.
 
@@ -831,7 +831,7 @@ class ReportTimelineSlot:
 
     def split_at_boundaries(
         self, mode: Literal["day", "week", "month", "year"], day_start_hour: int = 4
-    ) -> List["ReportTimelineSlot"]:
+    ) -> list[ReportTimelineSlot]:
         """
         Split this slot at period boundaries, proportionally allocating durations.
 
@@ -984,8 +984,8 @@ class ReportTimelineSlot:
         "Not used by the report pipeline; only deprecated combine_work_with_embedded_afk() calls it"
     )
     def from_work_slot_with_embedded_afk(
-        cls, work_slot: TimelineSlot, afk_slots: List[TimelineSlot]
-    ) -> "ReportTimelineSlot":
+        cls, work_slot: TimelineSlot, afk_slots: list[TimelineSlot]
+    ) -> ReportTimelineSlot:
         """
         Create a combined work+AFK slot, with AFK periods nested within.
 
@@ -1055,10 +1055,10 @@ class ReportEntries:
     Separate from Timeline (which is for granular data only, no aggregation).
     """
 
-    slots_list: List[ReportTimelineSlot] = field(default_factory=list)
+    slots_list: list[ReportTimelineSlot] = field(default_factory=list)
 
     @classmethod
-    def from_timeline(cls, timeline) -> "ReportEntries":
+    def from_timeline(cls, timeline) -> ReportEntries:
         """
         Wrap every TimelineSlot as a singleton ReportTimelineSlot.
 
@@ -1076,7 +1076,7 @@ class ReportEntries:
         return cls(slots_list=report_slots)
 
     @deprecated("Not used by the report pipeline; main() uses from_timeline() and as_dicts() only.")
-    def combine_work_with_embedded_afk(self) -> "ReportEntries":
+    def combine_work_with_embedded_afk(self) -> ReportEntries:
         """
         Combine work slots with embedded AFK periods for the same (project, task).
 
@@ -1197,8 +1197,8 @@ class ReportEntries:
 
     @deprecated("Private helper of deprecated combine_work_with_embedded_afk().")
     def _merge_overlapping_work_slots(
-        self, work_slots_raw: List["ReportTimelineSlot"]
-    ) -> List["ReportTimelineSlot"]:
+        self, work_slots_raw: list[ReportTimelineSlot]
+    ) -> list[ReportTimelineSlot]:
         """
         Merge overlapping work slots for the same (project, task).
 
@@ -1234,7 +1234,7 @@ class ReportEntries:
             return []
 
         # Group by (project, task)
-        groups: Dict[Tuple[str, str], List[ReportTimelineSlot]] = {}
+        groups: dict[tuple[str, str], list[ReportTimelineSlot]] = {}
         for rs in work_slots_raw:
             key = (rs.project, rs.task)
             if key not in groups:
@@ -1333,7 +1333,7 @@ class ReportEntries:
         return result
 
     @deprecated("Not used by the report pipeline; main() uses from_timeline() and as_dicts() only.")
-    def consolidate_consecutive(self, day_start_hour: int = 4) -> "ReportEntries":
+    def consolidate_consecutive(self, day_start_hour: int = 4) -> ReportEntries:
         """
         Fine-grain consolidation: merge CONSECUTIVE slots sharing (project, task, date).
 
@@ -1350,8 +1350,8 @@ class ReportEntries:
         if not self.slots_list:
             return ReportEntries()
 
-        consolidated: List[ReportTimelineSlot] = []
-        current_group: List[ReportTimelineSlot] = []
+        consolidated: list[ReportTimelineSlot] = []
+        current_group: list[ReportTimelineSlot] = []
 
         for report_slot in self.slots_list:
             # Skip bare offline gap markers: empty/missing project + task + zero online duration
@@ -1447,7 +1447,7 @@ class ReportEntries:
     @deprecated("Not used by the report pipeline; main() uses from_timeline() and as_dicts() only.")
     def grouped_by_project_date(
         self, day_start_hour: int = 4
-    ) -> List[Tuple[Optional[str], Optional[date], List[ReportTimelineSlot]]]:
+    ) -> list[tuple[str | None, date | None, list[ReportTimelineSlot]]]:
         """
         Group slots by (project, date) without merging.
 
@@ -1461,10 +1461,10 @@ class ReportEntries:
         Returns:
             List of (project, date, slots_list) tuples
         """
-        groups: List[Tuple[Optional[str], Optional[date], List[ReportTimelineSlot]]] = []
-        current_project: Optional[str] = None
-        current_date: Optional[date] = None
-        current_group: List[ReportTimelineSlot] = []
+        groups: list[tuple[str | None, date | None, list[ReportTimelineSlot]]] = []
+        current_project: str | None = None
+        current_date: date | None = None
+        current_group: list[ReportTimelineSlot] = []
 
         for report_slot in sorted(
             self.slots_list,
@@ -1490,7 +1490,7 @@ class ReportEntries:
     @deprecated("Not used by the report pipeline; main() uses from_timeline() and as_dicts() only.")
     def bucket(
         self, mode: Literal["day", "week", "month", "year"], day_start_hour: int = 4
-    ) -> "ReportEntries":
+    ) -> ReportEntries:
         """
         Period bucketing: split all slots at boundaries, then global-groupby (bucket, project,
         task).
@@ -1512,7 +1512,7 @@ class ReportEntries:
             split_pieces.extend(report_slot.split_at_boundaries(mode, day_start_hour))
 
         # Global groupby (bucket, project, task), excluding bare offline gaps
-        bucket_groups: Dict[Tuple[Optional[date], str, str], List[ReportTimelineSlot]] = {}
+        bucket_groups: dict[tuple[date | None, str, str], list[ReportTimelineSlot]] = {}
         for piece in split_pieces:
             # Skip bare offline gap markers (these are synthetic AFK-only slots with no real task)
             # Identified by being AFK-only type (not offline_task)
@@ -1565,7 +1565,7 @@ class ReportEntries:
         return ReportEntries(slots_list=bucketed)
 
     @deprecated("Not used by the report pipeline; main() uses from_timeline() and as_dicts() only.")
-    def collapse_to_project(self) -> "ReportEntries":
+    def collapse_to_project(self) -> ReportEntries:
         """
         Collapse (bucket, project, task) rows to (bucket, project) totals.
 
@@ -1576,7 +1576,7 @@ class ReportEntries:
         Returns:
             ReportEntries with one row per (bucket, project), durations summed
         """
-        by_bucket_project: Dict[Tuple[Optional[date], str], List[ReportTimelineSlot]] = {}
+        by_bucket_project: dict[tuple[date | None, str], list[ReportTimelineSlot]] = {}
 
         for report_slot in self.slots_list:
             key = (report_slot.bucket_start_date, report_slot.project)
@@ -1618,11 +1618,11 @@ class ReportEntries:
 
         return ReportEntries(slots_list=collapsed)
 
-    def slots(self) -> List[ReportTimelineSlot]:
+    def slots(self) -> list[ReportTimelineSlot]:
         """Get the internal slots list."""
         return self.slots_list
 
-    def as_dicts(self) -> List[Dict[str, Any]]:
+    def as_dicts(self) -> list[dict[str, Any]]:
         """Convert all slots to dict format for backward compatibility.
 
         This is a bridge for code paths that still expect dicts rather than
@@ -1658,7 +1658,7 @@ class ReportEntries:
         return result
 
     @deprecated("Private helper of deprecated consolidate_by_task().")
-    def _deduplicate_slots(self) -> List[ReportTimelineSlot]:
+    def _deduplicate_slots(self) -> list[ReportTimelineSlot]:
         """Remove duplicate slots with identical (start, end, project, task).
 
         When the same task period is generated by multiple code paths (e.g.,
@@ -1733,7 +1733,7 @@ class ReportEntries:
         return dedup_list
 
     @deprecated("Not used by the report pipeline; main() uses from_timeline() and as_dicts() only.")
-    def consolidate_by_task(self) -> "ReportEntries":
+    def consolidate_by_task(self) -> ReportEntries:
         """Consolidate all slots for the same (project, task) into single merged entries.
 
         Merges all slot types (regular, offline_task, afk) for the same (project, task)
@@ -1758,7 +1758,7 @@ class ReportEntries:
         deduplicated = self._deduplicate_slots()
 
         # Group slots by (project, task) only — no type discrimination
-        groups: Dict[Tuple[str, str], List[ReportTimelineSlot]] = {}
+        groups: dict[tuple[str, str], list[ReportTimelineSlot]] = {}
         for slot in deduplicated:
             key = (slot.project, slot.task)
             if key not in groups:
@@ -1808,20 +1808,20 @@ class ReportEntries:
         return ReportEntries(slots_list=consolidated)
 
 
-def _required(value: Optional[timedelta]) -> timedelta:
+def _required(value: timedelta | None) -> timedelta:
     """Return a duration that TimelineSlot validation guarantees to be present."""
     assert value is not None, "TimelineSlot validation guarantees actual_duration is set"
     return value
 
 
-def _bucket_date(slot: "ReportTimelineSlot") -> date:
+def _bucket_date(slot: ReportTimelineSlot) -> date:
     """Return the period bucket a split piece belongs to (set by bucket())."""
     assert slot.bucket_start_date is not None, "bucket() always sets bucket_start_date"
     return slot.bucket_start_date
 
 
 @deprecated("Private helper of deprecated from_timeline_slots().")
-def _merge_categories_full(group: List[TimelineSlot]) -> List[Dict[str, Any]]:
+def _merge_categories_full(group: list[TimelineSlot]) -> list[dict[str, Any]]:
     """
     Merge categories from all slots in a group (3-level: category→app→title).
 

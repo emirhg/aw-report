@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,13 +8,12 @@ version = "0.1.0"
 description = "Timesheet report generator correlating ActivityWatch and Taskwarrior data"
 authors = [{name = "Emir Herrera González", email = "emir.herrera@gmail.com"}]
 readme = "README.md"
-requires-python = ">=3.8"
-license = {text = "Proprietary"}
+requires-python = ">=3.14"
+license = "LicenseRef-Proprietary"
+classifiers = ["Programming Language :: Python :: 3.14"]
 dependencies = [
     "aw-client>=0.5.15",
     "aw-core>=0.5.17",
-    "tomli>=1.1.0;python_version<'3.11'",
-    "typing_extensions>=4.5",
 ]
 
 [project.optional-dependencies]
@@ -33,13 +32,13 @@ where = ["src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py38"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.14"
 packages = ["tw_report"]
 warn_unused_ignores = true
 warn_redundant_casts = true

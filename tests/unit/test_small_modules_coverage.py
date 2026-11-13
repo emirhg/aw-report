@@ -1,7 +1,5 @@
 """Coverage tests for small modules: events, filtering, config, formatting and builder edges."""
 
-import importlib
-import sys
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -157,21 +155,6 @@ def test_config_path_raises_when_home_directory_is_missing(monkeypatch, tmp_path
     monkeypatch.setattr(config_module.Path, "home", staticmethod(lambda: tmp_path / "absent"))
     with pytest.raises(ValueError, match="home directory"):
         config_module.get_config_path()
-
-
-def test_toml_module_is_stdlib_tomllib_on_python_311_and_newer(monkeypatch):
-    import tomli
-
-    from tw_report import config as config_module
-
-    monkeypatch.setitem(sys.modules, "tomllib", tomli)
-    monkeypatch.setattr(sys, "version_info", (3, 11, 0, "final", 0))
-    reloaded = importlib.reload(config_module)
-    try:
-        assert reloaded.tomllib is tomli
-    finally:
-        monkeypatch.undo()
-        importlib.reload(config_module)
 
 
 # ---------------------------------------------------------------------------

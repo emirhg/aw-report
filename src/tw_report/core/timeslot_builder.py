@@ -22,7 +22,7 @@ for every task uniformly, replacing the three previously-inconsistent rules in t
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
 from tw_report.core.aw_events import AFKEvent, TaskWarriorEvent, WindowEvent
 from tw_report.core.categories import build_categories_from_window_events
@@ -36,8 +36,8 @@ class _RunAccumulator:
 
     def __init__(
         self,
-        classification_key: Tuple,
-        task_event: Optional[TaskWarriorEvent],
+        classification_key: tuple,
+        task_event: TaskWarriorEvent | None,
         start: datetime,
         end: datetime,
         bucket: str,  # "online", "embedded_afk", "offline", "afk"
@@ -83,7 +83,7 @@ class _RunAccumulator:
         )
         self._add_tick(bucket, tick_duration)
 
-    def finalize(self, window_events: List[WindowEvent]) -> ReportTimelineSlot:
+    def finalize(self, window_events: list[WindowEvent]) -> ReportTimelineSlot:
         """Convert the accumulated run into a finalized ReportTimelineSlot.
 
         IMPORTANT: This creates ONE slot per run, but the classification key in the builder
@@ -151,10 +151,10 @@ class _RunAccumulator:
 
 
 def build_timeslot_timeline(
-    afk_events: List[AFKEvent],
-    window_events: List[WindowEvent],
+    afk_events: list[AFKEvent],
+    window_events: list[WindowEvent],
     task_events,  # Can be List[TaskWarriorEvent] or List[Event]
-) -> List[ReportTimelineSlot]:
+) -> list[ReportTimelineSlot]:
     """
     Build a non-overlapping timeline of classified slots from raw event sources.
 
@@ -234,9 +234,9 @@ def build_timeslot_timeline(
     current = None
 
     # Run classification key: a 5-tuple for task runs, a 2-tuple for generic runs
-    key: Tuple[Any, ...]
+    key: tuple[Any, ...]
     # Sweep through each atomic interval
-    for t_i, t_next in zip(ordered_cuts, ordered_cuts[1:]):
+    for t_i, t_next in zip(ordered_cuts, ordered_cuts[1:], strict=False):
         tick_duration = t_next - t_i
 
         # Find active events at t_i (coverage: event.timestamp <= t_i < event.timestamp +
@@ -369,8 +369,8 @@ def build_timeslot_timeline(
 
 
 def _merge_adjacent_micro_slots_by_state_continuity(
-    slots: List[ReportTimelineSlot],
-) -> List[ReportTimelineSlot]:
+    slots: list[ReportTimelineSlot],
+) -> list[ReportTimelineSlot]:
     """Merge micro-slots based on state continuity while preserving chronological transitions.
 
     CRITICAL: This function has a NARROW scope to fix only AFK bucket timing artifacts.
@@ -538,7 +538,7 @@ def _merge_adjacent_micro_slots_by_state_continuity(
     return merged
 
 
-def _merge_slot_group(group: List[ReportTimelineSlot]) -> ReportTimelineSlot:
+def _merge_slot_group(group: list[ReportTimelineSlot]) -> ReportTimelineSlot:
     """Merge a group of adjacent ReportTimelineSlots into one continuous slot.
 
     Uses wall-clock span (min start to max end) and sums all duration components.
@@ -568,7 +568,7 @@ def _merge_slot_group(group: List[ReportTimelineSlot]) -> ReportTimelineSlot:
     # event_duration: sum online portions from merged slots
     # CRITICAL: Must be set when offline_extension_duration is set (for TimelineSlot validation)
     summed_event_duration = sum((s.event_duration or timedelta(0) for s in group), timedelta(0))
-    event_duration: Optional[timedelta] = (
+    event_duration: timedelta | None = (
         summed_event_duration
         if (offline_ext > timedelta(0) or summed_event_duration > timedelta(0))
         else None

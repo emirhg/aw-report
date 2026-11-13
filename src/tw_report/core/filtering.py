@@ -10,7 +10,7 @@ ISSUES FIXED:
 - Issue #3: All entry types now filtered consistently (not just AFK slots)
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Sentinel values (imported from tw-report.py)
 NO_PROJECT = "No project assigned"
@@ -23,21 +23,21 @@ _UNASSIGNED_PROJECT_SPELLINGS = {"", "no project", NO_PROJECT.lower()}
 _UNASSIGNED_TASK_SPELLINGS = {"", "no task", "no task tracked", NO_TASK.lower()}
 
 
-def normalize_project(value: Optional[str]) -> str:
+def normalize_project(value: str | None) -> str:
     """Map every untracked project spelling (and None) to NO_PROJECT; keep real names unchanged."""
     if value is None or str(value).strip().lower() in _UNASSIGNED_PROJECT_SPELLINGS:
         return NO_PROJECT
     return value
 
 
-def normalize_task(value: Optional[str]) -> str:
+def normalize_task(value: str | None) -> str:
     """Map every untracked task spelling (and None) to NO_TASK; keep real names unchanged."""
     if value is None or str(value).strip().lower() in _UNASSIGNED_TASK_SPELLINGS:
         return NO_TASK
     return value
 
 
-def _is_unassigned_project(value: Optional[str]) -> bool:
+def _is_unassigned_project(value: str | None) -> bool:
     """True if a project value means no project was tracked."""
     return normalize_project(value) == NO_PROJECT
 
@@ -58,15 +58,15 @@ class EventFilter:
 
     def __init__(
         self,
-        project_patterns: Optional[List[str]] = None,
-        task_patterns: Optional[List[str]] = None,
-        app_patterns: Optional[List[str]] = None,
-        exclude_projects: Optional[List[str]] = None,
-        exclude_tasks: Optional[List[str]] = None,
-        exclude_apps: Optional[List[str]] = None,
+        project_patterns: list[str] | None = None,
+        task_patterns: list[str] | None = None,
+        app_patterns: list[str] | None = None,
+        exclude_projects: list[str] | None = None,
+        exclude_tasks: list[str] | None = None,
+        exclude_apps: list[str] | None = None,
         exclude_non_project: bool = False,
         exact_match: bool = False,
-        search_term: Optional[str] = None,
+        search_term: str | None = None,
     ):
         """
         Initialize filter with configuration.
@@ -96,7 +96,7 @@ class EventFilter:
             self.project_patterns = [search_term] + self.project_patterns
             self.task_patterns = [search_term] + self.task_patterns
 
-    def should_include_entry(self, entry: Dict[str, Any], entry_type: str = "regular") -> bool:
+    def should_include_entry(self, entry: dict[str, Any], entry_type: str = "regular") -> bool:
         """
         Universal filter decision for ANY entry type.
 
@@ -166,7 +166,7 @@ class EventFilter:
 
     # --- Helper Methods ---
 
-    def _matches_any(self, names: List[str], patterns: List[str]) -> bool:
+    def _matches_any(self, names: list[str], patterns: list[str]) -> bool:
         """
         Check if any name matches any pattern.
 
@@ -209,7 +209,7 @@ class EventFilter:
             # Substring match (case-insensitive)
             return pattern.lower() in name.lower()
 
-    def _is_excluded(self, name: str, exclusions: List[str]) -> bool:
+    def _is_excluded(self, name: str, exclusions: list[str]) -> bool:
         """
         Check if name is in the exclusion list.
 

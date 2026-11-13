@@ -7,7 +7,7 @@ metrics, detail levels, and sorting options. Used by the --timesheet output mode
 
 import warnings
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 from tw_report.core.filtering import NO_PROJECT
 from tw_report.pipeline.models import ReportTotals
@@ -30,24 +30,24 @@ def print_report_summary(
     end_time: datetime,
     total_duration: timedelta,
     task_based: bool,
-    non_afk_time: Optional[timedelta] = None,
-    productive_time: Optional[timedelta] = None,
-    productive_task_time: Optional[timedelta] = None,
-    first_event_time: Optional[datetime] = None,
-    last_event_time: Optional[datetime] = None,
-    tracked_activity: Optional[timedelta] = None,
-    distracting_time: Optional[timedelta] = None,
-    unscored_time: Optional[timedelta] = None,
-    total_score: Optional[float] = None,
-    current_session_start: Optional[datetime] = None,
-    current_session_end: Optional[datetime] = None,
-    current_session_duration: Optional[timedelta] = None,
-    last_break_start: Optional[datetime] = None,
-    last_break_end: Optional[datetime] = None,
-    last_break_duration: Optional[timedelta] = None,
-    total_offline_time: Optional[timedelta] = None,
-    afk_time: Optional[timedelta] = None,
-    total_time_all: Optional[timedelta] = None,
+    non_afk_time: timedelta | None = None,
+    productive_time: timedelta | None = None,
+    productive_task_time: timedelta | None = None,
+    first_event_time: datetime | None = None,
+    last_event_time: datetime | None = None,
+    tracked_activity: timedelta | None = None,
+    distracting_time: timedelta | None = None,
+    unscored_time: timedelta | None = None,
+    total_score: float | None = None,
+    current_session_start: datetime | None = None,
+    current_session_end: datetime | None = None,
+    current_session_duration: timedelta | None = None,
+    last_break_start: datetime | None = None,
+    last_break_end: datetime | None = None,
+    last_break_duration: timedelta | None = None,
+    total_offline_time: timedelta | None = None,
+    afk_time: timedelta | None = None,
+    total_time_all: timedelta | None = None,
 ) -> None:
     """Print report header with SUMMARY section at the top.
 
@@ -243,16 +243,16 @@ def print_totals_line(level: int, label: str, value_str: str) -> None:
 
 
 def print_report_totals(
-    total_time_all: Union[timedelta, ReportTotals],
-    total_productive_all: Optional[timedelta] = None,
-    total_afk: Optional[timedelta] = None,
-    total_offline: Optional[timedelta] = None,
-    total_non_afk: Optional[timedelta] = None,
-    total_break: Optional[timedelta] = None,
-    tracked_activity: Optional[timedelta] = None,
-    first_event_time: Optional[datetime] = None,
-    last_event_time: Optional[datetime] = None,
-    productivity: Optional[ProductivityBreakdown] = None,
+    total_time_all: timedelta | ReportTotals,
+    total_productive_all: timedelta | None = None,
+    total_afk: timedelta | None = None,
+    total_offline: timedelta | None = None,
+    total_non_afk: timedelta | None = None,
+    total_break: timedelta | None = None,
+    tracked_activity: timedelta | None = None,
+    first_event_time: datetime | None = None,
+    last_event_time: datetime | None = None,
+    productivity: ProductivityBreakdown | None = None,
 ) -> None:
     """Print TOTALS section with hierarchical breakdown of time composition.
 
@@ -359,8 +359,8 @@ def print_report_totals(
 @deprecated("Not used by the report pipeline.")
 def print_summary_total(
     total_duration: timedelta,
-    productive_duration: Optional[timedelta] = None,
-    total_score: Optional[float] = None,
+    productive_duration: timedelta | None = None,
+    total_score: float | None = None,
 ) -> None:
     """Print summary total line with duration and productivity.
 
@@ -387,22 +387,22 @@ def print_report_header(
     end_time: datetime,
     total_duration: timedelta,
     task_based: bool,
-    non_afk_time: Optional[timedelta] = None,
-    productive_time: Optional[timedelta] = None,
-    productive_task_time: Optional[timedelta] = None,
-    first_event_time: Optional[datetime] = None,
-    last_event_time: Optional[datetime] = None,
-    distracting_time: Optional[timedelta] = None,
-    unscored_time: Optional[timedelta] = None,
-    total_score: Optional[float] = None,
-    current_session_start: Optional[datetime] = None,
-    current_session_end: Optional[datetime] = None,
-    current_session_duration: Optional[timedelta] = None,
-    last_break_start: Optional[datetime] = None,
-    last_break_end: Optional[datetime] = None,
-    last_break_duration: Optional[timedelta] = None,
-    total_time_all: Optional[timedelta] = None,
-    afk_time: Optional[timedelta] = None,
+    non_afk_time: timedelta | None = None,
+    productive_time: timedelta | None = None,
+    productive_task_time: timedelta | None = None,
+    first_event_time: datetime | None = None,
+    last_event_time: datetime | None = None,
+    distracting_time: timedelta | None = None,
+    unscored_time: timedelta | None = None,
+    total_score: float | None = None,
+    current_session_start: datetime | None = None,
+    current_session_end: datetime | None = None,
+    current_session_duration: timedelta | None = None,
+    last_break_start: datetime | None = None,
+    last_break_end: datetime | None = None,
+    last_break_duration: timedelta | None = None,
+    total_time_all: timedelta | None = None,
+    afk_time: timedelta | None = None,
 ) -> None:
     """Print shared report header with period, active time, and productivity metrics.
 
@@ -561,32 +561,32 @@ def print_report_header(
 
 
 def print_report(
-    report_data: Dict[str, Any],
+    report_data: dict[str, Any],
     period: str,
     start_time: datetime,
     end_time: datetime,
     task_based: bool,
     detail_level: int = 4,
-    non_afk_time: Optional[timedelta] = None,
-    productive_time: Optional[timedelta] = None,
-    productive_task_time: Optional[timedelta] = None,
-    first_event_time: Optional[datetime] = None,
-    last_event_time: Optional[datetime] = None,
-    distracting_time: Optional[timedelta] = None,
-    unscored_time: Optional[timedelta] = None,
-    productivity: Optional[ProductivityBreakdown] = None,
+    non_afk_time: timedelta | None = None,
+    productive_time: timedelta | None = None,
+    productive_task_time: timedelta | None = None,
+    first_event_time: datetime | None = None,
+    last_event_time: datetime | None = None,
+    distracting_time: timedelta | None = None,
+    unscored_time: timedelta | None = None,
+    productivity: ProductivityBreakdown | None = None,
     sort_by_duration: bool = False,
     sort_by_score: bool = True,
-    current_session_start: Optional[datetime] = None,
-    current_session_end: Optional[datetime] = None,
-    current_session_duration: Optional[timedelta] = None,
-    last_break_start: Optional[datetime] = None,
-    last_break_end: Optional[datetime] = None,
-    last_break_duration: Optional[timedelta] = None,
-    afk_time: Optional[timedelta] = None,
-    total_offline_time: Optional[timedelta] = None,
-    total_time_all: Optional[timedelta] = None,
-    total_break: Optional[timedelta] = None,
+    current_session_start: datetime | None = None,
+    current_session_end: datetime | None = None,
+    current_session_duration: timedelta | None = None,
+    last_break_start: datetime | None = None,
+    last_break_end: datetime | None = None,
+    last_break_duration: timedelta | None = None,
+    afk_time: timedelta | None = None,
+    total_offline_time: timedelta | None = None,
+    total_time_all: timedelta | None = None,
+    total_break: timedelta | None = None,
 ) -> None:
     """Print hierarchical report (project-based or category-based).
 

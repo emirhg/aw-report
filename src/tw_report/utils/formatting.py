@@ -8,8 +8,8 @@ presentation to enable testing and reuse across different output formats.
 import re
 import shutil
 import unicodedata
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -238,7 +238,7 @@ def format_offline_label(duration: timedelta) -> str:
 def format_duration_with_afk(
     tracked_duration: timedelta,
     productive_within: timedelta,
-    afk_duration: Optional[timedelta] = None,
+    afk_duration: timedelta | None = None,
 ) -> str:
     """Format duration with optional AFK notation for consolidated display.
 
@@ -271,8 +271,8 @@ def format_duration_with_afk(
 def format_duration_with_gaps(
     tracked_duration: timedelta,
     productive_within: timedelta,
-    afk_duration: Optional[timedelta] = None,
-    offline_extension_duration: Optional[timedelta] = None,
+    afk_duration: timedelta | None = None,
+    offline_extension_duration: timedelta | None = None,
 ) -> str:
     """Format duration with optional AFK and OFFLINE extension notation.
 
@@ -314,7 +314,7 @@ def format_duration_with_gaps(
 def format_offline_task_duration(
     wall_clock_duration: timedelta,
     event_duration: timedelta,
-    productive_duration: Optional[timedelta] = None,
+    productive_duration: timedelta | None = None,
 ) -> str:
     """Format duration for offline tasks showing offline/online time split.
 
@@ -354,7 +354,7 @@ def format_offline_task_duration(
 
 def format_timeslot_duration(
     slot_duration: Any,  # TimeslotDuration (late import to avoid circular deps)
-    productive_duration: Optional[timedelta] = None,
+    productive_duration: timedelta | None = None,
 ) -> str:
     """Format a TimeslotDuration for display, handling all duration types.
 
@@ -584,8 +584,8 @@ def to_local_time(dt: datetime) -> datetime:
     Returns:
         Datetime converted to local timezone, with timezone info preserved
     """
-    if dt.tzinfo is None or dt.tzinfo == timezone.utc:
+    if dt.tzinfo is None or dt.tzinfo == UTC:
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt.astimezone()
     return dt

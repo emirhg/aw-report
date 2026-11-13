@@ -10,7 +10,8 @@ import logging
 import os
 import re
 from datetime import timedelta
-from typing import TYPE_CHECKING, Dict, List, Optional, Pattern, Tuple
+from re import Pattern
+from typing import TYPE_CHECKING
 
 from tw_report.exceptions import CategoryValidationError, ConfigParsingError
 
@@ -20,7 +21,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def load_categories(filepath: str) -> List[Dict]:
+def load_categories(filepath: str) -> list[dict]:
     """Load categorization rules from ActivityWatch settings file.
 
     Args:
@@ -49,8 +50,8 @@ def load_categories(filepath: str) -> List[Dict]:
 
 
 def compile_category_rules(
-    category_rules: List[Dict],
-) -> Tuple[List[Tuple[List[str], Pattern, float]], Dict[str, float]]:
+    category_rules: list[dict],
+) -> tuple[list[tuple[list[str], Pattern, float]], dict[str, float]]:
     """Compile regex-based category rules into reusable patterns.
 
     Takes a list of category rule dictionaries (from ActivityWatch settings),
@@ -75,7 +76,7 @@ def compile_category_rules(
         return [], {}
 
     # First pass: collect explicit category scores (for inheritance lookup)
-    explicit_scores: Dict[str, Optional[float]] = {}
+    explicit_scores: dict[str, float | None] = {}
     for rule_item in category_rules:
         cat_list = rule_item.get("name", ["Unknown"])
         if cat_list:
@@ -123,7 +124,7 @@ def compile_category_rules(
     return compiled_rules, cat_score_map
 
 
-def get_category_score(category: str, cat_score_map: Dict[str, float]) -> float:
+def get_category_score(category: str, cat_score_map: dict[str, float]) -> float:
     """Get productivity score for a category with inheritance support.
 
     If the category has no direct score, tries progressively shorter paths
@@ -154,7 +155,7 @@ def get_category_score(category: str, cat_score_map: Dict[str, float]) -> float:
 
 
 def categorize_event(
-    event: "WindowEvent", categories: List[Tuple[List[str], Pattern, float]]
+    event: WindowEvent, categories: list[tuple[list[str], Pattern, float]]
 ) -> None:
     """Categorize a window event by matching against regex rules.
 
@@ -194,10 +195,10 @@ def categorize_event(
 
 
 def build_categories_from_window_events(
-    window_events: List["WindowEvent"],
+    window_events: list[WindowEvent],
     period_start,
     period_end,
-) -> List[Dict]:
+) -> list[dict]:
     """Aggregate window events overlapping a time period into categories > apps > titles.
 
     Extracts ActivityWatch window categorization data from events that overlap a given
