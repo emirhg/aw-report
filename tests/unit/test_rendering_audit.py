@@ -66,14 +66,10 @@ class TestRenderingFunctionAudit:
             )
 
         # HYPOTHESIS: If result has >1 slot, the function re-split the consolidated slot
-        if len(result) > 1:
-            print(f"\n⚠️  FOUND ISSUE: split_slots_spanning_days re-split the consolidated slot!")
-            print(f"    Expected: 1 slot")
-            print(f"    Got: {len(result)} slots")
-            return False  # Re-splitting occurred
-        else:
-            print(f"\n✓ Consolidation preserved (still 1 slot)")
-            return True
+        assert len(result) == 1, (
+            f"split_slots_spanning_days re-split the consolidated slot: got {len(result)} slots"
+        )
+        print("\n[OK] Consolidation preserved (still 1 slot)")
 
     def test_logical_date_calculation(self, base_time):
         """TEST: Does logical_date handle consolidated slots correctly?"""
@@ -94,8 +90,7 @@ class TestRenderingFunctionAudit:
 
         # Should be same date since slot doesn't cross day boundary
         assert start_logical_date is not None
-        print(f"✓ Logical date calculated correctly")
-        return True
+        print("[OK] Logical date calculated correctly")
 
     def test_week_key_calculation(self, base_time):
         """TEST: Does week_key calculation work with consolidated slots?"""
@@ -113,8 +108,7 @@ class TestRenderingFunctionAudit:
 
         assert week_key is not None
         assert "W" in week_key  # Should be format like "2026-W35"
-        print(f"✓ Week key calculated correctly")
-        return True
+        print("[OK] Week key calculated correctly")
 
 
 class TestRenderingPipelineIntegration:
@@ -169,14 +163,10 @@ class TestRenderingPipelineIntegration:
         print(f"\nAFTER split_slots_spanning_days: {len(after_split)} slots")
 
         # Verify we still have our consolidated slots (not re-split)
-        if len(after_split) == 2:
-            print(f"✓ Consolidation preserved through pipeline")
-            return True
-        else:
-            print(
-                f"⚠️ Consolidation altered! Input had 2, output has {len(after_split)}"
-            )
-            return False
+        assert len(after_split) == 2, (
+            f"Consolidation altered! Input had 2, output has {len(after_split)}"
+        )
+        print("[OK] Consolidation preserved through pipeline")
 
 
 if __name__ == "__main__":

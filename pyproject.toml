@@ -46,6 +46,17 @@ warn_redundant_casts = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+filterwarnings = ["error"]
 markers = [
     "live_server: requires a running ActivityWatch server on localhost",
 ]
+
+[tool.coverage.run]
+branch = true
+source = ["src/tw_report"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+# Ratchet: raised after each phase, must reach 100 at the end of Phase 2.
+fail_under = 68
