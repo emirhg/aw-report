@@ -302,10 +302,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         choices=range(24),
         default=None,
         metavar="HOUR",
-        help=(
-            "Hour when a logical day starts (0-23, default from config or 4). Set to 0 to use "
-            "literal midnight boundaries."
-        ),
+        help=("Hour when a logical day starts (0-23; default 0 = midnight, or the config value)."),
     )
     return parser.parse_args(reordered_argv)
 

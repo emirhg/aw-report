@@ -355,6 +355,30 @@ terminal_width = 120
 **Buckets:** only the keys `hostname`, `afk`, `window` and `tasks` are accepted. Anything else
 (a typo such as `windw`) is an error, reported on stderr with exit code 1.
 
+```toml
+# Day boundary, 0-23 (default 0 = local midnight)
+day_start_hour = 0
+
+[activitywatch]
+# ActivityWatch server. Optional: when unset, falls back to
+# ~/.config/activitywatch/aw-client/aw-client.toml, then 127.0.0.1:5600.
+host = "127.0.0.1"
+port = 5600
+# IANA timezone for period boundaries (:today, :lastweek, ...). Default: system zone.
+# timezone = "America/Mexico_City"
+```
+
+Only `host`, `port` and `timezone` are accepted in `[activitywatch]`.
+
+### Fetching raw events (JSON)
+
+```bash
+tw-report fetch :lastweek        # or :yesterday, :lastmonth, 2026-03-01 2026-03-07, ...
+```
+
+Prints a JSON array with three entries, in the order afk, window, tasks. Each entry is the array of
+that bucket's events for the period, with UTC timestamps. The buckets are the resolved `[buckets]` roles.
+
 ### Categories (Productivity Scores)
 
 Categories come from ActivityWatch settings.json:

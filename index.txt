@@ -6,6 +6,7 @@ Read CLAUDE.md first (goal, rules, gates) and docs/ARCHITECTURE.md (design).
 
 ## Source (src/tw_report)
   cli/args.py                                349  argparse flags and positional-term handling
+  cli/fetch.py                                 80  `tw-report fetch`: role-bucket events as JSON
   cli/main.py                                922  orchestration: main() -> _run(); fetch, filter, build, metrics, render
   config.py                                  125  XDG config file loading and settings precedence
   core/aw_events.py                          119  typed events: WindowEvent, AFKEvent, TaskWarriorEvent

@@ -25,12 +25,13 @@ from tw_report.core.categories import (
     load_categories,
 )
 from tw_report.core.events import (
+    fetch_events,
     get_events,
 )
 from tw_report.core.filtering import EventFilter, _is_unassigned_project
 
 # OfflineTaskProcessor removed in Phase 2 refactor — builder handles offline classification
-from tw_report.core.period import parse_period
+from tw_report.core.period import PERIOD_TOKENS, local_zoneinfo, parse_period
 from tw_report.core.project_filtering import (
     _is_uuid_like,
     get_events_by_project,
@@ -129,31 +130,6 @@ def _get_time_ranges_from_events(events: Sequence[Event]) -> list[tuple[datetime
 E = TypeVar("E", bound=Event)
 
 
-def _fetch_events_for_ranges[E: Event](
-    client: ActivityWatchClient,
-    bucket_id: str,
-    time_ranges: list[tuple[datetime, datetime]],
-    event_cls: type[E],
-) -> list[E]:
-    """Fetch events from specified bucket for multiple time ranges.
-
-    More efficient than fetching for entire period when events are sparse.
-
-    Args:
-        event_cls: Event subclass to use for re-wrapping events (WindowEvent, AFKEvent,
-        TaskWarriorEvent)
-    """
-    events = []
-    for start, end in time_ranges:
-        # Add small buffer (1 second) to ensure boundary events are included
-        buffer = timedelta(seconds=1)
-        range_events: list[E] = get_events(
-            client, bucket_id, start - buffer, end + buffer, event_cls=event_cls
-        )
-        events.extend(range_events)
-    return events
-
-
 def _compute_app_bounded_ranges(
     task_time_ranges: list[tuple[datetime, datetime]] | None,
     app_matching_windows: Sequence[Event],
@@ -192,6 +168,10 @@ def _compute_app_bounded_ranges(
 def main():
     """Main script logic: orchestrate data fetching, processing, and report generation."""
     enable_unbuffered_output()
+    if len(sys.argv) > 1 and sys.argv[1] == "fetch":
+        from tw_report.cli.fetch import run_fetch
+
+        return run_fetch(sys.argv[2:])
     return _run(StageProfiler.from_env())
 
 
@@ -199,20 +179,22 @@ def _run(profiler: StageProfiler):
     profiler.checkpoint("MAIN START")
     args = parse_args()
     profiler.checkpoint("parse_args() done")
-    client = ActivityWatchClient("tw-report")
-    profiler.checkpoint("ActivityWatchClient created")
 
     # Load config file and resolve settings (CLI args > config file > defaults)
     try:
         user_config = load_user_config()
         buckets = resolve_buckets(user_config.get("buckets"))
+        resolved_settings = resolve_settings(
+            cli_args={"day_start_hour": args.day_start_hour}, user_config=user_config
+        )
     except ConfigParsingError as config_error:
         print(f"Error: {config_error}", file=sys.stderr)
         return 1
-    resolved_settings = resolve_settings(
-        cli_args={"day_start_hour": args.day_start_hour}, user_config=user_config
-    )
     day_start_hour = resolved_settings.day_start_hour
+    client = ActivityWatchClient(
+        "tw-report", host=resolved_settings.aw_host, port=str(resolved_settings.aw_port)
+    )
+    profiler.checkpoint("ActivityWatchClient created")
 
     # Determine grouping mode (default to --by-day)
     grouping_mode = None
@@ -274,16 +256,7 @@ def _run(profiler: StageProfiler):
     # This happens when --project is used without an argument
     if args.project:
         for value in args.project:
-            if value.startswith(":") and value in [
-                ":today",
-                ":yesterday",
-                ":week",
-                ":lastweek",
-                ":month",
-                ":lastmonth",
-                ":year",
-                ":all",
-            ]:
+            if value.startswith(":") and value in PERIOD_TOKENS:
                 print(
                     f"Error: --project requires an argument. Did you mean to use a period "
                     f"('{value}') without a filter?\n"
@@ -327,7 +300,9 @@ def _run(profiler: StageProfiler):
         search_term=args.search,
     )
 
-    start_time, end_time = parse_period(period, day_start_hour)
+    start_time, end_time = parse_period(
+        period, day_start_hour, tz=local_zoneinfo(resolved_settings.timezone)
+    )
     categories_json = load_categories(args.categories)
     compiled_categories, cat_score_map = compile_category_rules(categories_json)
 
@@ -393,18 +368,13 @@ def _run(profiler: StageProfiler):
     # For opt-out: fetch windows by default, skip only in constrained cases
     # AFK data is always needed for metrics and OFFLINE reconciliation
     # Fetch AFK events (always required for metrics and OFFLINE reconciliation)
-    if task_time_ranges:
-        # Smart optimization: only fetch AFK for times when tasks exist
-        # This dramatically reduces data volume for sparse task data (e.g., :year, :all)
-        afk_events = _fetch_events_for_ranges(
-            client, buckets.afk, task_time_ranges, event_cls=AFKEvent
-        )
-    else:
-        # No task time ranges: fetch entire period
-        afk_bucket = buckets.afk
-        profiler.checkpoint(f"Fetching AFK events from {start_time.date()} to {end_time.date()}")
-        afk_events = get_events(client, afk_bucket, start_time, end_time, event_cls=AFKEvent)
-        profiler.checkpoint(f"Fetched {len(afk_events)} AFK events")
+    # Only fetch AFK for task time ranges when tasks exist (sparse data, e.g. :year, :all);
+    # otherwise the whole period.
+    profiler.checkpoint(f"Fetching AFK events from {start_time.date()} to {end_time.date()}")
+    afk_events = fetch_events(
+        client, buckets.afk, start_time, end_time, ranges=task_time_ranges, event_cls=AFKEvent
+    )
+    profiler.checkpoint(f"Fetched {len(afk_events)} AFK events")
 
     # Filter AFK to only events overlapping task time ranges (if available)
     # CRITICAL: Only filter if task_time_ranges is non-empty. If no tasks exist,
@@ -443,19 +413,17 @@ def _run(profiler: StageProfiler):
     # vs false positives (system was off). This is critical for accurate AFK/OFFLINE reporting.
     from tw_report.core.aw_events import WindowEvent
 
-    if task_time_ranges:
-        # Smart optimization: only fetch windows for times when tasks exist
-        window_events = _fetch_events_for_ranges(
-            client, buckets.window, task_time_ranges, event_cls=WindowEvent
-        )
-    else:
-        # No task time ranges: fetch entire period
-        window_bucket = buckets.window
-        profiler.checkpoint(f"Fetching window events from {start_time.date()} to {end_time.date()}")
-        window_events = get_events(
-            client, window_bucket, start_time, end_time, event_cls=WindowEvent
-        )
-        profiler.checkpoint(f"Fetched {len(window_events)} window events")
+    # Windows only for task time ranges when tasks exist; otherwise the whole period
+    profiler.checkpoint(f"Fetching window events from {start_time.date()} to {end_time.date()}")
+    window_events = fetch_events(
+        client,
+        buckets.window,
+        start_time,
+        end_time,
+        ranges=task_time_ranges,
+        event_cls=WindowEvent,
+    )
+    profiler.checkpoint(f"Fetched {len(window_events)} window events")
 
     # Categorize all window events (including those during AFK periods)
     # This ensures generate_afk_and_offline_slots can extract categories for AFK slot details
@@ -603,8 +571,13 @@ def _run(profiler: StageProfiler):
             # Re-fetch AFK events using app-bounded time ranges (PHASE 14 optimization)
             # This reduces AFK data volume when filtering by app, whether alone or combined
             # with project/task filters. Bounding envelope preserves AFK context for gaps.
-            afk_events = _fetch_events_for_ranges(
-                client, buckets.afk, app_time_ranges, event_cls=AFKEvent
+            afk_events = fetch_events(
+                client,
+                buckets.afk,
+                start_time,
+                end_time,
+                ranges=app_time_ranges,
+                event_cls=AFKEvent,
             )
 
     # Tracked Activity from event times (includes all buckets: AFK + window + task)

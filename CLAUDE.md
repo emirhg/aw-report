@@ -133,9 +133,14 @@ Time metrics (domain definitions, keep them consistent in code and output):
 
 ```toml
 detail_level = 3
-day_start_hour = 4
+day_start_hour = 0          # 0 = local midnight (default)
 exclude_projects = ["Personal"]
 terminal_width = 120
+
+[activitywatch]    # optional; host/port fall back to aw-client.toml, then 127.0.0.1:5600
+host = "127.0.0.1"
+port = 5600
+timezone = "America/Mexico_City"   # optional; period boundaries (default: system zone)
 
 [buckets]          # optional; defaults are aw-watcher-<watcher>_<hostname>
 hostname = "laptop"
@@ -143,6 +148,9 @@ window = "aw-watcher-tmux"   # exact ID of one role
 ```
 
 Only `hostname`, `afk`, `window` and `tasks` are accepted in `[buckets]`; anything else is an error.
+Only `host`, `port` and `timezone` are accepted in `[activitywatch]`.
+`tw-report fetch [PERIOD]` prints the events of the afk, window and tasks buckets as a JSON array
+(three arrays, UTC timestamps).
 The category rules come from ActivityWatch's `settings.json` (`--categories` overrides the path).
 
 ## 8. Deprecated API policy

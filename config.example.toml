@@ -1,0 +1,24 @@
+# Example tw-report configuration.
+# Copy to ~/.config/tw-report/config.toml (or $XDG_CONFIG_HOME/tw-report/config.toml).
+# Every key is optional; built-in defaults apply to anything left out.
+# Command-line flags always take precedence over this file.
+
+# Hour at which a logical day starts, 0-23. 0 = local midnight (default).
+# Example: 4 makes ":yesterday" run from 04:00 to 04:00 local time.
+day_start_hour = 0
+
+[activitywatch]
+# ActivityWatch server. When unset, falls back to
+# ~/.config/activitywatch/aw-client/aw-client.toml, then 127.0.0.1:5600.
+host = "127.0.0.1"
+port = 5600
+# IANA timezone for period boundaries (:today, :lastweek, ...). Default: system zone.
+# timezone = "America/Mexico_City"
+
+[buckets]
+# Optional. Each role is fed by one ActivityWatch bucket.
+# Defaults: aw-watcher-<watcher>_<hostname>, where the hostname is this machine's name.
+# hostname = "laptop"
+# window = "aw-watcher-tmux"
+# afk = "aw-watcher-afk_laptop"
+# tasks = "aw-watcher-taskwarrior_laptop"

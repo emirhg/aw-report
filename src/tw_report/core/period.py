@@ -5,8 +5,44 @@ Converts human-readable period strings (:today, :week, ISO dates, etc.) into
 start/end datetime tuples for querying activity data.
 """
 
+import os
 import sys
-from datetime import date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta, tzinfo
+from zoneinfo import ZoneInfo
+
+PERIOD_TOKENS = (
+    ":today",
+    ":yesterday",
+    ":week",
+    ":lastweek",
+    ":month",
+    ":lastmonth",
+    ":year",
+    ":lastyear",
+    ":all",
+)
+
+
+def local_zoneinfo(name: str | None = None) -> tzinfo:
+    """Resolve the timezone used to turn period tokens into instants.
+
+    Order: explicit ``name`` (IANA, e.g. "America/Mexico_City") -> $TZ -> system zone.
+    Raises ValueError for an unknown explicit name.
+    """
+    if name:
+        try:
+            return ZoneInfo(name)
+        except Exception as e:
+            raise ValueError(f"Unknown timezone '{name}'") from e
+    env_tz = os.environ.get("TZ")
+    if env_tz:
+        try:
+            return ZoneInfo(env_tz)
+        except Exception:
+            pass
+    system_zone = datetime.now().astimezone().tzinfo
+    assert system_zone is not None  # astimezone() always attaches a fixed-offset zone
+    return system_zone
 
 
 def logical_date(dt: datetime, day_start_hour: int) -> date:
@@ -44,7 +80,20 @@ def day_boundary(d: date, day_start_hour: int, tzinfo) -> datetime:
     return datetime.combine(d, time(hour=day_start_hour), tzinfo=tzinfo)
 
 
-def parse_period(period_str: str, day_start_hour: int = 4) -> tuple[datetime, datetime]:
+def _iso_in_zone(text: str, tz: tzinfo) -> datetime:
+    """Parse an ISO datetime; naive values are read in ``tz``, aware values are converted to it."""
+    parsed = datetime.fromisoformat(text)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=tz)
+    return parsed.astimezone(tz)
+
+
+def parse_period(
+    period_str: str,
+    day_start_hour: int = 0,
+    tz: tzinfo | None = None,
+    now: datetime | None = None,
+) -> tuple[datetime, datetime]:
     """
     Convert a human-readable period string into a start and end datetime tuple.
 
@@ -65,15 +114,20 @@ def parse_period(period_str: str, day_start_hour: int = 4) -> tuple[datetime, da
 
     Args:
         period_str: Period specification string (case-insensitive for keywords)
+        day_start_hour: Hour at which a logical day starts (0 = calendar midnight)
+        tz: Timezone the period is computed in (default: local zone, see local_zoneinfo)
+        now: Reference instant (default: current time); injectable for tests
 
     Returns:
-        Tuple of (start, end) datetime objects (timezone-aware)
+        Tuple of (start, end) datetime objects (timezone-aware, in ``tz``)
 
     Raises:
         SystemExit: If period format is invalid (prints error to stderr and exits)
     """
-    now = datetime.now().astimezone()
-    logical_today = logical_date(now, day_start_hour)
+    tz = tz or local_zoneinfo()
+    now = now.astimezone(tz) if now is not None else datetime.now(tz)
+    # Compute the logical day in ``tz`` itself; logical_date() would convert to the system zone
+    logical_today = (now - timedelta(hours=day_start_hour)).date()
     today_start = day_boundary(logical_today, day_start_hour, now.tzinfo)
     today_end = day_boundary(
         logical_today + timedelta(days=1), day_start_hour, now.tzinfo
@@ -133,15 +187,15 @@ def parse_period(period_str: str, day_start_hour: int = 4) -> tuple[datetime, da
         parts = period_str.split()
         try:
             if len(parts) == 1:
-                parsed_dt = datetime.fromisoformat(parts[0]).astimezone(now.tzinfo)
+                parsed_dt = _iso_in_zone(parts[0], tz)
                 parsed_date = parsed_dt.date()
                 start = day_boundary(parsed_date, day_start_hour, now.tzinfo)
                 end = day_boundary(
                     parsed_date + timedelta(days=1), day_start_hour, now.tzinfo
                 ) - timedelta(microseconds=1)
             elif len(parts) == 2:
-                start = datetime.fromisoformat(parts[0]).astimezone(now.tzinfo)
-                end = datetime.fromisoformat(parts[1]).astimezone(now.tzinfo)
+                start = _iso_in_zone(parts[0], tz)
+                end = _iso_in_zone(parts[1], tz)
             else:
                 raise ValueError
         except ValueError:
@@ -149,3 +203,18 @@ def parse_period(period_str: str, day_start_hour: int = 4) -> tuple[datetime, da
             sys.exit(1)
 
     return start, end
+
+
+def period_to_utc(
+    period_str: str,
+    day_start_hour: int = 0,
+    tz: tzinfo | None = None,
+    now: datetime | None = None,
+) -> tuple[datetime, datetime]:
+    """Same as parse_period, but returns (start, end) as timezone-aware UTC datetimes.
+
+    The local-time boundaries are computed in ``tz`` and then converted to UTC,
+    which is the form ActivityWatch queries need.
+    """
+    start, end = parse_period(period_str, day_start_hour=day_start_hour, tz=tz, now=now)
+    return start.astimezone(UTC), end.astimezone(UTC)
