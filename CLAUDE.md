@@ -210,3 +210,80 @@ When you fix one of these: the strict xfail will fail; remove its marker and upd
 - `core/report_slot.py` is ~1900 lines and mixes the slot model, merging and bucketing; split it
   along those lines when the model layer is refactored.
 - Mypy and ruff run on `src` only; the test suite is not type-checked.
+
+## 13. Open analysis: performance, fetch sources and bucket roles (next session)
+
+Status: analysis only. Nothing in this section is implemented yet except where marked.
+**Rule: when an item below is fully implemented, update this section in the same commit:
+mark it DONE with the commit id, move the lasting facts into the sections above, and delete the
+stale analysis. Do not leave a finished item described as open.**
+
+### 13.1 Benchmark baseline (measured, not yet a script)
+
+- Period `:lastweek` (2026-11-02 to 2026-11-09), local zone UTC-6, machine otherwise idle.
+- Sample tool in `samples/` (bash + jq + `timesheet_report.py`, taskwarrior bucket only):
+  about 0.18 s wall, five runs.
+- `tw-report` restricted to the taskwarrior bucket (AFK and window return no events):
+  about 0.70 s. Python startup is about 0.05 s and importing `tw_report.cli.main` takes about
+  0.52 s (`aw_client` and `requests` account for about 0.36 s of that). The rest is the report.
+- `tw-report --by-day :lastweek` with all three buckets: about 7.3 s (earlier runs of the same
+  command were 6.9 s and 14 to 16 s, so the machine is noisy; compare runs taken close together).
+- Correctness reference: the sample's per-day hours equal tw-report's taskwarrior events clipped to
+  each local day, to two decimals, for every day. Totals: 30.20 h (sample) and 30.19 h (fetch).
+  Grouping events by start time instead of clipping moves hours between days and is wrong.
+- Sample defects, not to be copied: text output crashes on `project: null` (CSV works); the
+  `-06:00` offset is hard-coded; the server is fixed at `localhost:5600`; it relies on GNU `date`.
+- Benchmark to build (`dev/`): same period, one bucket (`tasks`), median of five warm runs, import
+  time reported apart from pipeline time, and output checked against the clipped reference above.
+
+### 13.2 Full-pipeline profile and candidate changes (no behaviour change intended)
+
+Profile of `--by-day :lastweek` (cProfile, all three buckets, about 8,000 window events):
+- `categorize_event` runs the regex rules on every window event. About 3 s of the profile.
+  Its result depends only on `(app, title)`, so each unique pair can be computed once.
+- `EventIndex.active_at` reads `timestamp` and `duration` through aw_core property accessors on
+  every lookup (about 1.9 million property calls). Precomputing the end times removes that.
+- The builder only needs to know whether any window event is active at a tick
+  (`has_window_activity`). An early-exit `any_active_at` avoids building lists.
+- Remaining cost: about 1.9 s of socket reads for the window payload. Fetch and transfer volume
+  is the limit; the sample avoids it by letting the server aggregate per period.
+
+A prototype with the first three changes ran the full `--by-day :lastweek` in about 3.9 s, against
+about 7.3 s for the current code, with byte-identical output. It was not committed. The change is
+still open: implement it on its own commit with the usual gates and a parity check.
+
+### 13.3 Detail levels versus data sources (decided direction, not implemented)
+
+- Detail level only controls rendering (`cli/main.py` passes it to the renderers). It does not
+  choose what to fetch. `should_skip_window_bucket` in `core/project_filtering.py` is dead code.
+- Rejected: a "detail level 0" that drops AFK and window. Active, break, AFK and offline totals all
+  depend on the AFK bucket, so that would be a different report, not a rendering level.
+- Proposed: an explicit source option, for example `--source tasks` (or a list of roles), with the
+  default `afk,window,tasks` unchanged. Each detail level declares which roles it needs. A request
+  that cannot be satisfied (for example categories without `window`) fails with a clear message.
+- Task-only totals must be documented as "tracked task time, no AFK", the same meaning as the sample.
+
+### 13.4 Bucket roles as splitters, aggregators and detail (proposal, under discussion)
+
+- Splitter: AFK. Its boundaries and state changes define slot limits. The builder already does this.
+- Aggregator: taskwarrior. A task interval labels the time it covers with project and task. The
+  builder already does this, with the overlap tie-break.
+- Detail: window. Categories and apps are detail for the slots they overlap. Today every window
+  start and end is also a cut, which is why window events dominate the tick count
+  (about 8,000 window events against a few hundred AFK events in a week).
+- Caveat: window is also a classifier input. The builder's `has_window_activity` check separates
+  real AFK from false positives (system off but AFK still reporting). A detail-only window role must
+  keep that check, or its results change.
+- Proposed steps: (1) count cuts per role on a real week to confirm the hypothesis; (2) record
+  each role's kind in `core/buckets.py` with no behaviour change; (3) stop window events from
+  creating cuts and check the output against the parity baseline; (4) validate `--source` and
+  detail levels against the role kinds.
+- Risks: slot boundaries or totals could move, so parity must be checked on live data and in the
+  characterization goldens. The role names and the four config keys are fixed today; changing them
+  needs a decision.
+
+### 13.5 Open decisions (ask the user before implementing)
+
+1. Name and form of the source option (`--source tasks`, `--buckets tasks`, or other).
+2. Whether window stays a classifier input for AFK false positives (recommended) or moves elsewhere.
+3. Whether the performance changes in 13.2 ship before or after the role-kind change in 13.4.
