@@ -233,8 +233,17 @@ stale analysis. Do not leave a finished item described as open.**
   Grouping events by start time instead of clipping moves hours between days and is wrong.
 - Sample defects, not to be copied: text output crashes on `project: null` (CSV works); the
   `-06:00` offset is hard-coded; the server is fixed at `localhost:5600`; it relies on GNU `date`.
-- Benchmark to build (`dev/`): same period, one bucket (`tasks`), median of five warm runs, import
-  time reported apart from pipeline time, and output checked against the clipped reference above.
+- DONE (uncommitted): `dev/benchmark/compare.py` runs the shell workflow and its Python replica
+  `dev/benchmark/aw_task_report.py` end to end (query, JSON, `samples/timesheet_report.py --format csv`),
+  one warm-up plus 10 measured runs, reports avg/min/max, and checks that the CSV output is identical.
+  The replica uses the stdlib only. End to end, 10 runs:
+  `:lastweek` shell avg 0.260 s (min 0.221, max 0.304), python avg 0.367 s (min 0.336, max 0.411);
+  `:lastmonth` shell avg 0.835 s (min 0.807, max 0.860), python avg 0.765 s (min 0.738, max 0.832).
+  CSV identical in both. Shell is faster on small periods (interpreter start-up); Python is faster on
+  large ones, where the jq filter's per-event timestamp parsing and grouping cost more as the event
+  count grows (not profiled in detail). Modes that include today can differ between the two runs,
+  because ActivityWatch keeps recording.
+- Still open for the benchmark: import time of `tw_report` is not separated yet (see 13.1 above).
 
 ### 13.2 Full-pipeline profile and candidate changes (no behaviour change intended)
 
