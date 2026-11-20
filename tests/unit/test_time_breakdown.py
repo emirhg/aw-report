@@ -49,3 +49,14 @@ def test_sum_breakdowns_adds_every_bucket():
 
 def test_sum_of_nothing_is_zero():
     assert sum_breakdowns([]) == TimeBreakdown()
+
+
+def test_prorated_takes_the_share_of_a_part_of_the_interval():
+    whole = TimeBreakdown(active=timedelta(minutes=60), offline=timedelta(minutes=30))
+    share = whole.prorated(timedelta(minutes=45), timedelta(minutes=90))
+    assert share == TimeBreakdown(active=timedelta(minutes=30), offline=timedelta(minutes=15))
+
+
+def test_prorated_over_an_empty_interval_is_zero():
+    whole = TimeBreakdown(active=timedelta(minutes=60))
+    assert whole.prorated(timedelta(0), timedelta(0)) == TimeBreakdown()

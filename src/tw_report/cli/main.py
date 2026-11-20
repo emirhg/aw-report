@@ -688,17 +688,14 @@ def _run(profiler: StageProfiler):
     if not args.no_productivity:
         productivity_source_slots = list(display_slots)
 
-    # Session consolidation (--consolidate). Still dict-based until piece 3E.
+    # Session consolidation (--consolidate): consecutive slots of the same task merge into one
     if args.consolidate:
         from tw_report.pipeline.consolidation import consolidate_sessions
 
-        min_duration = timedelta(seconds=1)
-        entries = [
-            {**s.to_dict(), "type": s.entry_type}
-            for s in display_slots
-            if s.duration >= min_duration
-        ]
-        display_slots = [ReportTimelineSlot.from_dict(d) for d in consolidate_sessions(entries)]
+        min_duration = timedelta(seconds=1)  # micro-slots are state-change artifacts
+        display_slots = consolidate_sessions(
+            [s for s in display_slots if s.duration >= min_duration]
+        )
 
     filtered_slots = display_slots
 

@@ -55,6 +55,23 @@ class TimeBreakdown:
         """Every second of the breakdown, across all states."""
         return self.online + self.offline + self.untracked + self.no_afk_data
 
+    def prorated(self, part: timedelta, whole: timedelta) -> TimeBreakdown:
+        """The share of this breakdown that belongs to ``part`` of a ``whole`` interval."""
+        if whole <= timedelta(0):
+            return TimeBreakdown()
+        ratio = part / whole
+
+        def share(value: timedelta) -> timedelta:
+            return value * ratio
+
+        return TimeBreakdown(
+            active=share(self.active),
+            afk=share(self.afk),
+            untracked=share(self.untracked),
+            offline=share(self.offline),
+            no_afk_data=share(self.no_afk_data),
+        )
+
     def __add__(self, other: TimeBreakdown) -> TimeBreakdown:
         return TimeBreakdown(
             active=self.active + other.active,

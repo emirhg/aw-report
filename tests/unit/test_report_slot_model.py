@@ -99,3 +99,12 @@ def test_filter_accepts_slot_drops_excluded_projects():
     flt = EventFilter(exclude_projects=["Climb"])
     assert not flt.accepts_slot(slot("not-afk", project="Climb"))
     assert flt.accepts_slot(slot("not-afk", project="Other"))
+
+
+def test_legacy_event_duration_is_serialised_when_set():
+    legacy = slot("untracked", tags=["offline"])
+    legacy.event_duration = timedelta(minutes=5)
+    legacy.offline_extension_duration = timedelta(minutes=7)
+    serialised = legacy.to_dict()
+    assert serialised["event_duration"] == timedelta(minutes=5)
+    assert serialised["offline_extension_duration"] == timedelta(minutes=7)

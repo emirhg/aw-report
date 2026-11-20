@@ -1,186 +1,60 @@
-"""Session-merging consolidation logic for --consolidate flag.
+"""Session-merging consolidation for the --consolidate flag.
 
-The --consolidate flag merges consecutive sessions of the same task
-(project + task) into single entries, even if there are gaps between them,
-unless interrupted by a different task.
+Consecutive slots of the same (project, task) are merged into one slot, even when an AFK gap or
+another slot lies between them of a different state; a different task breaks the group.
 
-This is orthogonal to period-level consolidation (--consolidate-day/week/month/year)
-which groups by time periods instead.
+The merged slot spans from the start of the first slot to the end of the last. Its breakdown is
+the sum of the breakdowns of the slots it joins, so totals are unchanged by consolidation. Its
+AFK state is None, because the joined slots may differ; the breakdown carries the split.
 
 Example:
-  Input:  Task A (1h) → Task A (gap 30m) → Task A (1h) → Task B (1h)
-  Output: Task A (2.5h) → Task B (1h)  [gap is bridged]
+  Input:  Task A (1h) -> Task A (gap 30m) -> Task A (1h) -> Task B (1h)
+  Output: Task A (2.5h) -> Task B (1h)  [gap is bridged]
 """
 
 from collections.abc import Sequence
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from tw_report.core.report_slot import ReportTimelineSlot
 
 from tw_report.core.event_slot import merge_event_maps
+from tw_report.core.report_slot import ReportTimelineSlot
+from tw_report.core.time_breakdown import sum_breakdowns
+from tw_report.pipeline.row_merge import merge_tagged_data
 
 
-def consolidate_sessions(
-    slots: Sequence[dict[str, Any] | ReportTimelineSlot],
-) -> list[dict[str, Any]]:
-    """Merge consecutive sessions of the same (project, task) into one slot.
+def consolidate_sessions(slots: Sequence[ReportTimelineSlot]) -> list[ReportTimelineSlot]:
+    """Merge runs of consecutive slots that share project and task.
 
-    Sessions of the same task are merged even with gaps between them,
-    unless interrupted by a different task. The merged slot spans from
-    the start of the first session to the end of the last session.
-
-    Args:
-        slots: List of slot dicts or ReportTimelineSlot objects, chronologically ordered.
-
-    Returns:
-        List of consolidated slots with consecutive same-task sessions merged.
-
-    Example:
-        >>> slots = [
-        ...     {"start": t1, "duration": 1h, "task": "A"},
-        ...     {"start": t1+1.5h, "duration": 1h, "task": "A"},  # gap 30m
-        ...     {"start": t1+3h, "duration": 1h, "task": "B"},
-        ... ]
-        >>> consolidated = consolidate_sessions(slots)
-        >>> len(consolidated)
-        2  # Two slots: A (merged 2.5h) and B (1h)
+    ``slots`` must be chronologically ordered. Returns one slot per run.
     """
-    if not slots:
-        return []
-
-    # Convert to dicts for consistent handling
-    slot_dicts = [_to_dict(slot) for slot in slots]
-
-    # Group consecutive slots by (project, task)
-    merged = []
-    current_group = [slot_dicts[0]]
-
-    for i in range(1, len(slot_dicts)):
-        slot = slot_dicts[i]
-        last_slot = current_group[-1]
-
-        # Check if this slot belongs to the same group
-        if _same_group(slot, last_slot):
-            current_group.append(slot)
+    groups: list[list[ReportTimelineSlot]] = []
+    for slot in slots:
+        if groups and _same_group(groups[-1][-1], slot):
+            groups[-1].append(slot)
         else:
-            # Different task/project - finalize and start new group
-            merged.append(_merge_group(current_group))
-            current_group = [slot]
-
-    # Don't forget the last group
-    merged.append(_merge_group(current_group))
-
-    return merged
+            groups.append([slot])
+    return [_merge_group(group) for group in groups]
 
 
-def _to_dict(slot: dict[str, Any] | Any) -> dict[str, Any]:
-    """Convert slot to dict if it's an object."""
-    if isinstance(slot, dict):
-        return slot
-    # Assume it's a ReportTimelineSlot or similar object
-    return {
-        "start": slot.start,
-        "duration": slot.duration,
-        "actual_duration": getattr(slot, "actual_duration", slot.duration),
-        "project": slot.project,
-        "task": slot.task,
-        "tags": getattr(slot, "tags", []),
-        "event_duration": getattr(slot, "event_duration", slot.duration),
-        "is_offline_task": getattr(slot, "is_offline_task", False),
-        "is_afk_only": getattr(slot, "is_afk_only", False),
-        "afk_duration": getattr(slot, "afk_duration", None),
-        "productive_duration": getattr(slot, "productive_duration", timedelta(0)),
-    }
+def _same_group(prev: ReportTimelineSlot, slot: ReportTimelineSlot) -> bool:
+    return prev.project == slot.project and prev.task == slot.task
 
 
-def _same_group(slot: dict[str, Any], last_slot: dict[str, Any]) -> bool:
-    """Check if two slots belong to the same consolidation group."""
-    same = slot.get("project") == last_slot.get("project") and slot.get("task") == last_slot.get(
-        "task"
-    )
-
-    return same
-
-
-def _merge_group(group: list[dict[str, Any]]) -> dict[str, Any]:
-    """Merge a group of consecutive slots of the same task into one.
-
-    The merged slot spans from the start of the first slot to the end of
-    the last slot, bridging any gaps between them.
-
-    Args:
-        group: List of slot dicts, all with the same (project, task).
-
-    Returns:
-        Merged slot dict spanning the full time range of the group.
-    """
+def _merge_group(group: list[ReportTimelineSlot]) -> ReportTimelineSlot:
     if len(group) == 1:
         return group[0]
-
-    # Calculate total duration from first start to last end
-    first_slot = group[0]
-    last_slot = group[-1]
-
-    start_time = first_slot["start"]
-
-    # Use "end" field if available, otherwise calculate from start + duration
-    if "end" in last_slot and last_slot["end"] is not None:
-        end_time = last_slot["end"]
-    else:
-        end_time = last_slot["start"] + last_slot["duration"]
-
-    merged_duration = end_time - start_time
-
-    # Sum actual_duration values (active time, excluding AFK gaps within slots)
-    total_actual_duration = sum(
-        (slot.get("actual_duration", slot["duration"]) for slot in group),
-        timedelta(0),
+    first, last = group[0], group[-1]
+    return ReportTimelineSlot(
+        start=first.start,
+        end=last.end,
+        duration=last.end - first.start,
+        actual_duration=sum((s.actual_duration for s in group), timedelta(0)),
+        productive_duration=sum((s.productive_duration for s in group), timedelta(0)),
+        task_event=first.task_event,
+        events=merge_event_maps(*(s.events for s in group)),
+        tags=first.tags,
+        categories=first.categories,
+        afk_state=None,
+        data=merge_tagged_data(s.data for s in group),
+        stored_breakdown=sum_breakdowns(s.breakdown for s in group),
+        is_consolidated=True,
     )
-
-    # Sum afk_duration values (idle time within slots)
-    total_afk_duration = sum(
-        (slot.get("afk_duration", timedelta(0)) for slot in group if slot.get("afk_duration")),
-        timedelta(0),
-    )
-
-    # Sum event_duration values (actual time spent on task, without gaps)
-    total_event_duration = sum(
-        (slot.get("event_duration", slot["duration"]) for slot in group),
-        timedelta(0),
-    )
-
-    # Sum offline_extension_duration if any slot has it (offline task tracking)
-    total_offline_extension = sum(
-        (
-            slot.get("offline_extension_duration", timedelta(0))
-            for slot in group
-            if slot.get("offline_extension_duration")
-        ),
-        timedelta(0),
-    )
-
-    # Create merged slot by copying first and updating key fields
-    merged = first_slot.copy()
-    merged["events"] = merge_event_maps(*(s.get("events") for s in group))
-    merged["start"] = start_time
-    merged["end"] = end_time
-    merged["duration"] = merged_duration  # Wall-clock duration (includes gaps between sessions)
-    merged["actual_duration"] = (
-        total_actual_duration  # Sum of active time (excludes AFK within slots)
-    )
-    merged["afk_duration"] = (
-        total_afk_duration if total_afk_duration > timedelta(0) else None
-    )  # Sum of AFK time
-    merged["event_duration"] = total_event_duration  # Sum of event durations
-
-    # Preserve offline_extension_duration if present (offline task tracking)
-    if total_offline_extension > timedelta(0):
-        merged["offline_extension_duration"] = total_offline_extension
-
-    # Tags should be consistent (all same), but preserve from first slot
-    if group and group[0].get("tags"):
-        merged["tags"] = group[0]["tags"]
-
-    return merged

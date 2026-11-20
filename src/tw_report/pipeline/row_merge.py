@@ -61,12 +61,12 @@ def _merge_group(group: list[ReportTimelineSlot]) -> ReportTimelineSlot:
         tags=first.tags,
         categories=merge_category_trees(s.categories for s in group),
         afk_state=first.afk_state,
-        data=_merge_data(s.data for s in group),
+        data=merge_tagged_data(s.data for s in group),
         stored_breakdown=sum_breakdowns(s.breakdown for s in group),
     )
 
 
-def _merge_data(maps: Iterable[dict[str, list[DataValue]]]) -> dict[str, list[DataValue]]:
+def merge_tagged_data(maps: Iterable[dict[str, list[DataValue]]]) -> dict[str, list[DataValue]]:
     merged: dict[str, list[DataValue]] = {}
     for data in maps:
         for key, values in data.items():

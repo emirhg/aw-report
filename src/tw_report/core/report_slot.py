@@ -902,6 +902,7 @@ class ReportTimelineSlot:
                 task_event=self.task_event,
                 events=merge_event_maps(self.events),
                 afk_state=self.afk_state,
+                stored_breakdown=self.stored_breakdown,
                 afk_duration=self.afk_duration,
                 offline_extension_duration=self.offline_extension_duration,
                 event_duration=self.event_duration,
@@ -999,6 +1000,11 @@ class ReportTimelineSlot:
                 task_event=self.task_event,
                 events=merge_event_maps(self.events),
                 afk_state=self.afk_state,
+                stored_breakdown=(
+                    self.breakdown.prorated(piece_duration, self.duration)
+                    if self.stored_breakdown is not None
+                    else None
+                ),
                 afk_duration=piece_afk_duration,
                 offline_extension_duration=piece_offline_extension_duration,
                 event_duration=piece_event_duration,

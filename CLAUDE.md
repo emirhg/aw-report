@@ -172,7 +172,6 @@ called. The current list is in `tests/unit/test_deprecations.py::CASES`. Rules:
 | `tests/unit/test_timeline_render_coverage.py::test_detail_level_one_hides_task_names` | `--detail-level 1` still prints task names |
 | `tests/unit/test_timeline_render_coverage.py::test_offline_task_rows_are_prefixed_with_an_asterisk` | offline task rows never get the `*` prefix |
 | `tests/unit/test_small_modules_coverage.py::test_task_warrior_bare_url_title_is_not_cut_at_scheme_colon` | a bare URL title becomes `https` |
-| `tests/unit/test_small_modules_coverage.py::test_consolidate_sessions_accepts_report_slot_objects` | `consolidate_sessions` fails on slot objects with `event_duration=None` (production passes dicts) |
 | `tests/unit/test_report_slot_entries_coverage.py::test_bucket_by_day_respects_day_start_hour_zero` | bucket labels ignore a day start below 4 |
 | `tests/unit/test_report_slot_entries_coverage.py::test_split_at_month_boundary_preserves_total_duration` | month splits use a fixed 30-day step and raise |
 | `tests/unit/test_report_slot_entries_coverage.py::test_split_at_year_boundary_preserves_total_duration` | year splits use a fixed 365-day step and raise |
@@ -417,7 +416,8 @@ WIP branch `wip/intersection-slots` (not green; do not merge as is):
   Golden snapshots regenerated and reviewed by change class (header label and separator width; --app rows; filter
   exclusions leave Total and Break; AFK fetched for the whole period; span follows the reported slots; hierarchy
   counts worked time; consolidate keeps offline). See the commit message of the golden commit.
-  Still open before the squash: 3E (consolidation on objects; still dict-based through to_dict) and 3H (remove
+  Done since: 3E (consolidation on objects, `pipeline/consolidation.py`; the day split now keeps the stored breakdown).
+  Still open before the squash: 3H (remove
   actual_duration, afk_duration, offline_extension_duration, event_duration and the builder shim; they are still
   written by the builder for the legacy readers).
 

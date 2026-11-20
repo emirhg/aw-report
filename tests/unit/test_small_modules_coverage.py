@@ -1,15 +1,15 @@
 """Coverage tests for small modules: events, filtering, config, formatting and builder edges."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from aw_core.models import Event
 
 from tw_report.core.aw_events import AFKEvent, TaskWarriorEvent, WindowEvent
 from tw_report.core.filtering import NO_PROJECT, NO_TASK, EventFilter
+from tw_report.core.report_slot import ReportTimelineSlot
 from tw_report.core.task_matching import task_has_offline_tag
 from tw_report.core.timeline import TimelineSlot
-from tw_report.core.report_slot import ReportTimelineSlot
 from tw_report.pipeline.consolidation import consolidate_sessions
 from tw_report.utils.formatting import (
     display_width,
@@ -17,7 +17,7 @@ from tw_report.utils.formatting import (
     sanitize_title,
 )
 
-UTC = timezone.utc
+UTC = UTC
 T0 = datetime(2026, 7, 23, 10, 0, tzinfo=UTC)
 
 
@@ -211,14 +211,6 @@ def test_consolidate_sessions_empty_input():
     assert consolidate_sessions([]) == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Known bug: _to_dict copies event_duration via getattr, so a ReportTimelineSlot whose "
-        "event_duration is None makes the merge sum fail with TypeError. The production path "
-        "passes dicts (to_dict omits None fields), so it is unaffected. Fix in Phase 3."
-    ),
-)
 def test_consolidate_sessions_accepts_report_slot_objects():
     first = ReportTimelineSlot(
         start=T0,
@@ -234,55 +226,7 @@ def test_consolidate_sessions_accepts_report_slot_objects():
     )
     merged = consolidate_sessions([first, second])
     assert len(merged) == 1
-    assert merged[0]["duration"] == timedelta(hours=2)
-
-
-def test_consolidate_sessions_uses_start_plus_duration_when_end_missing():
-    slots = [
-        {
-            "start": T0,
-            "duration": timedelta(hours=1),
-            "actual_duration": timedelta(hours=1),
-            "project": "P",
-            "task": "T",
-            "end": None,
-        },
-        {
-            "start": T0 + timedelta(hours=1),
-            "duration": timedelta(hours=1),
-            "actual_duration": timedelta(hours=1),
-            "project": "P",
-            "task": "T",
-            "end": None,
-        },
-    ]
-    merged = consolidate_sessions(slots)
-    assert merged[0]["duration"] == timedelta(hours=2)
-
-
-def test_consolidate_sessions_preserves_offline_extension_total():
-    slots = [
-        {
-            "start": T0,
-            "end": T0 + timedelta(hours=1),
-            "duration": timedelta(hours=1),
-            "actual_duration": timedelta(0),
-            "project": "P",
-            "task": "T",
-            "offline_extension_duration": timedelta(minutes=30),
-        },
-        {
-            "start": T0 + timedelta(hours=1),
-            "end": T0 + timedelta(hours=2),
-            "duration": timedelta(hours=1),
-            "actual_duration": timedelta(0),
-            "project": "P",
-            "task": "T",
-            "offline_extension_duration": timedelta(minutes=15),
-        },
-    ]
-    merged = consolidate_sessions(slots)
-    assert merged[0]["offline_extension_duration"] == timedelta(minutes=45)
+    assert merged[0].duration == timedelta(hours=2)
 
 
 # ---------------------------------------------------------------------------
