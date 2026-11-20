@@ -288,6 +288,33 @@ still open: implement it on its own commit with the usual gates and a parity che
 
 ### 13.4 Bucket roles as splitters, aggregators and detail (proposal, under discussion)
 
+**Principle (decided by the user):** the slots are the intersections of the buckets' events. Each
+slot is an atomic interval in which the set of active events is constant, and it carries the data of
+every bucket active in that interval:
+- Where two or more buckets' events overlap, the slot is enriched with all of them (for example a
+  task plus the AFK state plus the window).
+- Where only one bucket has an event, the slot holds that bucket's data alone.
+- Single bucket: each slot is one event, so the slots equal the events. A `tasks`-only run should
+  give exactly one slot per task event. The current builder is close but not guaranteed to (touching
+  events of the same task merge, overlapping events are tie-broken to one slot); verify with a test.
+- Keys that two buckets both set are never silently overwritten. A slot keeps every value as a
+  list, each tagged with the bucket it came from, so no precision is lost. Example: the window
+  bucket `aw-watcher-window` says `app=Code` and the tmux bucket `aw-watcher-tmux` says `app=tmux`
+  for the same minute; the enriched slot holds both values in a list. The AFK bucket sets
+  `status=not-afk` on a different key, so it does not conflict.
+- Every enriched value is tied to the timeline: it carries the interval it applies to (the slot
+  span, or the event that set it), so the data always adds information about when it held.
+- Decided: window events cut AND enrich, like every other bucket. There is no exception. The window
+  bucket dominates the slot count, and that is accepted as the cost of exact intersections.
+- Decided: AFK also cuts and enriches. The false-positive check is removed. Each slot carries one
+  AFK state from three: `afk`, `not-afk`, or `untracked` (no AFK data covers that time). The
+  window-coverage check (the `REVIEW(window-afk)` workaround) goes away with it.
+- Decided: categories and productivity do not change their output. In the future they work over the
+  whole slot, from the data the slot carries.
+- Consequence to document: removing the false-positive check changes how some AFK and offline time
+  is classed today, so the output of those cases will change. That change must be stated in the
+  commit and checked against the new behaviour, not hidden behind a parity claim.
+
 Code marked `REVIEW(window-afk)` (find it with `grep -rn "REVIEW(window-afk)" src`) is the window
 workaround this section is about: the window fetch in `cli/main.py` and the offline check in
 `core/timeslot_builder.py`. Remove the markers in the commit that replaces the workaround.
