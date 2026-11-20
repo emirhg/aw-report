@@ -96,6 +96,27 @@ class EventFilter:
             self.project_patterns = [search_term] + self.project_patterns
             self.task_patterns = [search_term] + self.task_patterns
 
+    def accepts_slot(self, slot: Any) -> bool:
+        """Filter decision for one slot: its project, task, apps and entry kind.
+
+        ``apps`` is the list of app names of the slot's window categories, joined with ``|``,
+        so ``--app`` matches any app the slot spent time in.
+        """
+        apps = sorted(
+            {
+                app.get("app", "")
+                for category in slot.categories
+                for app in category.get("apps", [])
+                if app.get("app")
+            }
+        )
+        entry = {
+            "project": slot.project,
+            "task": slot.task,
+            "app": "|".join(apps),
+        }
+        return self.should_include_entry(entry, entry_type=slot.entry_type)
+
     def should_include_entry(self, entry: dict[str, Any], entry_type: str = "regular") -> bool:
         """
         Universal filter decision for ANY entry type.

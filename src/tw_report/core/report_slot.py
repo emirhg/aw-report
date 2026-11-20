@@ -23,9 +23,10 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 
-from tw_report.core.event_slot import EventMap, merge_event_maps
+from tw_report.core.event_slot import DataValue, EventMap, merge_event_maps
 from tw_report.core.filtering import NO_PROJECT, NO_TASK
 from tw_report.core.period import day_boundary, logical_date
+from tw_report.core.time_breakdown import AfkState, TimeBreakdown
 from tw_report.core.timeline import TimelineSlot, TimelineSlotValidationError
 from tw_report.utils.deprecation import deprecated
 
@@ -364,6 +365,22 @@ class DisplayColumns:
         )
 
 
+def _breakdown_to_dict(breakdown: TimeBreakdown) -> dict[str, float]:
+    return {
+        "active": breakdown.active.total_seconds(),
+        "afk": breakdown.afk.total_seconds(),
+        "untracked": breakdown.untracked.total_seconds(),
+        "offline": breakdown.offline.total_seconds(),
+        "no_afk_data": breakdown.no_afk_data.total_seconds(),
+    }
+
+
+def _breakdown_from_dict(raw: dict[str, float] | None) -> TimeBreakdown | None:
+    if raw is None:
+        return None
+    return TimeBreakdown(**{k: timedelta(seconds=float(v)) for k, v in raw.items()})
+
+
 @dataclass
 class ReportTimelineSlot:
     """
@@ -413,6 +430,11 @@ class ReportTimelineSlot:
     is_consolidated: bool = False
     bucket_mode: Literal["day", "week", "month", "year"] | None = None
     bucket_start_date: date | None = None
+    # Intersection-slot model (stage 2): one AFK state per slot, the carried data of every bucket
+    # active in the slot, and a stored breakdown for consolidated slots (sums of their parts).
+    afk_state: AfkState | None = None
+    data: dict[str, list[DataValue]] = field(default_factory=dict)
+    stored_breakdown: TimeBreakdown | None = None
 
     def __post_init__(self) -> None:
         """Validate slot integrity: reject zero-duration slots and normalize timezones."""
@@ -443,6 +465,29 @@ class ReportTimelineSlot:
     def task(self) -> str:
         """Task name, with NO_TASK fallback if no task_event."""
         return self.task_event.task if self.task_event else NO_TASK
+
+    @property
+    def offline_tagged(self) -> bool:
+        """True when the slot's task carries the offline tag (case-insensitive)."""
+        if self.task_event is None:
+            return False
+        return any(str(tag).lower() == "offline" for tag in self.task_event.tags)
+
+    @property
+    def breakdown(self) -> TimeBreakdown:
+        """Time split across the report's states (see core/time_breakdown.py)."""
+        if self.stored_breakdown is not None:
+            return self.stored_breakdown
+        return TimeBreakdown.for_state(self.duration, self.afk_state, self.offline_tagged)
+
+    @property
+    def entry_type(self) -> str:
+        """Entry kind used by EventFilter: 'afk', 'offline_task' or 'regular'."""
+        if self.afk_state == "afk":
+            return "afk"
+        if self.breakdown.offline > timedelta(0):
+            return "offline_task"
+        return "regular"
 
     @property
     def is_offline_task(self) -> bool:
@@ -532,6 +577,10 @@ class ReportTimelineSlot:
             slot_dict["offline_extension_duration"] = self.offline_extension_duration
         if self.event_duration is not None:
             slot_dict["event_duration"] = self.event_duration
+        if self.afk_state is not None:
+            slot_dict["afk_state"] = self.afk_state
+        if self.stored_breakdown is not None:
+            slot_dict["breakdown"] = _breakdown_to_dict(self.stored_breakdown)
         if self.events:
             slot_dict["events"] = self.events
 
@@ -646,6 +695,8 @@ class ReportTimelineSlot:
             offline_extension_duration=d.get("offline_extension_duration"),
             event_duration=d.get("event_duration"),
             events=merge_event_maps(d.get("events")),
+            afk_state=d.get("afk_state"),
+            stored_breakdown=_breakdown_from_dict(d.get("breakdown")),
             tags=d.get("tags", []),
             categories=d.get("categories", []),
             apps=d.get("apps", []),
@@ -861,6 +912,7 @@ class ReportTimelineSlot:
                 productive_duration=self.productive_duration,
                 task_event=self.task_event,
                 events=merge_event_maps(self.events),
+                afk_state=self.afk_state,
                 afk_duration=self.afk_duration,
                 offline_extension_duration=self.offline_extension_duration,
                 event_duration=self.event_duration,
@@ -957,6 +1009,7 @@ class ReportTimelineSlot:
                 productive_duration=piece_productive_duration,
                 task_event=self.task_event,
                 events=merge_event_maps(self.events),
+                afk_state=self.afk_state,
                 afk_duration=piece_afk_duration,
                 offline_extension_duration=piece_offline_extension_duration,
                 event_duration=piece_event_duration,
@@ -1306,6 +1359,7 @@ class ReportEntries:
                         productive_duration=merged_productive_duration,
                         task_event=current.task_event,  # Use first slot's task_event
                         events=merge_event_maps(current.events, rs.events),
+                        afk_state=current.afk_state if current.afk_state == rs.afk_state else None,
                         afk_duration=merged_afk_duration,
                         offline_extension_duration=merged_offline_ext,
                         event_duration=merged_event_duration,
