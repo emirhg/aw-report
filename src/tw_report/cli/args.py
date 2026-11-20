@@ -64,6 +64,7 @@ def reorder_arguments(argv: list[str]) -> list[str]:
                     "--afk-validation-tolerance",
                     "--day-start-hour",
                     "--source",
+                    "--format",
                 ]
             ):
                 optional_args.append(argv[i + 1])
@@ -195,6 +196,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="append",
         metavar="NAME",
         help="Exclude apps with this exact name (repeatable).",
+    )
+    parser.add_argument(
+        "--format",
+        choices=["timeline", "timesheet"],
+        default="timeline",
+        help=(
+            "Report layout: timeline (default) or timesheet (per-day check-in/out, active hours "
+            "and per-task totals, text). timesheet reads taskwarrior only and works with "
+            "--by-day, --by-week, --by-month and --by-year."
+        ),
     )
     parser.add_argument(
         "--source",

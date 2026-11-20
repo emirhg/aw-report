@@ -8,7 +8,7 @@ import logging
 import sys
 from collections.abc import Sequence
 from datetime import datetime, timedelta
-from typing import TypeVar
+from typing import TypeVar, cast
 
 from aw_client import ActivityWatchClient
 from aw_core.models import Event
@@ -28,7 +28,7 @@ from tw_report.core.events import (
     fetch_events,
     get_events,
 )
-from tw_report.core.filtering import EventFilter, _is_unassigned_project
+from tw_report.core.filtering import NO_PROJECT, NO_TASK, EventFilter, _is_unassigned_project
 
 # OfflineTaskProcessor removed in Phase 2 refactor — builder handles offline classification
 from tw_report.core.period import PERIOD_TOKENS, local_zoneinfo, parse_period
@@ -63,6 +63,7 @@ from tw_report.pipeline.processors import (
 )
 from tw_report.pipeline.report_render import print_report
 from tw_report.pipeline.timeline_render import print_timeline_report
+from tw_report.pipeline.timesheet_render import Mode, print_timesheet_report
 from tw_report.utils.deprecation import deprecated
 from tw_report.utils.formatting import normalize_title
 from tw_report.utils.profiling import StageProfiler, enable_unbuffered_output
@@ -192,7 +193,7 @@ def _run(profiler: StageProfiler):
         return 1
     day_start_hour = resolved_settings.day_start_hour
     try:
-        sources = parse_sources(args.source)
+        sources = frozenset({"tasks"}) if args.format == "timesheet" else parse_sources(args.source)
     except ValueError as source_error:
         print(f"Error: {source_error}", file=sys.stderr)
         return 1
@@ -202,7 +203,11 @@ def _run(profiler: StageProfiler):
             file=sys.stderr,
         )
         return 1
-    if "window" not in sources and (args.app or args.detail_level >= 3):
+    if (
+        args.format != "timesheet"
+        and "window" not in sources
+        and (args.app or args.detail_level >= 3)
+    ):
         print(
             "Error: --app and --detail-level 3 and above need the window source "
             "(--source includes window)",
@@ -230,6 +235,24 @@ def _run(profiler: StageProfiler):
     else:
         # Default to by-day if no grouping mode specified
         grouping_mode = "day"
+
+    if args.format == "timesheet":
+        # The timesheet is a task-only report: it needs taskwarrior and nothing else.
+        for conflict, flag in (
+            (args.by_project, "--by-project"),
+            (args.no_taskwarrior, "--no-taskwarrior"),
+            (args.app, "--app"),
+        ):
+            if conflict:
+                print(
+                    f"Error: --format timesheet cannot be combined with {flag}",
+                    file=sys.stderr,
+                )
+                return 1
+        if args.source is not None and parse_sources(args.source) != frozenset({"tasks"}):
+            print("Error: --format timesheet reads the tasks source only", file=sys.stderr)
+            return 1
+        args.source = "tasks"
 
     # Parse positional arguments to separate period from search term
     period, search_term = parse_positional_args(args.args)
@@ -645,6 +668,30 @@ def _run(profiler: StageProfiler):
         return deduped
 
     task_events_deduped = _deduplicate_task_events(task_events) if task_events else None
+
+    if args.format == "timesheet":
+        # Taskwarrior events are the timesheet's data: clipped per period, grouped by title,
+        # with the same filters the timeline applies to its slots.
+        print_timesheet_report(
+            [
+                event
+                for event in task_events_deduped or []
+                if event_filter.should_include_entry(
+                    {
+                        "project": event.data.get("project") or NO_PROJECT,
+                        "task": event.data.get("title") or NO_TASK,
+                        "type": "regular",
+                    }
+                )
+            ],
+            # --by-project is rejected for timesheet above, so the mode is day/week/month/year.
+            mode=cast("Mode", grouping_mode),
+            start=start_time,
+            end=end_time,
+            day_start_hour=day_start_hour,
+            tz=local_zoneinfo(resolved_settings.timezone),
+        )
+        return 0
 
     # Build all timeline slots using the unified sweep-line builder
     # This produces guaranteed non-overlapping slots classified by active events

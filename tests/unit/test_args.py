@@ -256,3 +256,24 @@ class TestParseArgs:
         """--deduplicate-categories flag."""
         args = parse_args(["--deduplicate-categories"])
         assert args.deduplicate_categories is True
+
+
+class TestFormatFlag:
+    def test_default_is_timeline(self):
+        assert parse_args([":month"]).format == "timeline"
+
+    def test_timesheet_value_is_kept_when_placed_before_the_period(self):
+        args = parse_args(["--format", "timesheet", ":month"])
+        assert args.format == "timesheet"
+        assert args.args == [":month"]
+
+    def test_reorder_keeps_the_value_with_its_flag(self):
+        assert reorder_arguments([":month", "--format", "timesheet"]) == [
+            "--format",
+            "timesheet",
+            ":month",
+        ]
+
+    def test_invalid_choice_exits(self):
+        with pytest.raises(SystemExit):
+            parse_args(["--format", "csv", ":month"])
