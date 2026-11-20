@@ -266,10 +266,11 @@ of the selected sources: by default only tasks (so the span is the tracked tasks
 `--source tasks,afk` (or `window`) the span is the machine's activity, whatever the task:
 ```
 📅 Monday, Nov 09, 2026
-   Check-in: 06:31 AM | Check-out: 07:04 AM | Active: 0.56 hrs | Wall Clock: 0.56 hrs
+   Check-in: 06:31 AM | Check-out: 07:04 AM | Active: 00:34 | Wall Clock: 00:34
 ------------------------------------------------------------------------------
     Project              | Task Title                             | Hours  | Count
 ```
+Times are HH:MM (rounded to the minute): the period's Active and Wall Clock, and each task's Hours.
 Use it with `--by-day` (default), `--by-week`, `--by-month` or `--by-year`. It cannot be combined
 with `--by-project`, `--no-taskwarrior` or `--app`. Use `--source tasks,afk` to take check-in and
 check-out from the system activity; the default `--source tasks` keeps the tracked-task span.

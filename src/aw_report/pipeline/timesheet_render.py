@@ -41,7 +41,7 @@ class _Group:
 class TimesheetTask:
     project: str
     title: str
-    hours: float
+    seconds: float
     count: int
 
 
@@ -50,16 +50,16 @@ class TimesheetPeriod:
     label: str
     check_in: int  # epoch seconds, whole (fraction dropped, as the shell tool does)
     check_out: float  # epoch seconds of the last event's clipped end
-    active_hours: float
-    wall_hours: float
+    active_seconds: float
+    wall_seconds: float
     tasks: tuple[TimesheetTask, ...]
 
 
-def round_hours(seconds: float) -> float:
-    """Hours to 2 decimals, halves away from zero (jq's round, as the shell tool applies it)."""
-    scaled = seconds / 3600 * 100
-    rounded = math.floor(abs(scaled) + 0.5) * (1 if scaled >= 0 else -1)
-    return rounded / 100
+def clock(seconds: float) -> str:
+    """A duration as HH:MM, rounded to the minute (halves up)."""
+    minutes = math.floor(seconds / 60 + 0.5)
+    hours, rest = divmod(minutes, 60)
+    return f"{hours:02d}:{rest:02d}"
 
 
 def bucket_key(moment: datetime, mode: Mode, day_start_hour: int) -> date:
@@ -124,7 +124,7 @@ def _summarise(
 
     if not clipped:
         return None
-    active = round_hours(total_seconds)
+    active = total_seconds
     tasks = []
     for title in sorted(groups, key=lambda t: (t is not None, t or "")):
         group = groups[title]
@@ -132,7 +132,7 @@ def _summarise(
             TimesheetTask(
                 project=_text(group.project, NO_PROJECT),
                 title=_text(title, NO_TASK),
-                hours=round_hours(group.seconds),
+                seconds=group.seconds,
                 count=group.count,
             )
         )
@@ -143,8 +143,8 @@ def _summarise(
         label=_label(key, mode),
         check_in=check_in,
         check_out=check_out,
-        active_hours=active,
-        wall_hours=round_hours(check_out - check_in),
+        active_seconds=active,
+        wall_seconds=check_out - check_in,
         tasks=tuple(tasks),
     )
 
@@ -195,8 +195,8 @@ def format_timesheet(periods: list[TimesheetPeriod], mode: Mode, tz: tzinfo) -> 
         lines.append(
             f"   Check-in: {_clock(period.check_in, tz):<8} | "
             f"Check-out: {_clock(period.check_out, tz):<8} | "
-            f"Active: {period.active_hours:.2f} hrs | "
-            f"Wall Clock: {period.wall_hours:.2f} hrs"
+            f"Active: {clock(period.active_seconds)} | "
+            f"Wall Clock: {clock(period.wall_seconds)}"
         )
         lines.append("-" * RULE_WIDTH)
         lines.append(
@@ -210,14 +210,14 @@ def format_timesheet(periods: list[TimesheetPeriod], mode: Mode, tz: tzinfo) -> 
                 title = title[:35] + "..."
             lines.append(
                 f"    {task.project:<{PROJECT_WIDTH}} | {title:<{TITLE_WIDTH}} | "
-                f"{task.hours:>6.2f} | {task.count:>5}"
+                f"{clock(task.seconds):>6} | {task.count:>5}"
             )
-    total_active = sum(p.active_hours for p in periods)
-    total_wall = sum(p.wall_hours for p in periods)
+    total_active = sum(p.active_seconds for p in periods)
+    total_wall = sum(p.wall_seconds for p in periods)
     lines.append("")
     lines.append(rule)
     lines.append(
-        f" GRAND TOTALS -- Active: {total_active:.2f} hrs | Wall Clock: {total_wall:.2f} hrs"
+        f" GRAND TOTALS -- Active: {clock(total_active)} | Wall Clock: {clock(total_wall)}"
     )
     lines.append(f" Across {len(periods)} active {UNITS[mode]}")
     lines.append(rule)

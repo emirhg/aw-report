@@ -17,7 +17,7 @@ from aw_report.pipeline.timesheet_render import (
     build_timesheet,
     format_timesheet,
     print_timesheet_report,
-    round_hours,
+    clock,
 )
 
 TZ = ZoneInfo("America/Mexico_City")
@@ -39,14 +39,16 @@ def utc(*args) -> datetime:
     return datetime(*args, tzinfo=UTC)
 
 
-class TestRoundHours:
-    def test_halves_round_away_from_zero(self):
-        assert round_hours(450) == 0.13  # 0.125 h
-        assert round_hours(0) == 0
+class TestClock:
+    def test_rounds_to_the_minute_halves_up(self):
+        assert clock(0) == "00:00"
+        assert clock(450) == "00:08"  # 7.5 min rounds up
+        assert clock(449) == "00:07"
 
-    def test_two_decimal_hours(self):
-        assert round_hours(3600 * 2.5) == 2.5
-        assert round_hours(3600 * 1.004) == 1.0
+    def test_hours_and_minutes_with_two_digit_fields(self):
+        assert clock(3600 * 2.5) == "02:30"
+        assert clock(3600 * 1.07) == "01:04"  # the 1.07 h of the report, to the minute
+        assert clock(3600 * 27 + 59 * 60) == "27:59"  # totals can pass 24 h
 
 
 class TestBuckets:
@@ -74,7 +76,7 @@ class TestBuildTimesheet:
         periods = build_timesheet(
             events, "day", local(2026, 11, 2), local(2026, 11, 3, 23, 59), 0, TZ
         )
-        assert [p.active_hours for p in periods] == [1.0, 1.0]
+        assert [p.active_seconds for p in periods] == [3600.0, 3600.0]
         assert [p.tasks[0].count for p in periods] == [1, 1]
 
     def test_tasks_grouped_by_title_with_first_project_and_none_first(self):
@@ -125,14 +127,14 @@ class TestFormat:
             rule,
             "",
             "\U0001f4c5 Monday, Nov 02, 2026",
-            "   Check-in: 03:00 PM | Check-out: 03:30 PM | Active: 0.50 hrs | Wall Clock: 0.50 hrs",
+            "   Check-in: 03:00 PM | Check-out: 03:30 PM | Active: 00:30 | Wall Clock: 00:30",
             "-" * 78,
             "    Project              | Task Title                             | Hours  | Count",
             "    -------------------- | -------------------------------------- | ------ | -----",
-            "    Proj                 | Write docs                             |   0.50 |     1",
+            "    Proj                 | Write docs                             |  00:30 |     1",
             "",
             rule,
-            " GRAND TOTALS -- Active: 0.50 hrs | Wall Clock: 0.50 hrs",
+            " GRAND TOTALS -- Active: 00:30 | Wall Clock: 00:30",
             " Across 1 active days",
             rule,
         ]
@@ -155,7 +157,7 @@ class TestFormat:
         assert lines[-5:] == [
             "",
             "=" * 78,
-            " GRAND TOTALS -- Active: 0.00 hrs | Wall Clock: 0.00 hrs",
+            " GRAND TOTALS -- Active: 00:00 | Wall Clock: 00:00",
             " Across 0 active days",
             "=" * 78,
         ]
@@ -202,7 +204,7 @@ def test_check_in_and_out_come_from_the_machine_spans_not_the_tasks():
     assert len(periods) == 1
     assert periods[0].check_in == int(datetime(2026, 8, 30, 8, 30, tzinfo=UTC).timestamp())
     assert periods[0].check_out == datetime(2026, 8, 30, 12, 0, tzinfo=UTC).timestamp()
-    assert periods[0].wall_hours == 3.5
+    assert periods[0].wall_seconds == 3.5 * 3600
 
 
 def test_a_period_with_activity_but_no_task_time_is_listed_with_no_tasks():
@@ -219,6 +221,6 @@ def test_a_period_with_activity_but_no_task_time_is_listed_with_no_tasks():
         spans,
     )
     assert len(periods) == 1
-    assert periods[0].active_hours == 0
+    assert periods[0].active_seconds == 0
     assert periods[0].tasks == ()
-    assert periods[0].wall_hours == 1.0
+    assert periods[0].wall_seconds == 3600
