@@ -31,7 +31,7 @@ asking.
 ```bash
 # Python 3.14 only (requires-python >=3.14). The project venv is .venv in the repo.
 python3.14 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/tw-report :yesterday          # run against a local ActivityWatch server
+.venv/bin/aw-report :yesterday          # run against a local ActivityWatch server
 ```
 
 A `pip install -e` from another checkout (for example the main checkout) points `tw_report` at
@@ -150,7 +150,7 @@ window = "aw-watcher-tmux"   # exact ID of one role
 
 Only `hostname`, `afk`, `window` and `tasks` are accepted in `[buckets]`; anything else is an error.
 Only `host`, `port` and `timezone` are accepted in `[activitywatch]`.
-`tw-report fetch [PERIOD]` prints the events of the afk, window and tasks buckets as a JSON array
+`aw-report fetch [PERIOD]` prints the events of the afk, window and tasks buckets as a JSON array
 (three arrays, UTC timestamps).
 The category rules come from ActivityWatch's `settings.json` (`--categories` overrides the path).
 
@@ -199,6 +199,13 @@ When you fix one of these: the strict xfail will fail; remove its marker and upd
 
 ## 11. Git and review
 
+**Docs in sync (rule):** when a change alters how the tool is installed, run, configured or tested
+(Python version, venv or install steps, a CLI flag, a report format, a config key, a test command),
+update the matching sections in the same commit: README "Quick Start", "Installation & Setup",
+"Execution", "Configuration" and "Testing"; CLAUDE.md section 2 (Quick start) and section 7
+(Configuration); and `index.txt` for new or moved files. Do not leave an install or run command in
+the docs that the code no longer supports.
+
 - Branch: `refactor/robust-core` (worktree `../work_report-robust`). `main` is the reference.
 - Each commit leaves the gates green. Commit messages say what changed and why, and end with the
   `Co-Authored-By` trailer that the session instructions specify.
@@ -224,10 +231,10 @@ stale analysis. Do not leave a finished item described as open.**
 - Period `:lastweek` (2026-11-02 to 2026-11-09), local zone UTC-6, machine otherwise idle.
 - Sample tool in `samples/` (bash + jq + `timesheet_report.py`, taskwarrior bucket only):
   about 0.18 s wall, five runs.
-- `tw-report` restricted to the taskwarrior bucket (AFK and window return no events):
+- `aw-report` restricted to the taskwarrior bucket (AFK and window return no events):
   about 0.70 s. Python startup is about 0.05 s and importing `tw_report.cli.main` takes about
   0.52 s (`aw_client` and `requests` account for about 0.36 s of that). The rest is the report.
-- `tw-report --by-day :lastweek` with all three buckets: about 7.3 s (earlier runs of the same
+- `aw-report --by-day :lastweek` with all three buckets: about 7.3 s (earlier runs of the same
   command were 6.9 s and 14 to 16 s, so the machine is noisy; compare runs taken close together).
 - Correctness reference: the sample's per-day hours equal tw-report's taskwarrior events clipped to
   each local day, to two decimals, for every day. Totals: 30.20 h (sample) and 30.19 h (fetch).

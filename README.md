@@ -17,10 +17,21 @@ You need:
 
 ### Installation
 
+Requires Python 3.14. The commands below create a project virtualenv in `.venv/`:
+
 ```bash
 git clone <repository>
 cd work_report
-pip install -e .
+python3.14 -m venv .venv
+.venv/bin/pip install -e ".[dev]"     # -e: edits to src/ take effect without reinstalling
+.venv/bin/aw-report :today
+```
+
+To install the command for your user instead, use pipx with a Python 3.14 interpreter:
+
+```bash
+pipx install --python python3.14 /path/to/work_report
+aw-report :today                      # the installed command is aw-report
 ```
 
 ### First Command
@@ -30,7 +41,7 @@ pip install -e .
 aw-server &
 
 # Run the report for today
-tw-report :today
+aw-report :today
 ```
 
 You should see a report like:
@@ -138,25 +149,25 @@ Online Time: 5:31:22      → Time system was actively tracking (AFK + non-AFK)
 
 ```bash
 # Today's report (default timeline view)
-tw-report :today
+aw-report :today
 
 # This week's report
-tw-report :week
+aw-report :week
 
 # Hierarchical (grouped by project)
-tw-report :today --by-project
+aw-report :today --by-project
 
 # Yesterday
-tw-report :yesterday
+aw-report :yesterday
 
 # Specific date
-tw-report 2026-06-18
+aw-report 2026-06-18
 
 # Date range
-tw-report 2026-06-01 2026-06-30
+aw-report 2026-06-01 2026-06-30
 
 # All time
-tw-report :all
+aw-report :all
 ```
 
 ### Time Period Options
@@ -177,28 +188,28 @@ tw-report :all
 
 ```bash
 # Show only specific project
-tw-report :today --project Ecosistema
+aw-report :today --project Ecosistema
 
 # Show only specific task
-tw-report :today --task "Control de plagas"
+aw-report :today --task "Control de plagas"
 
 # Show only specific app
-tw-report :today --app kitty
+aw-report :today --app kitty
 
 # Deep dive: show every window title
-tw-report :today --detail-level 5
+aw-report :today --detail-level 5
 
 # Group by week instead of day
-tw-report :month --by-week
+aw-report :month --by-week
 
 # Hide AFK/idle periods
-tw-report :today --exclude-afk
+aw-report :today --exclude-afk
 
 # Show only productive activities (hide communication, social media, etc.)
-tw-report :today --min-score 5
+aw-report :today --min-score 5
 
 # Skip the productive / unproductive / undefined split in TOTALS
-tw-report :today --no-productivity
+aw-report :today --no-productivity
 ```
 
 TOTALS splits Active Time and AFK time by productivity. Each window is classified by its category's
@@ -231,16 +242,16 @@ the Active Time or AFK time shown above it. It is an estimate per slot, not an e
 
 ```bash
 # Weekly summary by project
-tw-report :week --by-project
+aw-report :week --by-project
 
 # Deep analysis of one task (all detail)
-tw-report :today --task "Feature X" --detail-level 5
+aw-report :today --task "Feature X" --detail-level 5
 
 # See what you did instead of working on tasks
-tw-report :today | grep "No project"
+aw-report :today | grep "No project"
 
 # Time breakdown by category (Coding, Communication, etc.)
-tw-report :today --detail-level 3
+aw-report :today --detail-level 3
 ```
 
 ---
@@ -289,7 +300,7 @@ in both periods.
 ```bash
 # Merges multiple work sessions on same task
 # Useful when you switch apps but keep working on same task
-tw-report :today --consolidate
+aw-report :today --consolidate
 ```
 
 ### Special: OFFLINE Tasks
@@ -301,7 +312,7 @@ For work done **away from computer** (no window events recorded):
 task <id> modify +offline
 
 # Now it will show full duration (not just when window was focused)
-tw-report :today
+aw-report :today
 ```
 
 This is useful for:
@@ -319,18 +330,27 @@ This is useful for:
 ```bash
 git clone <repository>
 cd work_report
-pip install -e .      # Development install
+python3.14 -m venv .venv
+.venv/bin/pip install -e ".[dev]"    # development install, with the test and lint tools
 ```
 
-### After Installation
+### Execution
+
+Run the command from the project venv, or from your shell after a pipx install:
 
 ```bash
-# As console script
-tw-report :today
-
-# Or development wrapper
-./bin/tw-report :today
+.venv/bin/aw-report :today                         # timeline of the day (default)
+.venv/bin/aw-report --by-project :lastweek         # hierarchical view by project
+.venv/bin/aw-report --by-week :lastmonth           # one line per project per week
+.venv/bin/aw-report --format timesheet :lastweek   # text timesheet: check-in/out, hours, tasks
+.venv/bin/aw-report --format timesheet --by-month 2026-10-01 2026-10-31
+.venv/bin/aw-report --source tasks :today          # read taskwarrior only (no AFK or windows)
+.venv/bin/aw-report fetch :lastweek                # raw events of the three roles, as JSON
+.venv/bin/python bin/aw-report :today              # development wrapper, runs src/ directly
 ```
+
+`--format timesheet` reads taskwarrior only, so it needs the tasks source and cannot be combined
+with `--by-project`, `--no-taskwarrior` or `--app`. See "Features in Detail" for the other flags.
 
 ### Dependencies
 
@@ -345,7 +365,8 @@ tw-report :today
 
 ### Config File (Optional)
 
-Create `~/.config/tw-report/config.toml`:
+Create `~/.config/tw-report/config.toml` (the config directory keeps its original name, `tw-report`,
+even though the command is `aw-report`):
 
 ```toml
 # Default detail level (1-5)
@@ -389,7 +410,7 @@ Only `host`, `port` and `timezone` are accepted in `[activitywatch]`.
 ### Fetching raw events (JSON)
 
 ```bash
-tw-report fetch :lastweek        # or :yesterday, :lastmonth, 2026-03-01 2026-03-07, ...
+aw-report fetch :lastweek        # or :yesterday, :lastmonth, 2026-03-01 2026-03-07, ...
 ```
 
 Prints a JSON array with three entries, in the order afk, window, tasks. Each entry is the array of
@@ -416,7 +437,7 @@ Categories come from ActivityWatch settings.json:
 }
 ```
 
-Override with: `tw-report --categories /path/to/custom.json`
+Override with: `aw-report --categories /path/to/custom.json`
 
 ---
 
@@ -425,7 +446,7 @@ Override with: `tw-report --categories /path/to/custom.json`
 ### "No activity found"
 - **Check:** Is ActivityWatch running? (`ps aux | grep aw`)
 - **Check:** Do you have window events for that period?
-- **Try:** `tw-report :all` to see if any data exists
+- **Try:** `aw-report :all` to see if any data exists
 
 ### Tasks show very little time
 - **Normal behavior:** Only time with focused window is counted
@@ -435,7 +456,7 @@ Override with: `tw-report --categories /path/to/custom.json`
 ### Task doesn't appear at all
 - **Check:** Is aw-watcher-taskwarrior running? (`ps aux | grep taskwarrior`)
 - **Check:** Does task have window activity during that period?
-- **Try:** `tw-report --by-project` to see if it groups differently
+- **Try:** `aw-report --by-project` to see if it groups differently
 
 ### Wrong productivity percentage
 - **Check:** Category regex matches your window titles (`--detail-level 5`)
@@ -501,11 +522,11 @@ Window events are matched to tasks via **temporal overlap**:
 
 | Command | Duration | Notes |
 |---------|----------|-------|
-| `tw-report :today` | <1s | Single day |
-| `tw-report :week` | 1-2s | Week aggregation |
-| `tw-report :month` | 2-5s | Month aggregation |
-| `tw-report :year` | 5-15s | Full year (depends on event density) |
-| `tw-report :all` | Variable | All recorded history |
+| `aw-report :today` | <1s | Single day |
+| `aw-report :week` | 1-2s | Week aggregation |
+| `aw-report :month` | 2-5s | Month aggregation |
+| `aw-report :year` | 5-15s | Full year (depends on event density) |
+| `aw-report :all` | Variable | All recorded history |
 
 ---
 
@@ -514,8 +535,8 @@ Window events are matched to tasks via **temporal overlap**:
 ### Run Tests
 
 ```bash
-# All tests
-pytest
+# All tests (from the project venv)
+.venv/bin/python -m pytest
 
 # Only unit tests (fast)
 pytest tests/unit/ -v

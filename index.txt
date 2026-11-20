@@ -6,7 +6,7 @@ Read CLAUDE.md first (goal, rules, gates) and docs/ARCHITECTURE.md (design).
 
 ## Source (src/tw_report)
   cli/args.py                                349  argparse flags and positional-term handling
-  cli/fetch.py                                 80  `tw-report fetch`: role-bucket events as JSON
+  cli/fetch.py                                 80  `aw-report fetch`: role-bucket events as JSON
   cli/main.py                                922  orchestration: main() -> _run(); fetch, filter, build, metrics, render
   config.py                                  125  XDG config file loading and settings precedence
   core/aw_events.py                          119  typed events: WindowEvent, AFKEvent, TaskWarriorEvent
@@ -48,7 +48,7 @@ Read CLAUDE.md first (goal, rules, gates) and docs/ARCHITECTURE.md (design).
 ## Other
   pyproject.toml               metadata, pytest/coverage/ruff/mypy configuration (fail_under = 100)
   .github/workflows/ci.yml     CI: pytest with branch coverage, ruff, mypy on Python 3.14
-  bin/tw-report                development wrapper
+  bin/aw-report                development wrapper
   docs/ARCHITECTURE.md         design
   docs/EXTRA_BUCKETS_FINDINGS  parked browser/vim/tmux bucket findings
   docs/OPTIMIZATION_OPPORTUNITIES.md, docs/PERIOD_CONSOLIDATION.md   older design notes

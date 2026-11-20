@@ -14,16 +14,16 @@ Each flag shows **one line per (period, project)** with just total duration + pr
 
 ```bash
 # See time spent per week on Climb for a year
-tw-report --project Climb :year --timesheet --by-week
+aw-report --project Climb :year --timesheet --by-week
 
 # See time spent per month on all projects
-tw-report :year --timesheet --by-month
+aw-report :year --timesheet --by-month
 
 # See time spent per day on a specific task for a month range
-tw-report "2026-04-01 2026-04-30" --task "Documentar" --by-day
+aw-report "2026-04-01 2026-04-30" --task "Documentar" --by-day
 
 # See total time spent on all projects this year (one line!)
-tw-report :year --timesheet --by-year
+aw-report :year --timesheet --by-year
 ```
 
 ## Output Format
@@ -73,17 +73,17 @@ Unlike the existing `--consolidate` (which does a consecutive-run merge within t
 The four new flags (`--by-day/week/month/year`) are mutually exclusive with each other and with the existing `--consolidate` flag. Only one can be used per invocation:
 
 ```bash
-tw-report --by-day --by-week :month  # ✗ Error: not allowed
-tw-report --consolidate --by-day :month       # ✗ Error: not allowed
-tw-report --by-day :month                     # ✓ OK
+aw-report --by-day --by-week :month  # ✗ Error: not allowed
+aw-report --consolidate --by-day :month       # ✗ Error: not allowed
+aw-report --by-day :month                     # ✓ OK
 ```
 
 ### 3. Universal Filter Compatibility
 These modes work with **any** filter (`--project`, `--task`, `--app`) since they operate on already-filtered `slots` (the EventFilter is applied first, then consolidation happens on the result). This allows queries like:
 
 ```bash
-tw-report --task 48 :month --by-month         # Time per month on task 48
-tw-report --app Slack :year --by-week         # Slack time per week
+aw-report --task 48 :month --by-month         # Time per month on task 48
+aw-report --app Slack :year --by-week         # Slack time per week
 ```
 
 ### 4. Intuitive Sorting
