@@ -221,7 +221,7 @@ class TestDispatchAndDefaults:
 
         seen = []
         monkeypatch.setattr(fetch_mod, "run_fetch", lambda argv: seen.append(argv) or 7)
-        monkeypatch.setattr("sys.argv", ["tw-report", "fetch", ":lastweek"])
+        monkeypatch.setattr("sys.argv", ["aw-report", "fetch", ":lastweek"])
         assert cli_main.main() == 7
         assert seen == [[":lastweek"]]
 

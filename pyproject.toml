@@ -3,7 +3,7 @@ requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tw-report"
+name = "aw-report"
 version = "0.1.0"
 description = "Timesheet report generator correlating ActivityWatch and Taskwarrior data"
 authors = [{name = "Emir Herrera González", email = "emir.herrera@gmail.com"}]
@@ -25,7 +25,7 @@ dev = [
 ]
 
 [project.scripts]
-tw-report = "tw_report.cli.main:main"
+aw-report = "tw_report.cli.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

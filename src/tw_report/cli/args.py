@@ -1,5 +1,5 @@
 """
-Command-line argument parsing for tw-report.
+Command-line argument parsing for aw-report.
 
 Provides argument reordering, flag parsing, and positional argument
 disambiguation (period vs. search terms).
@@ -17,10 +17,10 @@ def reorder_arguments(argv: list[str]) -> list[str]:
     """Reorder arguments to put all optional arguments before positional ones.
 
     This allows flexible argument ordering like:
-      tw-report :month --timesheet Climb
-      tw-report --timesheet Climb :month
+      aw-report :month --format timesheet Climb
+      aw-report --format timesheet Climb :month
     Both get reordered to:
-      tw-report --timesheet Climb :month (flags first, then positional)
+      aw-report --format timesheet Climb :month (flags first, then positional)
 
     CONTEXT: This function exists to support flexible CLI argument ordering,
     a UX feature that's harder to achieve with standard argparse conventions.

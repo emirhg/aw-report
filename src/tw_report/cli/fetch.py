@@ -1,8 +1,8 @@
 """
-`tw-report fetch` subcommand: dump the raw ActivityWatch events of the role buckets as JSON.
+`aw-report fetch` subcommand: dump the raw ActivityWatch events of the role buckets as JSON.
 
 Usage:
-    tw-report fetch [PERIOD]
+    aw-report fetch [PERIOD]
 
 PERIOD is a period token (:today, :yesterday, :lastweek, ...), an ISO date, or a
 date/datetime range, as accepted by the reports. Boundaries are computed in the
@@ -33,7 +33,7 @@ from tw_report.exceptions import TwReportError
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="tw-report fetch",
+        prog="aw-report fetch",
         description="Print the afk, window and tasks bucket events for a period as JSON.",
     )
     parser.add_argument(

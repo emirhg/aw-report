@@ -3,3 +3,6 @@ sentinel-warrior-cli
 .coverage
 htmlcov/
 .venv/
+
+# Generated package metadata from editable installs
+*.egg-info/

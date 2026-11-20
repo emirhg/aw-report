@@ -161,7 +161,7 @@ def test_module_entry_point_runs_main_when_executed_as_script(monkeypatch, capsy
     import aw_client
 
     monkeypatch.setattr(aw_client, "ActivityWatchClient", lambda *a, **k: client)
-    monkeypatch.setattr(sys, "argv", ["tw-report", DAY])
+    monkeypatch.setattr(sys, "argv", ["aw-report", DAY])
     # The module is already imported by this test session, so runpy warns about re-executing it.
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*found in sys.modules")

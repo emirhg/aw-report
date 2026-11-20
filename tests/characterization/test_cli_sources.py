@@ -76,3 +76,16 @@ def test_combinations_without_their_source_are_rejected(monkeypatch, capsys, arg
     assert code == 1
     assert message in err
     assert client.calls == []
+
+
+def test_help_names_the_program_aw_report(monkeypatch, capsys):
+    client = FakeActivityWatchClient(scenario_buckets())
+    out, code, _err = run_cli(monkeypatch, capsys, ["--help"], client)
+    assert code == 0
+    assert out.startswith("usage: aw-report")
+
+
+def test_fetch_help_names_the_subcommand(monkeypatch, capsys):
+    from tw_report.cli.fetch import _build_parser
+
+    assert _build_parser().prog == "aw-report fetch"
