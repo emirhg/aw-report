@@ -247,6 +247,21 @@ tw-report :today --detail-level 3
 
 ## Features in Detail
 
+#### Timesheet View (`--format timesheet`)
+A per-period text timesheet built from taskwarrior events only (no AFK or window data), with
+the same layout as `samples/timesheet_report.py`: check-in and check-out, active hours, wall-clock
+span, then one row per task with project, hours and count:
+```
+📅 Monday, Nov 09, 2026
+   Check-in: 06:31 AM | Check-out: 07:04 AM | Active: 0.56 hrs | Wall Clock: 0.56 hrs
+------------------------------------------------------------------------------
+    Project              | Task Title                             | Hours  | Count
+```
+Use it with `--by-day` (default), `--by-week`, `--by-month` or `--by-year`. It cannot be combined
+with `--by-project`, `--no-taskwarrior` or `--app`, and it reads the tasks source only.
+Tasks are grouped by title. Hours clipped to each period, so an event crossing a boundary counts
+in both periods.
+
 ### Grouping Options (Report Types)
 
 | Flag | Shows | Best For |
@@ -257,6 +272,7 @@ tw-report :today --detail-level 3
 | `--by-week` | Consolidated — one line per project per week | Weekly summary |
 | `--by-month` | Consolidated — one line per project per month | Monthly summary |
 | `--by-year` | Consolidated — one line per project per year | Yearly summary |
+| `--format timesheet` | Text timesheet — check-in/out, hours and tasks per period | Timesheet entry from taskwarrior only |
 
 ### Detail Levels
 

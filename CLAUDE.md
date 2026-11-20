@@ -79,6 +79,7 @@ Layers depend only downward: `cli` -> `pipeline` -> `core` -> `utils`. Keep it t
 | metrics | `pipeline/models.py` | `TimeslotDuration`, `PeriodMetrics`, `ReportTotals`, `ReportContext` |
 | render | `pipeline/timeline_render.py` | timeline view (`print_timeline_report`) |
 | render | `pipeline/report_render.py` | hierarchical view (`print_report`, summary and totals printers) |
+| render | `pipeline/timesheet_render.py` | text timesheet (`--format timesheet`): per-period check-in/out, hours and tasks from raw taskwarrior events, clipped to each period; layout as `samples/timesheet_report.py` |
 | render | `pipeline/presenters.py` | thin wrappers around the two renderers (candidate for removal) |
 | utils | `utils/formatting.py` | durations, titles, column layout, `to_local_time` |
 | utils | `utils/profiling.py` | `TW_REPORT_PROFILE` stage timing (opt-in) |
@@ -309,6 +310,22 @@ Decided by the user:
 
 - The source option is named `--source` and takes role names (`tasks`, `afk`, `window`), not bucket
   IDs, so the user never types a bucket name.
+
+- DONE (uncommitted): `--format timesheet` (`pipeline/timesheet_render.py`) prints the sample's text
+  layout from raw taskwarrior events, clipped to each day, week, month or year. It reads the tasks source
+  only and rejects `--by-project`, `--no-taskwarrior`, `--app` and `--source` other than tasks.
+  Parity on `:lastweek` (completed): byte-identical to the sample's text, once the sample's null-project
+  crash is patched in a scratch copy. Known differences on `:lastmonth`, not replicated on purpose:
+  (a) the server returns events whose start falls inside a period, so an event that starts on the day
+  before and runs past midnight is missing from the next day in the sample (for example Oct 29, 2026:
+  1h07 of work missing); the renderer clips by overlap instead, which keeps that time;
+  (b) and (c) are inferred from the count differences, not verified yet: the sample may count events
+  that clip to zero length inside a period (b), and duplicate heartbeat rows (c), which the renderer
+  does not, since it uses the deduplicated events.
+
+- Decided: the timesheet reports the worked time inside each period (overlap clipping), not the events
+  that start inside it. An event that runs across midnight contributes to both days, clipped to each.
+  The sample's start-based rule is a known difference, kept on purpose (see the timesheet item above).
 
 Open:
 2. Whether window stays a classifier input for AFK false positives (recommended) or moves elsewhere.

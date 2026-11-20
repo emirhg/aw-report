@@ -31,6 +31,7 @@ Read CLAUDE.md first (goal, rules, gates) and docs/ARCHITECTURE.md (design).
   pipeline/processors.py                     487  compute_metrics, hierarchy aggregation, productivity split, AFK merge
   pipeline/report_render.py                  795  hierarchical view: print_report, summary and totals printers
   pipeline/timeline_render.py               1313  timeline view: print_timeline_report
+  pipeline/timesheet_render.py      225  text timesheet from taskwarrior events (--format timesheet)
   utils/deprecation.py                         8  the deprecated decorator (stdlib warnings.deprecated)
   utils/formatting.py                        591  durations, titles, column layout, to_local_time
   utils/profiling.py                          59  TW_REPORT_PROFILE stage timing (opt-in)

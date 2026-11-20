@@ -44,7 +44,7 @@ that define where data comes from.
 | model | slot and period types | `core/report_slot.py`, `core/timeline.py`, `core/period.py` |
 | merge | session consolidation | `pipeline/consolidation.py` |
 | metrics | totals, hierarchy, productivity | `pipeline/processors.py`, `pipeline/models.py` |
-| render | text output | `pipeline/timeline_render.py`, `pipeline/report_render.py`, `pipeline/presenters.py` |
+| render | text output | `pipeline/timeline_render.py`, `pipeline/report_render.py`, `pipeline/timesheet_render.py` (`--format timesheet`, built from raw taskwarrior events), `pipeline/presenters.py` |
 | utils | formatting, profiling, deprecation | `utils/*.py` |
 
 ## 3. Key decisions
