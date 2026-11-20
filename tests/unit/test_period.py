@@ -5,7 +5,7 @@ Tests verify parse_period correctly handles all period keywords (:today, :week,
 etc.) and ISO date formats, producing correct start/end boundaries.
 """
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 import pytest
 
@@ -190,3 +190,26 @@ class TestInvalidPeriods:
             parse_period("2026-06-15 2026-06-20 2026-06-25")
 
         assert exc_info.value.code == 1
+
+
+class TestNextBucketStart:
+    @pytest.mark.parametrize(
+        "bucket, mode, expected",
+        [
+            (date(2026, 11, 2), "day", date(2026, 11, 3)),
+            (date(2026, 11, 2), "week", date(2026, 11, 9)),
+            (date(2026, 11, 1), "month", date(2026, 12, 1)),
+            (date(2026, 12, 1), "month", date(2027, 1, 1)),
+            (date(2026, 1, 1), "year", date(2027, 1, 1)),
+        ],
+    )
+    def test_next_start(self, bucket, mode, expected):
+        from tw_report.core.period import next_bucket_start
+
+        assert next_bucket_start(bucket, mode) == expected
+
+    def test_unknown_mode_is_an_error(self):
+        from tw_report.core.period import next_bucket_start
+
+        with pytest.raises(ValueError):
+            next_bucket_start(date(2026, 1, 1), "fortnight")

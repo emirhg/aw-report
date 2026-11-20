@@ -218,3 +218,21 @@ def period_to_utc(
     """
     start, end = parse_period(period_str, day_start_hour=day_start_hour, tz=tz, now=now)
     return start.astimezone(UTC), end.astimezone(UTC)
+
+
+def next_bucket_start(bucket: date, mode: str) -> date:
+    """Start of the bucket after ``bucket`` (calendar math: month and year lengths are exact).
+
+    ``bucket`` must already be a bucket start (the 1st of a month, January 1st, a Monday for week).
+    """
+    if mode == "day":
+        return bucket + timedelta(days=1)
+    if mode == "week":
+        return bucket + timedelta(days=7)
+    if mode == "month":
+        if bucket.month == 12:
+            return date(bucket.year + 1, 1, 1)
+        return date(bucket.year, bucket.month + 1, 1)
+    if mode == "year":
+        return date(bucket.year + 1, 1, 1)
+    raise ValueError(f"Unknown bucket mode: {mode}")
