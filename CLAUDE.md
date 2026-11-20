@@ -271,8 +271,18 @@ still open: implement it on its own commit with the usual gates and a parity che
   default `afk,window,tasks` unchanged. Each detail level declares which roles it needs. A request
   that cannot be satisfied (for example categories without `window`) fails with a clear message.
 - Task-only totals must be documented as "tracked task time, no AFK", the same meaning as the sample.
+- DONE (uncommitted): `--source` takes role names (`tasks`, `afk`, `window`; default all), parsed by
+  `core/buckets.py::parse_sources`. Skipped roles are not fetched and the builder gets empty lists.
+  Rejected with an error: `--project`/`--task` without `tasks`; `--app` or detail level 3+ without
+  `window`. Tests: `tests/characterization/test_cli_sources.py` (queried buckets, validation) and
+  `tests/unit/test_buckets.py::TestParseSources`. Checked on live data: `--source tasks` per-day
+  totals equal the sample's per-day totals for the current `:lastweek` (for example 3.05 h and 3.27 h).
 
 ### 13.4 Bucket roles as splitters, aggregators and detail (proposal, under discussion)
+
+Code marked `REVIEW(window-afk)` (find it with `grep -rn "REVIEW(window-afk)" src`) is the window
+workaround this section is about: the window fetch in `cli/main.py` and the offline check in
+`core/timeslot_builder.py`. Remove the markers in the commit that replaces the workaround.
 
 - Splitter: AFK. Its boundaries and state changes define slot limits. The builder already does this.
 - Aggregator: taskwarrior. A task interval labels the time it covers with project and task. The
@@ -291,8 +301,15 @@ still open: implement it on its own commit with the usual gates and a parity che
   characterization goldens. The role names and the four config keys are fixed today; changing them
   needs a decision.
 
-### 13.5 Open decisions (ask the user before implementing)
+### 13.5 Decisions and open questions
 
-1. Name and form of the source option (`--source tasks`, `--buckets tasks`, or other).
+Decided by the user:
+- Without AFK data, an offline-tagged task is classed as offline work (no window check is needed
+  to classify it). This is the task-only behaviour and must match the sample tool's view of time.
+
+- The source option is named `--source` and takes role names (`tasks`, `afk`, `window`), not bucket
+  IDs, so the user never types a bucket name.
+
+Open:
 2. Whether window stays a classifier input for AFK false positives (recommended) or moves elsewhere.
 3. Whether the performance changes in 13.2 ship before or after the role-kind change in 13.4.

@@ -4,7 +4,7 @@ import platform
 
 import pytest
 
-from tw_report.core.buckets import ROLES, BucketIds, default_bucket_id, resolve_buckets
+from tw_report.core.buckets import parse_sources, ROLES, BucketIds, default_bucket_id, resolve_buckets
 from tw_report.core.events import get_bucket_id
 from tw_report.exceptions import ConfigParsingError
 
@@ -71,3 +71,16 @@ def test_unknown_keys_are_rejected_with_the_allowed_list(bad):
 def test_non_string_or_blank_values_are_rejected(value):
     with pytest.raises(ConfigParsingError, match="must be a non-empty string"):
         resolve_buckets({"afk": value})
+
+
+class TestParseSources:
+    def test_none_and_empty_mean_every_role(self):
+        assert parse_sources(None) == frozenset(ROLES)
+        assert parse_sources("") == frozenset(ROLES)
+
+    def test_comma_list_is_parsed_case_and_space_insensitively(self):
+        assert parse_sources(" Tasks , afk ") == frozenset({"tasks", "afk"})
+
+    def test_unknown_role_is_rejected_with_the_valid_choices(self):
+        with pytest.raises(ValueError, match="Unknown source\\(s\\): tmux.*afk, window, tasks"):
+            parse_sources("tmux,tasks")

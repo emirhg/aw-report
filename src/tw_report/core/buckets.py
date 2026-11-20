@@ -21,6 +21,27 @@ from tw_report.core.events import get_bucket_id
 from tw_report.exceptions import ConfigParsingError
 
 ROLES: tuple[str, ...] = ("afk", "window", "tasks")
+
+
+def parse_sources(text: str | None) -> frozenset[str]:
+    """Parse ``--source`` (comma-separated role names) into the set of roles to fetch.
+
+    None or empty means every role. Users name roles, never bucket IDs.
+
+    Raises:
+        ValueError: On an unknown role name.
+    """
+    if not text:
+        return frozenset(ROLES)
+    names = {part.strip().lower() for part in text.split(",") if part.strip()}
+    unknown = names - set(ROLES)
+    if unknown:
+        raise ValueError(
+            f"Unknown source(s): {', '.join(sorted(unknown))} (choose from {', '.join(ROLES)})"
+        )
+    return frozenset(names)
+
+
 HOSTNAME_KEY = "hostname"
 
 # ActivityWatch watcher name behind each role's default bucket.

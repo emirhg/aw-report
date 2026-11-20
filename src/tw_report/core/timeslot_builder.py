@@ -315,7 +315,9 @@ def build_timeslot_timeline(
                 # Idle time (afk) -> embedded AFK; active time (not-afk) -> online
                 bucket = "embedded_afk" if afk_status == "afk" else "online"
             elif is_offline_task:
-                # Offline-tagged task with no AFK coverage: check for window events
+                # REVIEW(window-afk): workaround, to be optimised. This classification uses window
+                # coverage to tell real offline time from AFK false positives. A source-level
+                # signal should replace the window check here.
                 has_window_activity = len(active_window) > 0
                 # Window activity proves system is powered on; none means a true offline gap
                 bucket = "online" if has_window_activity else "offline"

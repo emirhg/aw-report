@@ -63,6 +63,7 @@ def reorder_arguments(argv: list[str]) -> list[str]:
                     "--tail-tolerance",
                     "--afk-validation-tolerance",
                     "--day-start-hour",
+                    "--source",
                 ]
             ):
                 optional_args.append(argv[i + 1])
@@ -194,6 +195,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="append",
         metavar="NAME",
         help="Exclude apps with this exact name (repeatable).",
+    )
+    parser.add_argument(
+        "--source",
+        default=None,
+        metavar="ROLES",
+        help=(
+            "Data to read, comma-separated: tasks, afk, window (default: all). "
+            "Example: --source tasks reports tracked task time only, without AFK or windows."
+        ),
     )
     parser.add_argument(
         "--detail-level",

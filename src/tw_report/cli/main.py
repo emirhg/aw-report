@@ -17,7 +17,7 @@ from aw_transform import filter_keyvals
 from tw_report.cli.args import parse_args, parse_positional_args
 from tw_report.config import load_user_config, resolve_settings
 from tw_report.core.aw_events import AFKEvent
-from tw_report.core.buckets import resolve_buckets
+from tw_report.core.buckets import parse_sources, resolve_buckets
 from tw_report.core.categories import (
     categorize_event,
     compile_category_rules,
@@ -191,6 +191,25 @@ def _run(profiler: StageProfiler):
         print(f"Error: {config_error}", file=sys.stderr)
         return 1
     day_start_hour = resolved_settings.day_start_hour
+    try:
+        sources = parse_sources(args.source)
+    except ValueError as source_error:
+        print(f"Error: {source_error}", file=sys.stderr)
+        return 1
+    if "tasks" not in sources and (args.project or args.task):
+        print(
+            "Error: --project and --task need the tasks source (--source includes tasks)",
+            file=sys.stderr,
+        )
+        return 1
+    if "window" not in sources and (args.app or args.detail_level >= 3):
+        print(
+            "Error: --app and --detail-level 3 and above need the window source "
+            "(--source includes window)",
+            file=sys.stderr,
+        )
+        return 1
+    use_tasks = "tasks" in sources and not args.no_taskwarrior
     client = ActivityWatchClient(
         "tw-report", host=resolved_settings.aw_host, port=str(resolved_settings.aw_port)
     )
@@ -316,7 +335,7 @@ def _run(profiler: StageProfiler):
     task_time_ranges = None
     task_events = None  # Will be populated later; used for window-fetch decision
 
-    if not args.no_taskwarrior:
+    if use_tasks:
         task_bucket = buckets.tasks
 
         # Fetch TaskWarrior with ANY available filter (UUID, project, task)
@@ -371,9 +390,12 @@ def _run(profiler: StageProfiler):
     # Only fetch AFK for task time ranges when tasks exist (sparse data, e.g. :year, :all);
     # otherwise the whole period.
     profiler.checkpoint(f"Fetching AFK events from {start_time.date()} to {end_time.date()}")
-    afk_events = fetch_events(
-        client, buckets.afk, start_time, end_time, ranges=task_time_ranges, event_cls=AFKEvent
-    )
+    if "afk" in sources:
+        afk_events = fetch_events(
+            client, buckets.afk, start_time, end_time, ranges=task_time_ranges, event_cls=AFKEvent
+        )
+    else:
+        afk_events = []
     profiler.checkpoint(f"Fetched {len(afk_events)} AFK events")
 
     # Filter AFK to only events overlapping task time ranges (if available)
@@ -408,21 +430,25 @@ def _run(profiler: StageProfiler):
     # to refine with partitioning. If task_events is None, skip windows entirely.
     # ============================================================================
 
-    # Fetch window events for AFK false-positive detection (builder splits AFK by window coverage)
-    # Window events are needed to validate which AFK periods are real (have window coverage)
-    # vs false positives (system was off). This is critical for accurate AFK/OFFLINE reporting.
+    # REVIEW(window-afk): workaround, to be optimised.
+    # The window bucket is fetched only to double-check AFK time: AFK periods without window
+    # coverage are read as possible false positives (system off). This fetch is the cost of that
+    # check. Goal: a source-level signal that makes this window read unnecessary.
     from tw_report.core.aw_events import WindowEvent
 
     # Windows only for task time ranges when tasks exist; otherwise the whole period
     profiler.checkpoint(f"Fetching window events from {start_time.date()} to {end_time.date()}")
-    window_events = fetch_events(
-        client,
-        buckets.window,
-        start_time,
-        end_time,
-        ranges=task_time_ranges,
-        event_cls=WindowEvent,
-    )
+    if "window" in sources:
+        window_events = fetch_events(
+            client,
+            buckets.window,
+            start_time,
+            end_time,
+            ranges=task_time_ranges,
+            event_cls=WindowEvent,
+        )
+    else:
+        window_events = []
     profiler.checkpoint(f"Fetched {len(window_events)} window events")
 
     # Categorize all window events (including those during AFK periods)
@@ -482,7 +508,7 @@ def _run(profiler: StageProfiler):
             last_break_duration = current_start - previous_end
 
     task_events = task_events_early  # Use pre-fetched task events if available
-    is_task_based_report = not args.no_taskwarrior
+    is_task_based_report = use_tasks
 
     if is_task_based_report and task_events is None:
         # TaskWarrior events not fetched early (no filter specified)
@@ -494,11 +520,8 @@ def _run(profiler: StageProfiler):
         if not task_events:
             task_events = None
             is_task_based_report = False
-            # CRITICAL: Always keep window events for AFK false positive detection in the slot
-            # builder
-            # Even without tasks, we need windows to validate which AFK periods are real (have
-            # coverage)
-            # vs false positives (system was off). Don't clear window_events here.
+            # REVIEW(window-afk): keep the window events here (same workaround as above). Even
+            # without tasks, the builder needs them to double-check AFK time; do not clear them.
 
     # Calculate metrics (used by both report types)
     # Calculate period from ALL event sources (AFK + window + task) in UTC
