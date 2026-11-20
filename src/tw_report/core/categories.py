@@ -9,10 +9,10 @@ import json
 import logging
 import os
 import re
-from collections.abc import Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import timedelta
 from re import Pattern
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from tw_report.exceptions import CategoryValidationError, ConfigParsingError
 
@@ -376,3 +376,93 @@ def build_categories_from_window_events(
         merged_categories.append(cat_info)
 
     return merged_categories
+
+
+def merge_category_trees(category_lists: Iterable[Sequence[Mapping[str, Any]]]) -> list[dict]:
+    """Merge several category lists (category > app > title) into one, summing durations.
+
+    Each input is a list in the shape ``build_categories_from_window_events`` returns. Start and
+    end values widen to the union of their ranges, titles keep their events, and the output is
+    sorted by category name.
+    """
+    merged_cats: dict[str, dict[str, Any]] = {}
+
+    for categories in category_lists:
+        for cat_info in categories:
+            cat = cat_info.get("category", "Uncategorized")
+            if cat not in merged_cats:
+                merged_cats[cat] = {
+                    "category": cat,
+                    "duration": timedelta(0),
+                    "start": cat_info.get("start"),
+                    "end": cat_info.get("end"),
+                    "apps": {},
+                }
+            else:
+                cat_start = cat_info.get("start")
+                cat_end = cat_info.get("end")
+                if cat_start and (
+                    not merged_cats[cat]["start"] or cat_start < merged_cats[cat]["start"]
+                ):
+                    merged_cats[cat]["start"] = cat_start
+                if cat_end and (not merged_cats[cat]["end"] or cat_end > merged_cats[cat]["end"]):
+                    merged_cats[cat]["end"] = cat_end
+
+            merged_cats[cat]["duration"] += cat_info.get("duration", timedelta(0))
+
+            for app_info in cat_info.get("apps", []):
+                app = app_info.get("app", "Unknown App")
+                if app not in merged_cats[cat]["apps"]:
+                    merged_cats[cat]["apps"][app] = {
+                        "app": app,
+                        "duration": timedelta(0),
+                        "start": app_info.get("start"),
+                        "end": app_info.get("end"),
+                        "titles": {},
+                    }
+                else:
+                    app_entry = merged_cats[cat]["apps"][app]
+                    app_start = app_info.get("start")
+                    app_end = app_info.get("end")
+                    if app_start and (not app_entry["start"] or app_start < app_entry["start"]):
+                        app_entry["start"] = app_start
+                    if app_end and (not app_entry["end"] or app_end > app_entry["end"]):
+                        app_entry["end"] = app_end
+
+                app_entry = merged_cats[cat]["apps"][app]
+                app_entry["duration"] += app_info.get("duration", timedelta(0))
+
+                for title_info in app_info.get("titles", []):
+                    title = title_info.get("title", "Unknown Title")
+                    if title not in app_entry["titles"]:
+                        app_entry["titles"][title] = {
+                            "title": title,
+                            "duration": timedelta(0),
+                            "events": [],
+                        }
+                    app_entry["titles"][title]["duration"] += title_info.get(
+                        "duration", timedelta(0)
+                    )
+                    app_entry["titles"][title]["events"].extend(title_info.get("events", []))
+
+    result: list[dict] = []
+    for _cat, cat_data in sorted(merged_cats.items()):
+        cat_entry: dict[str, Any] = {
+            "category": cat_data["category"],
+            "duration": cat_data["duration"],
+            "start": cat_data.get("start"),
+            "end": cat_data.get("end"),
+        }
+        if cat_data["apps"]:
+            cat_entry["apps"] = [
+                {
+                    "app": app_data["app"],
+                    "duration": app_data["duration"],
+                    "start": app_data.get("start"),
+                    "end": app_data.get("end"),
+                    "titles": list(app_data["titles"].values()) if app_data["titles"] else [],
+                }
+                for app_data in cat_data["apps"].values()
+            ]
+        result.append(cat_entry)
+    return result

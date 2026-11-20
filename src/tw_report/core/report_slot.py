@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 
+from tw_report.core.categories import merge_category_trees
 from tw_report.core.event_slot import DataValue, EventMap, merge_event_maps
 from tw_report.core.filtering import NO_PROJECT, NO_TASK
 from tw_report.core.period import day_boundary, logical_date
@@ -1871,107 +1872,8 @@ def _bucket_date(slot: ReportTimelineSlot) -> date:
 
 @deprecated("Private helper of deprecated from_timeline_slots().")
 def _merge_categories_full(group: list[TimelineSlot]) -> list[dict[str, Any]]:
-    """
-    Merge categories from all slots in a group (3-level: category→app→title).
-
-    Imported/reused from consolidation.py's standalone merge_categories,
-    to avoid duplicating this complex nested-merge logic.
-    """
-    # For now, inline a simplified version; in production, this should import
-    # from consolidation.merge_categories to avoid duplication.
-    # TODO: import merge_categories from consolidation instead
-    merged_cats = {}
-
-    for slot in group:
-        for cat_info in slot.categories:
-            cat = cat_info.get("category", "Uncategorized")
-            if cat not in merged_cats:
-                merged_cats[cat] = {
-                    "category": cat,
-                    "duration": timedelta(0),
-                    "start": cat_info.get("start"),
-                    "end": cat_info.get("end"),
-                    "apps": {},
-                }
-            else:
-                # Expand start/end range
-                cat_start = cat_info.get("start")
-                cat_end = cat_info.get("end")
-                if cat_start and (
-                    not merged_cats[cat]["start"] or cat_start < merged_cats[cat]["start"]
-                ):
-                    merged_cats[cat]["start"] = cat_start
-                if cat_end and (not merged_cats[cat]["end"] or cat_end > merged_cats[cat]["end"]):
-                    merged_cats[cat]["end"] = cat_end
-
-            merged_cats[cat]["duration"] += cat_info.get("duration", timedelta(0))
-
-            # Merge apps under this category
-            for app_info in cat_info.get("apps", []):
-                app = app_info.get("app", "Unknown App")
-                if app not in merged_cats[cat]["apps"]:
-                    merged_cats[cat]["apps"][app] = {
-                        "app": app,
-                        "duration": timedelta(0),
-                        "start": app_info.get("start"),
-                        "end": app_info.get("end"),
-                        "titles": {},
-                    }
-                else:
-                    app_start = app_info.get("start")
-                    app_end = app_info.get("end")
-                    if app_start and (
-                        not merged_cats[cat]["apps"][app]["start"]
-                        or app_start < merged_cats[cat]["apps"][app]["start"]
-                    ):
-                        merged_cats[cat]["apps"][app]["start"] = app_start
-                    if app_end and (
-                        not merged_cats[cat]["apps"][app]["end"]
-                        or app_end > merged_cats[cat]["apps"][app]["end"]
-                    ):
-                        merged_cats[cat]["apps"][app]["end"] = app_end
-
-                merged_cats[cat]["apps"][app]["duration"] += app_info.get("duration", timedelta(0))
-
-                # Merge titles under this app
-                for title_info in app_info.get("titles", []):
-                    title = title_info.get("title", "Unknown Title")
-                    if title not in merged_cats[cat]["apps"][app]["titles"]:
-                        merged_cats[cat]["apps"][app]["titles"][title] = {
-                            "title": title,
-                            "duration": timedelta(0),
-                            "events": [],
-                        }
-                    merged_cats[cat]["apps"][app]["titles"][title]["duration"] += title_info.get(
-                        "duration", timedelta(0)
-                    )
-                    merged_cats[cat]["apps"][app]["titles"][title]["events"].extend(
-                        title_info.get("events", [])
-                    )
-
-    # Convert to list format
-    result = []
-    for _cat, cat_data in sorted(merged_cats.items()):
-        cat_entry = {
-            "category": cat_data["category"],
-            "duration": cat_data["duration"],
-            "start": cat_data.get("start"),
-            "end": cat_data.get("end"),
-        }
-        if cat_data["apps"]:
-            cat_entry["apps"] = [
-                {
-                    "app": app_data["app"],
-                    "duration": app_data["duration"],
-                    "start": app_data.get("start"),
-                    "end": app_data.get("end"),
-                    "titles": list(app_data["titles"].values()) if app_data["titles"] else [],
-                }
-                for app_data in cat_data["apps"].values()
-            ]
-        result.append(cat_entry)
-
-    return result
+    """Merge categories from all slots in a group (3-level: category->app->title)."""
+    return merge_category_trees(slot.categories for slot in group)
 
 
 def _bucket_duration(mode: Literal["day", "week", "month", "year"]) -> timedelta:
