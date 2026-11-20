@@ -32,9 +32,7 @@ class _FakeClient:
         return list(self._events)
 
 
-def test_uuid_filter_falls_back_to_manual_filtering_without_aw_transform(monkeypatch):
-    # A None entry in sys.modules makes the import inside the function raise ImportError.
-    monkeypatch.setitem(sys.modules, "aw_transform", None)
+def test_uuid_filter_keeps_only_the_matching_uuid():
     events = [
         Event(timestamp=T0, duration=timedelta(minutes=1), data={"uuid": "abc"}),
         Event(timestamp=T0, duration=timedelta(minutes=1), data={"uuid": "other"}),

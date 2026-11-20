@@ -13,6 +13,8 @@ from datetime import datetime
 
 from aw_core.models import Event
 
+from tw_report.core.event_filters import filter_by_value
+
 logger = logging.getLogger(__name__)
 
 
@@ -175,22 +177,9 @@ def get_events_by_uuid(
     # Fetch all events (AW doesn't support query-level UUID filtering)
     all_events = get_events(client, bucket_id, start, end)
 
-    # Use optimized filter_keyvals from aw_transform
-    try:
-        from aw_transform import filter_keyvals
-
-        # filter_keyvals optimizes filtering and is faster than list comprehension
-        filtered = filter_keyvals(all_events, "uuid", [uuid])
-
-        if filtered:
-            logger.debug(f"Filtered to {len(filtered)} events for UUID: {uuid}")
-        else:
-            logger.debug(f"No events found matching UUID: {uuid}")
-
-        return filtered
-
-    except ImportError:
-        # Fallback to manual filtering if aw_transform unavailable
-        logger.debug("aw_transform unavailable, using manual filtering")
-        filtered = [e for e in all_events if e.data.get("uuid") == uuid]
-        return filtered
+    filtered = filter_by_value(all_events, "uuid", [uuid])
+    if filtered:
+        logger.debug(f"Filtered to {len(filtered)} events for UUID: {uuid}")
+    else:
+        logger.debug(f"No events found matching UUID: {uuid}")
+    return filtered

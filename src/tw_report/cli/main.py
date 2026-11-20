@@ -12,7 +12,6 @@ from typing import TypeVar
 
 from aw_client import ActivityWatchClient
 from aw_core.models import Event
-from aw_transform import filter_keyvals
 
 from tw_report.cli.args import parse_args, parse_positional_args
 from tw_report.config import load_user_config, resolve_settings
@@ -24,6 +23,7 @@ from tw_report.core.categories import (
     get_category_score,
     load_categories,
 )
+from tw_report.core.event_filters import filter_by_value
 from tw_report.core.events import (
     fetch_events,
     get_events,
@@ -468,7 +468,7 @@ def _run(profiler: StageProfiler):
     afk_events = merge_overlapping_afk_periods(afk_events)
 
     # Not-afk events feed the current-session and break metrics below
-    not_afk_events = filter_keyvals(list(afk_events), "status", ["not-afk"])
+    not_afk_events = filter_by_value(afk_events, "status", ["not-afk"])
 
     # Calculate current session and last break metrics
     current_session_start = None
