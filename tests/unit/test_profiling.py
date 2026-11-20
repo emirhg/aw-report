@@ -3,9 +3,9 @@
 import sys
 from datetime import datetime, timedelta, timezone
 
-from tw_report.utils import profiling
-from tw_report.utils.formatting import to_local_time
-from tw_report.utils.profiling import StageProfiler, enable_unbuffered_output
+from aw_report.utils import profiling
+from aw_report.utils.formatting import to_local_time
+from aw_report.utils.profiling import StageProfiler, enable_unbuffered_output
 
 
 class _Clock:

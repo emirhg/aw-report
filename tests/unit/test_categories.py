@@ -1,5 +1,5 @@
 """
-Unit tests for category loading and scoring (tw_report.core.categories).
+Unit tests for category loading and scoring (aw_report.core.categories).
 
 Tests verify category rule loading, regex compilation, categorization logic,
 and score inheritance.
@@ -11,13 +11,13 @@ from datetime import datetime, timezone
 import pytest
 from aw_core.models import Event
 
-from tw_report.core.categories import (
+from aw_report.core.categories import (
     categorize_event,
     compile_category_rules,
     get_category_score,
     load_categories,
 )
-from tw_report.exceptions import ConfigParsingError, CategoryValidationError
+from aw_report.exceptions import ConfigParsingError, CategoryValidationError
 
 
 class TestLoadCategories:

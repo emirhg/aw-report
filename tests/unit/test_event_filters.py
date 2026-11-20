@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 from aw_core.models import Event
 
-from tw_report.core.event_filters import filter_by_value
+from aw_report.core.event_filters import filter_by_value
 
 T0 = datetime(2026, 11, 12, 6, 0, tzinfo=UTC)
 

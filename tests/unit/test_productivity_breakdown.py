@@ -2,9 +2,9 @@
 
 from datetime import datetime, timedelta, timezone
 
-from tw_report.core.aw_events import WindowEvent
-from tw_report.core.report_slot import ReportTimelineSlot
-from tw_report.pipeline.processors import compute_productivity_breakdown
+from aw_report.core.aw_events import WindowEvent
+from aw_report.core.report_slot import ReportTimelineSlot
+from aw_report.pipeline.processors import compute_productivity_breakdown
 
 T0 = datetime(2026, 10, 15, 9, 0, 0, tzinfo=timezone.utc)
 SCORES = {"Work": 2.0, "Social": -1.0, "Misc": 0.0}
@@ -110,7 +110,7 @@ class TestConsolidatedShapes:
         """Consolidated offline-tagged slots keep their active time in the breakdown."""
         start = T0
         end = T0 + timedelta(minutes=20)
-        from tw_report.core.time_breakdown import TimeBreakdown
+        from aw_report.core.time_breakdown import TimeBreakdown
 
         slot = ReportTimelineSlot(
             start=start,

@@ -5,13 +5,13 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from aw_core.models import Event
 
-from tw_report.core.aw_events import AFKEvent, TaskWarriorEvent, WindowEvent
-from tw_report.core.filtering import NO_PROJECT, NO_TASK, EventFilter
-from tw_report.core.report_slot import ReportTimelineSlot
-from tw_report.core.task_matching import task_has_offline_tag
-from tw_report.core.timeline import TimelineSlot
-from tw_report.pipeline.consolidation import consolidate_sessions
-from tw_report.utils.formatting import (
+from aw_report.core.aw_events import AFKEvent, TaskWarriorEvent, WindowEvent
+from aw_report.core.filtering import NO_PROJECT, NO_TASK, EventFilter
+from aw_report.core.report_slot import ReportTimelineSlot
+from aw_report.core.task_matching import task_has_offline_tag
+from aw_report.core.timeline import TimelineSlot
+from aw_report.pipeline.consolidation import consolidate_sessions
+from aw_report.utils.formatting import (
     display_width,
     format_timeslot_duration,
     sanitize_title,
@@ -148,7 +148,7 @@ def test_unknown_entry_type_is_not_subject_to_untracked_exclusion():
 
 
 def test_config_path_raises_when_home_directory_is_missing(monkeypatch, tmp_path):
-    from tw_report import config as config_module
+    from aw_report import config as config_module
 
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     monkeypatch.setattr(config_module.Path, "home", staticmethod(lambda: tmp_path / "absent"))
@@ -255,7 +255,7 @@ def test_offline_only_duration_with_productive_time_shows_zero_percent_label():
 
 
 def TimeslotDuration_offline_only():
-    from tw_report.pipeline.models import TimeslotDuration
+    from aw_report.pipeline.models import TimeslotDuration
 
     return TimeslotDuration(offline_gap=timedelta(minutes=30))
 

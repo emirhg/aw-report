@@ -17,8 +17,8 @@ Tests the unified merge implementation and bug fixes:
 import pytest
 from datetime import datetime, timedelta, timezone, date
 
-from tw_report.core.timeline import TimelineSlot, TimelineSlotValidationError
-from tw_report.core.report_slot import ReportTimelineSlot, ReportEntries
+from aw_report.core.timeline import TimelineSlot, TimelineSlotValidationError
+from aw_report.core.report_slot import ReportTimelineSlot, ReportEntries
 
 
 # Fixtures for common test data
@@ -546,7 +546,7 @@ class TestReportTimelineEmbeddedAFK:
         )
 
         # Create timeline with work + AFK slots
-        from tw_report.core.timeline import Timeline
+        from aw_report.core.timeline import Timeline
 
         timeline = Timeline()
         timeline.add_slots([work, afk1, afk2])
@@ -600,7 +600,7 @@ class TestReportTimelineEmbeddedAFK:
             actual_duration=timedelta(minutes=10),
         )
 
-        from tw_report.core.timeline import Timeline
+        from aw_report.core.timeline import Timeline
 
         timeline = Timeline()
         timeline.add_slots([work, afk_before, afk_overlaps])
@@ -626,7 +626,7 @@ class TestReportEntries:
 
     def test_from_timeline_wraps_all_slots(self, basic_slot, afk_slot):
         """from_timeline should wrap every slot as a singleton ReportTimelineSlot."""
-        from tw_report.core.timeline import Timeline
+        from aw_report.core.timeline import Timeline
 
         timeline = Timeline()
         timeline.add_slot(basic_slot)

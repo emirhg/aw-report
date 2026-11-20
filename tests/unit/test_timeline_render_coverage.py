@@ -10,9 +10,9 @@ import time
 
 import pytest
 
-from tw_report.core.report_slot import ReportTimelineSlot
-from tw_report.pipeline import timeline_render as tr
-from tw_report.pipeline.timeline_render import (
+from aw_report.core.report_slot import ReportTimelineSlot
+from aw_report.pipeline import timeline_render as tr
+from aw_report.pipeline.timeline_render import (
     _get_displayed_duration,
     compute_afk_offline_totals,
     format_and_print_day_total_displayed,
@@ -321,7 +321,7 @@ def test_offline_task_rows_are_prefixed_with_an_asterisk(capsys):
 
 def test_displayed_duration_is_the_wall_clock_duration_of_every_slot():
     from tests.support.slots import slot as state_slot
-    from tw_report.pipeline.timeline_render import _get_displayed_duration
+    from aw_report.pipeline.timeline_render import _get_displayed_duration
 
     for state, offline in [("afk", False), ("not-afk", False), ("untracked", True), (None, False)]:
         built = state_slot(0, 40, state, offline=offline)

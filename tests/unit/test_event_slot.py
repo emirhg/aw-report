@@ -4,8 +4,8 @@ from datetime import datetime, timedelta, timezone
 
 from aw_core.models import Event
 
-from tw_report.core.event_index import EventIndex
-from tw_report.core.event_slot import (
+from aw_report.core.event_index import EventIndex
+from aw_report.core.event_slot import (
     BUCKET_AFK,
     BUCKET_WINDOW,
     collect_span_events,
@@ -64,7 +64,7 @@ class TestCollectSpanEvents:
 
 
 def test_data_value_keeps_its_bucket_and_interval():
-    from tw_report.core.event_slot import DataValue
+    from aw_report.core.event_slot import DataValue
 
     value = DataValue(bucket="window", value="Code", start=T0, end=T0 + timedelta(minutes=5))
     assert (value.bucket, value.value, value.end - value.start) == (

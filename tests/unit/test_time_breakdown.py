@@ -2,7 +2,7 @@
 
 from datetime import timedelta
 
-from tw_report.core.time_breakdown import TimeBreakdown, sum_breakdowns
+from aw_report.core.time_breakdown import TimeBreakdown, sum_breakdowns
 
 TEN = timedelta(minutes=10)
 

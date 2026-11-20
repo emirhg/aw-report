@@ -10,10 +10,10 @@ from typing import List, Optional
 
 import pytest
 
-from tw_report.core.aw_events import AFKEvent, WindowEvent, TaskWarriorEvent
-from tw_report.core.report_slot import ReportTimelineSlot
-from tw_report.core.timeslot_builder import build_timeslot_timeline
-from tw_report.pipeline.row_merge import merge_display_rows
+from aw_report.core.aw_events import AFKEvent, WindowEvent, TaskWarriorEvent
+from aw_report.core.report_slot import ReportTimelineSlot
+from aw_report.core.timeslot_builder import build_timeslot_timeline
+from aw_report.pipeline.row_merge import merge_display_rows
 
 
 # ============================================================================

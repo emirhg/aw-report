@@ -21,7 +21,7 @@ from tests.characterization.test_cli_golden import (
     scenario_buckets,
 )
 from tests.support.fake_aw import FakeActivityWatchClient, make_event
-from tw_report.cli import main as cli_main
+from aw_report.cli import main as cli_main
 
 UUID = "6f1c9c0e-2b8a-4c1e-9d3a-111122223333"
 
@@ -144,7 +144,7 @@ def test_duplicate_taskwarrior_heartbeats_are_collapsed_with_a_warning(monkeypat
     longer = make_event(base.timestamp, 90, dict(base.data, uuid=UUID))
     buckets[tasks_key] = [shorter, longer] + buckets[tasks_key][1:]
     client = FakeActivityWatchClient(buckets)
-    with caplog.at_level(logging.WARNING, logger="tw_report.cli.main"):
+    with caplog.at_level(logging.WARNING, logger="aw_report.cli.main"):
         out, code, err = run_cli(monkeypatch, capsys, ["--project", "Climb", DAY], client)
     assert code == 0
     assert any("Deduplicated 1 duplicate task events" in r.getMessage() for r in caplog.records)
@@ -165,7 +165,7 @@ def test_module_entry_point_runs_main_when_executed_as_script(monkeypatch, capsy
     # The module is already imported by this test session, so runpy warns about re-executing it.
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*found in sys.modules")
-        runpy.run_module("tw_report.cli.main", run_name="__main__")
+        runpy.run_module("aw_report.cli.main", run_name="__main__")
     assert "Timeline Report" in capsys.readouterr().out
 
 
@@ -236,7 +236,7 @@ def test_reversed_duplicate_heartbeats_keep_the_longest_event(monkeypatch, capsy
     shorter = make_event(base.timestamp, 30, dict(base.data, uuid=UUID))
     buckets[tasks_key] = [longer, shorter] + buckets[tasks_key][1:]
     client = FakeActivityWatchClient(buckets)
-    with caplog.at_level(logging.WARNING, logger="tw_report.cli.main"):
+    with caplog.at_level(logging.WARNING, logger="aw_report.cli.main"):
         out, code, err = run_cli(monkeypatch, capsys, ["--project", "Climb", DAY], client)
     assert code == 0
     assert any("Deduplicated" in r.getMessage() for r in caplog.records)
@@ -337,7 +337,7 @@ def test_app_envelope_keeps_only_the_task_ranges_it_overlaps():
 def test_app_names_are_collected_from_category_entries_and_empty_names_skipped():
     """--app matches the apps of a slot's categories; empty names and missing apps are skipped."""
     from tests.support.slots import slot
-    from tw_report.core.filtering import EventFilter
+    from aw_report.core.filtering import EventFilter
 
     cats = [
         {"category": "Coding", "apps": [{"app": "VSCode"}, {"app": ""}, {"app": "VSCode"}]},

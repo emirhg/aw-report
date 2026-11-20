@@ -9,16 +9,16 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from tw_report.core.aw_events import TaskWarriorEvent
-from tw_report.core.filtering import NO_PROJECT, NO_TASK
-from tw_report.core.report_slot import (
+from aw_report.core.aw_events import TaskWarriorEvent
+from aw_report.core.filtering import NO_PROJECT, NO_TASK
+from aw_report.core.report_slot import (
     DisplayColumns,
     ReportEntries,
     ReportTimelineSlot,
     compute_daily_break_totals,
     compute_total_break_time,
 )
-from tw_report.core.timeline import TimelineSlot
+from aw_report.core.timeline import TimelineSlot
 
 UTC = timezone.utc
 T0 = datetime(2026, 7, 23, 10, 0, tzinfo=UTC)
@@ -495,7 +495,7 @@ def _app(name, minutes, start, end, titles=()):
 
 
 def test_merge_categories_sums_durations_and_expands_range():
-    from tw_report.core.report_slot import _merge_categories_full
+    from aw_report.core.report_slot import _merge_categories_full
 
     first = _Slot(
         [
@@ -540,7 +540,7 @@ def test_merge_categories_sums_durations_and_expands_range():
 
 
 def test_merge_categories_defaults_missing_names_and_skips_absent_bounds():
-    from tw_report.core.report_slot import _merge_categories_full
+    from aw_report.core.report_slot import _merge_categories_full
 
     merged = _merge_categories_full(
         [
@@ -567,14 +567,14 @@ def test_merge_categories_defaults_missing_names_and_skips_absent_bounds():
 
 
 def test_merge_categories_without_apps_omits_apps_key():
-    from tw_report.core.report_slot import _merge_categories_full
+    from aw_report.core.report_slot import _merge_categories_full
 
     merged = _merge_categories_full([_Slot([{"category": "Idle", "duration": timedelta(0)}])])
     assert merged == [{"category": "Idle", "duration": timedelta(0), "start": None, "end": None}]
 
 
 def test_merge_categories_second_occurrence_without_bounds_keeps_first_range():
-    from tw_report.core.report_slot import _merge_categories_full
+    from aw_report.core.report_slot import _merge_categories_full
 
     merged = _merge_categories_full(
         [
@@ -602,7 +602,7 @@ def test_merge_categories_second_occurrence_without_bounds_keeps_first_range():
 
 
 def test_bucket_duration_exact_for_fixed_length_modes():
-    from tw_report.core.report_slot import _bucket_duration
+    from aw_report.core.report_slot import _bucket_duration
 
     assert _bucket_duration("day") == timedelta(days=1)
     assert _bucket_duration("week") == timedelta(days=7)
@@ -612,13 +612,13 @@ def test_bucket_duration_exact_for_fixed_length_modes():
 def test_bucket_duration_for_variable_length_modes_is_within_calendar_range(mode, lo, hi):
     # Variable-length periods are approximated (see the month/year split xfail above);
     # only the calendar range is asserted so the approximation is not pinned as correct.
-    from tw_report.core.report_slot import _bucket_duration
+    from aw_report.core.report_slot import _bucket_duration
 
     assert timedelta(days=lo) <= _bucket_duration(mode) <= timedelta(days=hi)
 
 
 def test_bucket_duration_rejects_unknown_mode():
-    from tw_report.core.report_slot import _bucket_duration
+    from aw_report.core.report_slot import _bucket_duration
 
     with pytest.raises(ValueError, match="Unknown mode"):
         _bucket_duration("fortnight")  # type: ignore[arg-type]
@@ -630,7 +630,7 @@ def test_bucket_duration_rejects_unknown_mode():
 
 
 def test_break_gap_within_day_none_for_overlap_and_across_days():
-    from tw_report.core.report_slot import _break_gap_within_day
+    from aw_report.core.report_slot import _break_gap_within_day
 
     assert _break_gap_within_day(at(0), at(0.5), 0) == timedelta(hours=0.5)
     assert _break_gap_within_day(at(1), at(0.5), 0) is None  # overlapping
@@ -669,7 +669,7 @@ def test_from_timeline_slots_untracked_group_has_no_task_event():
 
 
 def test_from_timeline_slots_rejects_mixed_projects_without_flag():
-    from tw_report.core.timeline import TimelineSlotValidationError
+    from aw_report.core.timeline import TimelineSlotValidationError
 
     with pytest.raises(TimelineSlotValidationError, match="differing projects"):
         ReportTimelineSlot.from_timeline_slots([work(0, 1), afk(1, 2)])  # P vs untracked
@@ -768,7 +768,7 @@ def test_grouped_by_project_date_appends_same_project_and_day():
 
 
 def test_merge_categories_widens_range_on_later_and_earlier_occurrences():
-    from tw_report.core.report_slot import _merge_categories_full
+    from aw_report.core.report_slot import _merge_categories_full
 
     merged = _merge_categories_full(
         [
@@ -805,7 +805,7 @@ def test_merge_categories_widens_range_on_later_and_earlier_occurrences():
 
 
 def test_merge_categories_keeps_wider_range_when_later_occurrence_is_narrower():
-    from tw_report.core.report_slot import _merge_categories_full
+    from aw_report.core.report_slot import _merge_categories_full
 
     merged = _merge_categories_full(
         [

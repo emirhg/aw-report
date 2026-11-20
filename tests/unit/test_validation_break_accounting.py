@@ -14,8 +14,8 @@ import sys
 
 import pytest
 
-from tw_report.pipeline.models import PeriodMetrics
-from tw_report.pipeline.timeline_render import print_timeline_report
+from aw_report.pipeline.models import PeriodMetrics
+from aw_report.pipeline.timeline_render import print_timeline_report
 
 
 def _extract_duration_from_totals(output: str, label: str) -> timedelta:

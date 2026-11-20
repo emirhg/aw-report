@@ -4,7 +4,7 @@ Snapshot of the tree on refactor/robust-core (line counts as of this snapshot). 
 when files are added, moved or removed.
 Read CLAUDE.md first (goal, rules, gates) and docs/ARCHITECTURE.md (design).
 
-## Source (src/tw_report)
+## Source (src/aw_report)
   cli/args.py                                349  argparse flags and positional-term handling
   cli/fetch.py                                 80  `aw-report fetch`: role-bucket events as JSON
   cli/main.py                                922  orchestration: main() -> _run(); fetch, filter, build, metrics, render

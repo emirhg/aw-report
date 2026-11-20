@@ -7,12 +7,12 @@ where the intercalation bug originates.
 import pytest
 from datetime import datetime, date, timezone, timedelta
 
-from tw_report.pipeline.timeline_render import (
+from aw_report.pipeline.timeline_render import (
     get_slot_week_key,
     get_slot_logical_date,
     split_slots_spanning_days,
 )
-from tw_report.core.period import logical_date
+from aw_report.core.period import logical_date
 
 
 class TestSlotTimezoneHandling:

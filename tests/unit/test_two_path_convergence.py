@@ -15,10 +15,10 @@ This is a CRITICAL architectural bug that must be fixed.
 
 import pytest
 from datetime import datetime, timedelta, timezone
-from tw_report.core.report_slot import ReportTimelineSlot
-from tw_report.core.aw_events import TaskWarriorEvent
-from tw_report.pipeline.processors import aggregate_hierarchy_from_slots
-from tw_report.pipeline.timeline_render import split_slots_spanning_days
+from aw_report.core.report_slot import ReportTimelineSlot
+from aw_report.core.aw_events import TaskWarriorEvent
+from aw_report.pipeline.processors import aggregate_hierarchy_from_slots
+from aw_report.pipeline.timeline_render import split_slots_spanning_days
 
 
 class TestTwoPathConvergence:
@@ -138,7 +138,7 @@ class TestTwoPathConvergence:
 
     def test_slots_dont_get_tripled_during_splitting(self, sample_task_slots):
         """Regression test: Verify split_at_boundaries doesn't multiply duration."""
-        from tw_report.pipeline.timeline_render import split_slots_spanning_days
+        from aw_report.pipeline.timeline_render import split_slots_spanning_days
 
         # Original total
         original_total = sum((s.duration for s in sample_task_slots), timedelta(0))

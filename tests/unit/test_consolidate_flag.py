@@ -8,8 +8,8 @@ Tests ensure that:
 
 import pytest
 from datetime import datetime, timedelta, timezone
-from tw_report.core.report_slot import ReportTimelineSlot
-from tw_report.core.aw_events import TaskWarriorEvent
+from aw_report.core.report_slot import ReportTimelineSlot
+from aw_report.core.aw_events import TaskWarriorEvent
 
 
 class TestConsolidateFlag:

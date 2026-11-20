@@ -5,15 +5,15 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from tw_report.core.aw_events import WindowEvent
-from tw_report.core.categories import (
+from aw_report.core.aw_events import WindowEvent
+from aw_report.core.categories import (
     build_categories_from_window_events,
     categorize_event,
     compile_category_rules,
     get_category_score,
     load_categories,
 )
-from tw_report.exceptions import CategoryValidationError, ConfigParsingError
+from aw_report.exceptions import CategoryValidationError, ConfigParsingError
 
 UTC = timezone.utc
 T0 = datetime(2026, 7, 23, 10, 0, tzinfo=UTC)

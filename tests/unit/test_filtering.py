@@ -20,7 +20,7 @@ class TestEventFilterBasics:
 
     def test_no_filter_accepts_all_entries(self, filter_no_options):
         """With no filters, should accept all entries."""
-        from tw_report.core.filtering import EventFilter
+        from aw_report.core.filtering import EventFilter
 
         f = EventFilter()
         entry = {"project": "Climb", "task": "Task1"}
@@ -28,7 +28,7 @@ class TestEventFilterBasics:
 
     def test_no_filter_accepts_no_project(self, filter_no_options):
         """With no filters, even NO_PROJECT entries should be accepted."""
-        from tw_report.core.filtering import EventFilter
+        from aw_report.core.filtering import EventFilter
 
         f = EventFilter()
         entry = {"project": "NO_PROJECT", "task": "NO_TASK"}
@@ -42,7 +42,7 @@ class TestExcludeNonProjectFilter:
         self, filter_exclude_non_project, issue_1_no_project_entry
     ):
         """--exclude-non-project should remove regular entries with NO_PROJECT."""
-        from tw_report.core.filtering import EventFilter
+        from aw_report.core.filtering import EventFilter
 
         f = EventFilter(exclude_non_project=True)
         entry = {
@@ -54,7 +54,7 @@ class TestExcludeNonProjectFilter:
 
     def test_exclude_non_project_keeps_tracked_entries(self, filter_exclude_non_project):
         """--exclude-non-project should keep entries with a project."""
-        from tw_report.core.filtering import EventFilter
+        from aw_report.core.filtering import EventFilter
 
         f = EventFilter(exclude_non_project=True)
         entry = {"type": "regular", "project": "Climb", "task": "Task1"}
@@ -62,7 +62,7 @@ class TestExcludeNonProjectFilter:
 
     def test_exclude_non_project_filters_afk_gaps_without_project(self, filter_exclude_non_project):
         """--exclude-non-project should remove AFK gaps without project/task."""
-        from tw_report.core.filtering import EventFilter
+        from aw_report.core.filtering import EventFilter
 
         f = EventFilter(exclude_non_project=True)
         entry = {
@@ -83,7 +83,7 @@ class TestExcludeNonProjectFilter:
         THIS IS PART OF ISSUE #1 FIX:
         Synthetic slots created for offline-tagged tasks are now filtered consistently.
         """
-        from tw_report.core.filtering import EventFilter
+        from aw_report.core.filtering import EventFilter
 
         f = EventFilter(exclude_non_project=True)
         entry = {
@@ -98,7 +98,7 @@ class TestExcludeNonProjectFilter:
     @pytest.mark.parametrize("project", ["No project", "no project", "", None])
     def test_exclude_non_project_removes_all_unassigned_spellings(self, project):
         """Default TaskWarrior 'No project' and empty/None projects count as unassigned."""
-        from tw_report.core.filtering import EventFilter
+        from aw_report.core.filtering import EventFilter
 
         f = EventFilter(exclude_non_project=True)
         entry = {"project": project, "task": "Some task"}
@@ -108,7 +108,7 @@ class TestExcludeNonProjectFilter:
     @pytest.mark.parametrize("task", ["No task", "No task assigned", "", None])
     def test_exclude_non_project_gap_with_unassigned_task_spellings(self, task):
         """AFK gap with unassigned project and any unassigned task spelling is excluded."""
-        from tw_report.core.filtering import EventFilter
+        from aw_report.core.filtering import EventFilter
 
         f = EventFilter(exclude_non_project=True)
         entry = {"project": "No project", "task": task}
@@ -117,7 +117,7 @@ class TestExcludeNonProjectFilter:
 
     def test_exclude_non_project_keeps_afk_slot_with_real_task(self):
         """AFK slot that has a tracked project is kept."""
-        from tw_report.core.filtering import EventFilter
+        from aw_report.core.filtering import EventFilter
 
         f = EventFilter(exclude_non_project=True)
         entry = {"project": "Climb", "task": "Task1"}
@@ -129,7 +129,7 @@ class TestProjectPatternFiltering:
 
     def test_project_pattern_substring_match(self):
         """Project pattern should match substrings (default exact_match=False)."""
-        from tw_report.core.filtering import EventFilter
+        from aw_report.core.filtering import EventFilter
 
         f = EventFilter(project_patterns=["Climb"])
         entry = {"project": "Climb > Task > Subtask", "task": "Work"}
@@ -138,7 +138,7 @@ class TestProjectPatternFiltering:
 
     def test_project_pattern_exact_match_mode(self):
         """With exact_match=True, should only match exact strings."""
-        from tw_report.core.filtering import EventFilter
+        from aw_report.core.filtering import EventFilter
 
         f = EventFilter(project_patterns=["Climb"], exact_match=True)
         entry1 = {"project": "Climb", "task": "Work"}
@@ -149,7 +149,7 @@ class TestProjectPatternFiltering:
 
     def test_project_filter_multiple_patterns_or_logic(self):
         """Multiple project patterns should use OR logic."""
-        from tw_report.core.filtering import EventFilter
+        from aw_report.core.filtering import EventFilter
 
         f = EventFilter(project_patterns=["Climb", "Mercado"])
         entry1 = {"project": "Climb", "task": "Task1"}
@@ -339,18 +339,18 @@ class TestNormalizeUntracked:
 
     @pytest.mark.parametrize("value", ["No project", "no project", " No project ", "", None])
     def test_project_spellings_map_to_no_project(self, value):
-        from tw_report.core.filtering import NO_PROJECT, normalize_project
+        from aw_report.core.filtering import NO_PROJECT, normalize_project
 
         assert normalize_project(value) == NO_PROJECT
 
     @pytest.mark.parametrize("value", ["No task", "No task tracked", "no task tracked", "", None])
     def test_task_spellings_map_to_no_task(self, value):
-        from tw_report.core.filtering import NO_TASK, normalize_task
+        from aw_report.core.filtering import NO_TASK, normalize_task
 
         assert normalize_task(value) == NO_TASK
 
     def test_real_names_unchanged(self):
-        from tw_report.core.filtering import normalize_project, normalize_task
+        from aw_report.core.filtering import normalize_project, normalize_task
 
         assert normalize_project("Climb") == "Climb"
         assert normalize_task("Merge vs Rebase") == "Merge vs Rebase"

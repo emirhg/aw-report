@@ -2,9 +2,9 @@
 
 from datetime import UTC, datetime, timedelta
 
-from tw_report.core.aw_events import TaskWarriorEvent
-from tw_report.core.report_slot import ReportTimelineSlot
-from tw_report.core.time_breakdown import AfkState
+from aw_report.core.aw_events import TaskWarriorEvent
+from aw_report.core.report_slot import ReportTimelineSlot
+from aw_report.core.time_breakdown import AfkState
 
 BASE = datetime(2026, 11, 2, 9, 0, tzinfo=UTC)
 

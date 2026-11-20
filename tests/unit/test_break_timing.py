@@ -8,8 +8,8 @@ Feature: Add break time totals and period aggregation
 """
 
 from datetime import datetime, timedelta, timezone
-from tw_report.pipeline.models import PeriodMetrics
-from tw_report.utils.formatting import format_duration
+from aw_report.pipeline.models import PeriodMetrics
+from aw_report.utils.formatting import format_duration
 
 
 class TestPeriodMetricsBreakTracking:

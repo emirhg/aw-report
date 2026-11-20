@@ -9,8 +9,8 @@ These tests enforce the fundamental rule:
 
 import pytest
 from datetime import datetime, timedelta, timezone
-from tw_report.core.aw_events import AFKEvent, WindowEvent, TaskWarriorEvent
-from tw_report.core.timeslot_builder import build_timeslot_timeline
+from aw_report.core.aw_events import AFKEvent, WindowEvent, TaskWarriorEvent
+from aw_report.core.timeslot_builder import build_timeslot_timeline
 
 
 class TestEventBackedInvariant:

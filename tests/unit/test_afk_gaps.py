@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 from aw_core.models import Event
 
-from tw_report.core.afk_gaps import logical_day, untracked_gaps
+from aw_report.core.afk_gaps import logical_day, untracked_gaps
 
 TZ = ZoneInfo("America/Mexico_City")  # UTC-6, no DST since 2022
 

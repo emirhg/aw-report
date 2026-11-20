@@ -10,8 +10,8 @@ logging.basicConfig(
 )
 
 from aw_client import ActivityWatchClient
-from tw_report.core.period import parse_period
-from tw_report.core.project_filtering import get_events_by_project
+from aw_report.core.period import parse_period
+from aw_report.core.project_filtering import get_events_by_project
 
 # Setup
 client = ActivityWatchClient("tw-report")

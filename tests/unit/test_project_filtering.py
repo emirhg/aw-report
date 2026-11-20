@@ -14,7 +14,7 @@ import json
 import pytest
 from aw_core.models import Event
 
-from tw_report.core.project_filtering import (
+from aw_report.core.project_filtering import (
     get_events_by_project,
     get_events_by_projects,
     should_skip_window_bucket,

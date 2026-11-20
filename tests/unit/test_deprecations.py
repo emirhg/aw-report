@@ -8,12 +8,12 @@ from typing import Any
 
 import pytest
 
-from tw_report.cli import main as cli_main
-from tw_report.core.aw_events import TaskWarriorEvent
-from tw_report.core.report_slot import ReportEntries, ReportTimelineSlot, _merge_categories_full
-from tw_report.core.task_matching import task_has_offline_tag
-from tw_report.core.timeline import Timeline, TimelineSlot
-from tw_report.pipeline import report_render, timeline_render
+from aw_report.cli import main as cli_main
+from aw_report.core.aw_events import TaskWarriorEvent
+from aw_report.core.report_slot import ReportEntries, ReportTimelineSlot, _merge_categories_full
+from aw_report.core.task_matching import task_has_offline_tag
+from aw_report.core.timeline import Timeline, TimelineSlot
+from aw_report.pipeline import report_render, timeline_render
 
 UTC = UTC
 T0 = datetime(2026, 7, 23, 10, 0, tzinfo=UTC)

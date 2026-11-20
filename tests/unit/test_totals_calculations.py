@@ -1,5 +1,5 @@
 """
-Unit tests for totals calculations in tw_report.
+Unit tests for totals calculations in aw_report.
 
 Tests verify that:
 1. Online Time = sum of AFK bucket events (both afk and not-afk status)

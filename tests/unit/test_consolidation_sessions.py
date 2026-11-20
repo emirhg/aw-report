@@ -256,19 +256,19 @@ class TestConsolidationWithPeriodGrouping:
         """--consolidate --by-day merges sessions per day."""
         # Should show one line per (day, project, task) instead of (day, project)
         # Placeholder: verify consolidation methods exist
-        from tw_report.core.report_slot import ReportEntries
+        from aw_report.core.report_slot import ReportEntries
 
         assert hasattr(ReportEntries, "consolidate_by_task"), "consolidate_by_task method required"
 
     def test_consolidate_with_by_week(self):
         """--consolidate --by-week merges sessions per week."""
-        from tw_report.core.report_slot import ReportEntries
+        from aw_report.core.report_slot import ReportEntries
 
         assert hasattr(ReportEntries, "consolidate_by_task"), "consolidate_by_task method required"
 
     def test_consolidate_alone_no_period_grouping(self):
         """--consolidate without --by-X merges within default day grouping."""
-        from tw_report.core.report_slot import ReportEntries
+        from aw_report.core.report_slot import ReportEntries
 
         assert hasattr(ReportEntries, "consolidate_by_task"), "consolidate_by_task method required"
 
@@ -279,26 +279,26 @@ class TestConsolidationCLIIntegration:
     def test_cli_consolidate_flag_accepted(self):
         """CLI accepts --consolidate flag."""
         # Verify --consolidate flag is defined in CLI args
-        from tw_report.cli import args as cli_args
+        from aw_report.cli import args as cli_args
 
         # Check that parsing functions exist
         assert hasattr(cli_args, "parse_args"), "--consolidate parsing should be available"
 
     def test_cli_consolidate_with_by_day(self):
         """CLI accepts --consolidate --by-day together."""
-        from tw_report.cli import args as cli_args
+        from aw_report.cli import args as cli_args
 
         assert hasattr(cli_args, "parse_args"), "CLI arg parsing should exist"
 
     def test_cli_consolidate_not_mutually_exclusive_with_by_flags(self):
         """--consolidate is not mutually exclusive with --by-day/week/month/year."""
-        from tw_report.cli import args as cli_args
+        from aw_report.cli import args as cli_args
 
         assert hasattr(cli_args, "parse_args"), "CLI arg parsing should exist"
 
     def test_cli_consolidate_rejected_with_by_project(self):
         """--consolidate is ignored/rejected with --by-project (already consolidated)."""
-        from tw_report.cli import args as cli_args
+        from aw_report.cli import args as cli_args
 
         assert hasattr(cli_args, "parse_args"), "CLI arg parsing should exist"
 

@@ -10,7 +10,7 @@ Tests cover:
 
 import pytest
 from datetime import datetime, timedelta, timezone
-from tw_report.core.timeline import TimelineSlot, Timeline
+from aw_report.core.timeline import TimelineSlot, Timeline
 
 
 # Fixtures
@@ -67,7 +67,7 @@ class TestTimelineSlot:
 
     def test_missing_actual_duration_raises(self, tz_aware_dt):
         """Test that actual_duration must be explicitly provided."""
-        from tw_report.core.timeline import TimelineSlotValidationError
+        from aw_report.core.timeline import TimelineSlotValidationError
 
         with pytest.raises(TimelineSlotValidationError, match="missing required 'actual_duration'"):
             TimelineSlot(
@@ -245,7 +245,7 @@ class TestTimelineSlot:
 
     def test_from_dict_missing_actual_duration_raises(self, tz_aware_dt):
         """Test from_dict raises when actual_duration is missing."""
-        from tw_report.core.timeline import TimelineSlotValidationError
+        from aw_report.core.timeline import TimelineSlotValidationError
 
         d = {
             "type": "task",
@@ -297,7 +297,7 @@ class TestTimelineSlot:
 
     def test_end_duration_mismatch_raises(self, tz_aware_dt):
         """Test that mismatched end and start+duration raises an error."""
-        from tw_report.core.timeline import TimelineSlotValidationError
+        from aw_report.core.timeline import TimelineSlotValidationError
 
         with pytest.raises(TimelineSlotValidationError, match="inconsistent with"):
             TimelineSlot(
@@ -327,7 +327,7 @@ class TestTimelineSlot:
 
     def test_offline_task_missing_event_duration_raises(self, tz_aware_dt):
         """Test that offline_task slots must have event_duration."""
-        from tw_report.core.timeline import TimelineSlotValidationError
+        from aw_report.core.timeline import TimelineSlotValidationError
 
         with pytest.raises(TimelineSlotValidationError, match="missing required 'event_duration'"):
             TimelineSlot(
@@ -357,7 +357,7 @@ class TestTimelineSlot:
 
     def test_from_dict_missing_type_raises(self, tz_aware_dt):
         """Test from_dict raises when type is missing."""
-        from tw_report.core.timeline import TimelineSlotValidationError
+        from aw_report.core.timeline import TimelineSlotValidationError
 
         d = {
             "start": tz_aware_dt(10),
@@ -369,7 +369,7 @@ class TestTimelineSlot:
 
     def test_from_dict_missing_duration_raises(self, tz_aware_dt):
         """Test from_dict raises when duration is missing."""
-        from tw_report.core.timeline import TimelineSlotValidationError
+        from aw_report.core.timeline import TimelineSlotValidationError
 
         d = {
             "type": "regular",

@@ -4,16 +4,16 @@ from datetime import datetime, timedelta, timezone
 
 from aw_core.models import Event
 
-from tw_report.core.filtering import EventFilter
-from tw_report.core.timeline import TimelineSlot
-from tw_report.core.report_slot import ReportTimelineSlot
-from tw_report.pipeline.processors import (
+from aw_report.core.filtering import EventFilter
+from aw_report.core.timeline import TimelineSlot
+from aw_report.core.report_slot import ReportTimelineSlot
+from aw_report.pipeline.processors import (
     _split_by_window_categories,
     aggregate_hierarchy_from_slots,
     compute_metrics,
     merge_overlapping_afk_periods,
 )
-from tw_report.utils.formatting import normalize_title
+from aw_report.utils.formatting import normalize_title
 
 UTC = timezone.utc
 T0 = datetime(2026, 7, 23, 10, 0, tzinfo=UTC)
@@ -27,7 +27,7 @@ def slot(
     h0, h1, project="P", task="T", categories=None, with_task_event=True
 ) -> ReportTimelineSlot:
     """A not-AFK slot of the given hours, built on the state model (no legacy converter)."""
-    from tw_report.core.aw_events import TaskWarriorEvent
+    from aw_report.core.aw_events import TaskWarriorEvent
 
     d = timedelta(hours=h1 - h0)
     task_event = (

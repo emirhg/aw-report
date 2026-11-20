@@ -1,5 +1,5 @@
 """
-Unit tests for CLI argument parsing (tw_report.cli.args).
+Unit tests for CLI argument parsing (aw_report.cli.args).
 
 Tests verify parse_args, reorder_arguments, and parse_positional_args
 correctly handle all flag combinations, orderings, and edge cases.
@@ -9,7 +9,7 @@ This is the first-ever test coverage for CLI parsing (previously zero coverage).
 
 import pytest
 
-from tw_report.cli.args import parse_args, parse_positional_args, reorder_arguments
+from aw_report.cli.args import parse_args, parse_positional_args, reorder_arguments
 
 
 class TestReorderArguments:

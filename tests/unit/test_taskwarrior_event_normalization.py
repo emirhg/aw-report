@@ -2,8 +2,8 @@
 
 from datetime import datetime, timedelta, timezone
 
-from tw_report.core.aw_events import TaskWarriorEvent
-from tw_report.core.filtering import NO_PROJECT, NO_TASK
+from aw_report.core.aw_events import TaskWarriorEvent
+from aw_report.core.filtering import NO_PROJECT, NO_TASK
 
 
 def _event(data):

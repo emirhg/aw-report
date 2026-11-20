@@ -8,9 +8,9 @@ from typing import Any, Dict
 
 import pytest
 
-from tw_report.pipeline.models import ReportTotals
-from tw_report.pipeline.processors import ProductivityBreakdown
-from tw_report.pipeline.report_render import (
+from aw_report.pipeline.models import ReportTotals
+from aw_report.pipeline.processors import ProductivityBreakdown
+from aw_report.pipeline.report_render import (
     print_report,
     print_report_header,
     print_report_summary,
@@ -28,7 +28,7 @@ def h(hours: float) -> timedelta:
 
 @pytest.fixture(autouse=True)
 def fixed_width(monkeypatch):
-    from tw_report.pipeline import report_render
+    from aw_report.pipeline import report_render
 
     monkeypatch.setattr(report_render, "get_terminal_width", lambda: 100)
 

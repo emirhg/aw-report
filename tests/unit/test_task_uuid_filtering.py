@@ -1,5 +1,5 @@
 """
-Unit tests for task UUID filtering (tw_report.core.task_uuid_filtering).
+Unit tests for task UUID filtering (aw_report.core.task_uuid_filtering).
 
 Tests verify UUID lookup from TaskWarrior and event filtering by UUID,
 with proper error handling and graceful degradation.
@@ -13,7 +13,7 @@ import subprocess
 import pytest
 from aw_core.models import Event
 
-from tw_report.core.task_uuid_filtering import (
+from aw_report.core.task_uuid_filtering import (
     get_task_uuid,
     get_events_by_uuid,
     get_task_description,
@@ -409,7 +409,7 @@ class TestGetTaskProject:
                 returncode=0,
             )
 
-            from tw_report.core.task_uuid_filtering import get_task_project
+            from aw_report.core.task_uuid_filtering import get_task_project
 
             project = get_task_project(48)
 
@@ -431,7 +431,7 @@ class TestGetTaskProject:
                 returncode=0,
             )
 
-            from tw_report.core.task_uuid_filtering import get_task_project
+            from aw_report.core.task_uuid_filtering import get_task_project
 
             project = get_task_project("550e8400-e29b-41d4-a716-446655440000")
 
@@ -442,7 +442,7 @@ class TestGetTaskProject:
         with patch("subprocess.run") as mock_run:
             mock_run.side_effect = subprocess.CalledProcessError(1, "task")
 
-            from tw_report.core.task_uuid_filtering import get_task_project
+            from aw_report.core.task_uuid_filtering import get_task_project
 
             project = get_task_project(999)
 
@@ -464,7 +464,7 @@ class TestGetTaskProject:
                 returncode=0,
             )
 
-            from tw_report.core.task_uuid_filtering import get_task_project
+            from aw_report.core.task_uuid_filtering import get_task_project
 
             project = get_task_project(48)
 
@@ -485,7 +485,7 @@ class TestGetTaskProject:
                 returncode=0,
             )
 
-            from tw_report.core.task_uuid_filtering import get_task_project
+            from aw_report.core.task_uuid_filtering import get_task_project
 
             project = get_task_project(48)
 

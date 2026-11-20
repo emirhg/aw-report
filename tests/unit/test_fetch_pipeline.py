@@ -13,16 +13,16 @@ from zoneinfo import ZoneInfo
 import pytest
 from aw_core.models import Event
 
-from tw_report.cli.fetch import run_fetch
-from tw_report.config import (
+from aw_report.cli.fetch import run_fetch
+from aw_report.config import (
     load_aw_server_address,
     resolve_settings,
     validate_activitywatch_section,
 )
-from tw_report.core.buckets import resolve_buckets
-from tw_report.core.events import fetch_events
-from tw_report.core.period import period_to_utc
-from tw_report.exceptions import ActivityWatchConnectionError, ConfigParsingError
+from aw_report.core.buckets import resolve_buckets
+from aw_report.core.events import fetch_events
+from aw_report.core.period import period_to_utc
+from aw_report.exceptions import ActivityWatchConnectionError, ConfigParsingError
 
 T0 = datetime(2026, 11, 12, 6, 0, tzinfo=timezone.utc)
 
@@ -164,7 +164,7 @@ class TestFetchCommand:
             return [_event(1, T0)] if bucket_id == "aw-watcher-afk_h" else []
 
         client.get_events.side_effect = fake_events
-        monkeypatch.setattr("tw_report.cli.fetch.ActivityWatchClient", lambda *a, **k: client)
+        monkeypatch.setattr("aw_report.cli.fetch.ActivityWatchClient", lambda *a, **k: client)
         assert run_fetch([":today"]) == 0
         payload = json.loads(capsys.readouterr().out)
         assert ids_seen == ["aw-watcher-afk_h", "aw-watcher-window_h", "aw-watcher-taskwarrior_h"]
@@ -177,38 +177,38 @@ class TestFetchCommand:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
         client = MagicMock()
         client.get_events.side_effect = ConnectionError("refused")
-        monkeypatch.setattr("tw_report.cli.fetch.ActivityWatchClient", lambda *a, **k: client)
+        monkeypatch.setattr("aw_report.cli.fetch.ActivityWatchClient", lambda *a, **k: client)
         assert run_fetch([":today"]) == 1
         assert "Error" in capsys.readouterr().err
 
 
 class TestLocalZoneinfo:
     def test_explicit_name_wins(self, monkeypatch):
-        from tw_report.core.period import local_zoneinfo
+        from aw_report.core.period import local_zoneinfo
 
         monkeypatch.setenv("TZ", "Asia/Tokyo")
         assert local_zoneinfo("America/Mexico_City") == ZoneInfo("America/Mexico_City")
 
     def test_unknown_explicit_name_raises(self):
-        from tw_report.core.period import local_zoneinfo
+        from aw_report.core.period import local_zoneinfo
 
         with pytest.raises(ValueError, match="Unknown timezone"):
             local_zoneinfo("Mars/Olympus")
 
     def test_uses_tz_environment_variable(self, monkeypatch):
-        from tw_report.core.period import local_zoneinfo
+        from aw_report.core.period import local_zoneinfo
 
         monkeypatch.setenv("TZ", "Asia/Tokyo")
         assert local_zoneinfo() == ZoneInfo("Asia/Tokyo")
 
     def test_invalid_tz_environment_falls_back_to_system_zone(self, monkeypatch):
-        from tw_report.core.period import local_zoneinfo
+        from aw_report.core.period import local_zoneinfo
 
         monkeypatch.setenv("TZ", "Not/AZone")
         assert local_zoneinfo() is not None
 
     def test_no_name_and_no_tz_uses_system_zone(self, monkeypatch):
-        from tw_report.core.period import local_zoneinfo
+        from aw_report.core.period import local_zoneinfo
 
         monkeypatch.delenv("TZ", raising=False)
         assert local_zoneinfo() is not None
@@ -216,8 +216,8 @@ class TestLocalZoneinfo:
 
 class TestDispatchAndDefaults:
     def test_main_dispatches_fetch_subcommand(self, monkeypatch):
-        from tw_report.cli import main as cli_main
-        from tw_report.cli import fetch as fetch_mod
+        from aw_report.cli import main as cli_main
+        from aw_report.cli import fetch as fetch_mod
 
         seen = []
         monkeypatch.setattr(fetch_mod, "run_fetch", lambda argv: seen.append(argv) or 7)
@@ -238,14 +238,14 @@ class TestDispatchAndDefaults:
         def boom(*a, **k):
             raise RuntimeError("unexpected")
 
-        monkeypatch.setattr("tw_report.cli.fetch.ActivityWatchClient", boom)
+        monkeypatch.setattr("aw_report.cli.fetch.ActivityWatchClient", boom)
         assert run_fetch([":today"]) == 1
         assert "could not query ActivityWatch" in capsys.readouterr().err
 
 
 class TestIsoPeriodZones:
     def test_naive_iso_is_read_in_the_given_zone(self):
-        from tw_report.core.period import parse_period
+        from aw_report.core.period import parse_period
 
         tokyo = ZoneInfo("Asia/Tokyo")
         start, end = parse_period("2026-06-15T10:30:00 2026-06-16T08:00:00", tz=tokyo)
@@ -253,7 +253,7 @@ class TestIsoPeriodZones:
         assert end == datetime(2026, 6, 16, 8, 0, tzinfo=tokyo)
 
     def test_aware_iso_is_converted_to_the_given_zone(self):
-        from tw_report.core.period import parse_period
+        from aw_report.core.period import parse_period
 
         mexico = ZoneInfo("America/Mexico_City")
         start, end = parse_period(

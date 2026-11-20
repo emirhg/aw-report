@@ -1,5 +1,5 @@
 """
-Unit tests for ActivityWatch event fetching (tw_report.core.events).
+Unit tests for ActivityWatch event fetching (aw_report.core.events).
 
 Tests verify bucket ID construction and event fetching with graceful degradation
 on connection errors. Uses mocking to avoid requiring a live ActivityWatch server.
@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 import pytest
 from aw_core.models import Event
 
-from tw_report.core.events import get_bucket_id, get_events
+from aw_report.core.events import get_bucket_id, get_events
 
 
 class TestGetBucketId:
@@ -157,7 +157,7 @@ class TestGetEvents:
         start, end = time_range
         mock_client.get_events.return_value = sample_events
 
-        with caplog.at_level(logging.DEBUG, logger="tw_report.core.events"):
+        with caplog.at_level(logging.DEBUG, logger="aw_report.core.events"):
             get_events(mock_client, "aw-watcher-window_host", start, end)
 
         assert any("Fetched 2 events" in record.message for record in caplog.records)
@@ -169,7 +169,7 @@ class TestGetEvents:
         start, end = time_range
         mock_client.get_events.side_effect = ConnectionError("Server offline")
 
-        with caplog.at_level(logging.WARNING, logger="tw_report.core.events"):
+        with caplog.at_level(logging.WARNING, logger="aw_report.core.events"):
             get_events(mock_client, "aw-watcher-window_host", start, end)
 
         assert any("Could not fetch events" in record.message for record in caplog.records)

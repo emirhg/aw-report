@@ -1,5 +1,5 @@
 """
-Unit tests for hierarchical report rendering (tw_report.pipeline.report_render).
+Unit tests for hierarchical report rendering (aw_report.pipeline.report_render).
 
 Tests verify header output, detail level handling, sorting, and task-based vs
 category-based rendering. Uses capsys to capture stdout.
@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from tw_report.pipeline.report_render import (
+from aw_report.pipeline.report_render import (
     print_report,
     print_report_header,
     print_summary_total,

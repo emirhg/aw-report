@@ -1,5 +1,5 @@
 """
-Integration tests for task UUID filtering CLI (tw_report.cli.main).
+Integration tests for task UUID filtering CLI (aw_report.cli.main).
 
 Tests verify that the --task-id flag correctly integrates with the main() function,
 including UUID lookup, conditional bucket fetching, and error handling.
@@ -37,7 +37,7 @@ class TestTaskUuidCliIntegration:
 
     def test_task_id_argument_parsing(self):
         """Verify --task-id argument is correctly parsed."""
-        from tw_report.cli.args import parse_args
+        from aw_report.cli.args import parse_args
 
         # Test with task ID
         args = parse_args(["--task-id", "48", ":today"])
@@ -50,7 +50,7 @@ class TestTaskUuidCliIntegration:
 
     def test_task_id_with_flexible_ordering(self):
         """Verify --task-id works with flexible argument ordering."""
-        from tw_report.cli.args import parse_args
+        from aw_report.cli.args import parse_args
 
         # Task ID before period
         args1 = parse_args(["--task-id", "48", ":today"])
@@ -66,7 +66,7 @@ class TestTaskUuidCliIntegration:
 
     def test_uuid_lookup_error_handling(self):
         """Verify UUID lookup errors are handled gracefully."""
-        from tw_report.core.task_uuid_filtering import get_task_uuid
+        from aw_report.core.task_uuid_filtering import get_task_uuid
 
         with patch("subprocess.run") as mock_run:
             mock_run.side_effect = Exception("taskwarrior not found")
@@ -78,7 +78,7 @@ class TestTaskUuidCliIntegration:
 
     def test_get_events_by_uuid_conditional_logic(self):
         """Verify conditional fetching based on task_uuid."""
-        from tw_report.core.task_uuid_filtering import get_events_by_uuid
+        from aw_report.core.task_uuid_filtering import get_events_by_uuid
 
         base_time = datetime(2026, 7, 1, 10, 0, tzinfo=timezone.utc)
         target_uuid = "550e8400-e29b-41d4-a716-446655440000"
@@ -133,7 +133,7 @@ class TestTaskUuidCliIntegration:
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = Mock(stdout=json.dumps(task_json), returncode=0)
 
-            from tw_report.core.task_uuid_filtering import get_task_uuid
+            from aw_report.core.task_uuid_filtering import get_task_uuid
 
             # Step 1: Lookup UUID
             resolved_uuid = get_task_uuid(task_id)
@@ -157,7 +157,7 @@ class TestTaskUuidCliIntegration:
             mock_client = Mock()
             mock_client.get_events.return_value = events
 
-            from tw_report.core.task_uuid_filtering import get_events_by_uuid
+            from aw_report.core.task_uuid_filtering import get_events_by_uuid
 
             start = datetime(2026, 7, 1, 0, 0, tzinfo=timezone.utc)
             end = datetime(2026, 7, 2, 0, 0, tzinfo=timezone.utc)
@@ -171,7 +171,7 @@ class TestTaskUuidCliIntegration:
 
     def test_invalid_task_id_returns_error(self):
         """Verify invalid task ID returns None from get_task_uuid."""
-        from tw_report.core.task_uuid_filtering import get_task_uuid
+        from aw_report.core.task_uuid_filtering import get_task_uuid
 
         with patch("subprocess.run") as mock_run:
             # Simulate taskwarrior returning empty result
@@ -184,7 +184,7 @@ class TestTaskUuidCliIntegration:
 
     def test_window_bucket_skipped_with_task_uuid(self):
         """Verify window bucket is skipped when task_uuid is provided."""
-        from tw_report.core.task_uuid_filtering import get_events_by_uuid
+        from aw_report.core.task_uuid_filtering import get_events_by_uuid
 
         # When task_uuid is None, regular flow (would fetch window bucket)
         # When task_uuid is set, skip window bucket, use only taskwarrior
@@ -203,7 +203,7 @@ class TestTaskUuidCliIntegration:
 
     def test_task_id_none_uses_normal_flow(self):
         """Verify task_id=None uses normal (non-UUID) flow."""
-        from tw_report.cli.args import parse_args
+        from aw_report.cli.args import parse_args
 
         # Default: no --task-id flag
         args = parse_args([":today", "--by-day"])
@@ -212,7 +212,7 @@ class TestTaskUuidCliIntegration:
 
     def test_task_uuid_filtering_preserves_other_flags(self):
         """Verify --task-id works alongside other flags."""
-        from tw_report.cli.args import parse_args
+        from aw_report.cli.args import parse_args
 
         args = parse_args(
             [
@@ -231,7 +231,7 @@ class TestTaskUuidCliIntegration:
 
     def test_task_uuid_with_search_term(self):
         """Verify --task-id coexists with search terms."""
-        from tw_report.cli.args import parse_args
+        from aw_report.cli.args import parse_args
 
         # Task ID with period
         args = parse_args(["--task-id", "48", ":today"])
@@ -249,7 +249,7 @@ class TestTaskUuidCliIntegration:
         # This is an architectural choice: task-UUID mode is task-focused
 
         # Verify the logic is in place by checking args don't conflict
-        from tw_report.cli.args import parse_args
+        from aw_report.cli.args import parse_args
 
         args = parse_args(["--task-id", "48", "--include-afk", ":today"])
 
@@ -261,7 +261,7 @@ class TestTaskUuidCliIntegration:
 
     def test_task_flag_with_uuid_single_value(self):
         """Verify --task <UUID> (single value) uses the fast UUID-based path."""
-        from tw_report.cli.args import parse_args
+        from aw_report.cli.args import parse_args
 
         # --task with a single UUID value should be accepted
         args = parse_args(["--task", "550e8400-e29b-41d4-a716-446655440000", ":today"])
@@ -271,7 +271,7 @@ class TestTaskUuidCliIntegration:
 
     def test_task_flag_with_numeric_id_single_value(self):
         """Verify --task <numeric ID> (single value) is recognized as ID."""
-        from tw_report.cli.args import parse_args
+        from aw_report.cli.args import parse_args
 
         # --task with a single numeric value should be parsed as a string
         args = parse_args(["--task", "48", ":today"])
@@ -281,7 +281,7 @@ class TestTaskUuidCliIntegration:
 
     def test_task_flag_with_multiple_values_unaffected(self):
         """Verify --task with multiple values is unaffected by UUID optimization."""
-        from tw_report.cli.args import parse_args
+        from aw_report.cli.args import parse_args
 
         # Multiple --task values should remain unaffected
         args = parse_args(
@@ -300,7 +300,7 @@ class TestTaskUuidCliIntegration:
 
     def test_task_flag_with_pattern_unaffected(self):
         """Verify --task with name pattern (not UUID/ID) is unaffected."""
-        from tw_report.cli.args import parse_args
+        from aw_report.cli.args import parse_args
 
         # Non-UUID, non-digit patterns should be unaffected
         args = parse_args(["--task", "Document", ":today"])
@@ -324,7 +324,7 @@ class TestTaskUuidCliIntegration:
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = Mock(stdout=json.dumps(task_json), returncode=0)
 
-            from tw_report.core.task_uuid_filtering import get_task_uuid
+            from aw_report.core.task_uuid_filtering import get_task_uuid
 
             # Simulate what main() does when it detects a numeric --task value
             resolved_uuid = get_task_uuid(task_id)
@@ -335,7 +335,7 @@ class TestTaskUuidCliIntegration:
 
     def test_task_uuid_direct_uuid_value(self):
         """Verify --task <direct UUID> is usable directly without lookup."""
-        from tw_report.core.project_filtering import _is_uuid_like
+        from aw_report.core.project_filtering import _is_uuid_like
 
         # Direct UUID value (no lookup needed)
         uuid_value = "550e8400-e29b-41d4-a716-446655440000"

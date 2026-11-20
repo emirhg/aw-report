@@ -64,7 +64,7 @@ that define where data comes from.
 - **Fixed bucket roles.** The builder needs exactly three sources (afk, window, tasks). The
   `[buckets]` config changes only where each role is read from.
 - **Deprecate, do not delete.** Production-unused API carries `@deprecated` and warns when called
-  (`tw_report.utils.deprecation`); removal is a separate decision.
+  (`aw_report.utils.deprecation`); removal is a separate decision.
 
 ## 4. Errors and degradation
 

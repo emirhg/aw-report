@@ -3,10 +3,10 @@
 from datetime import UTC, timedelta
 
 from tests.support.slots import BASE, slot
-from tw_report.core.categories import merge_category_trees
-from tw_report.core.time_breakdown import TimeBreakdown
-from tw_report.pipeline.metrics import state_totals
-from tw_report.pipeline.row_merge import merge_display_rows
+from aw_report.core.categories import merge_category_trees
+from aw_report.core.time_breakdown import TimeBreakdown
+from aw_report.pipeline.metrics import state_totals
+from aw_report.pipeline.row_merge import merge_display_rows
 
 
 def cat(name, minutes, app="Code", title="main.py", start=BASE, end=None):
@@ -96,7 +96,7 @@ def test_merge_category_trees_with_no_input_is_empty():
 
 
 def test_merged_row_keeps_every_tagged_data_value_in_order():
-    from tw_report.core.event_slot import DataValue
+    from aw_report.core.event_slot import DataValue
 
     first = slot(0, 10, "not-afk")
     second = slot(10, 5, "not-afk")

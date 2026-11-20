@@ -86,6 +86,6 @@ def test_help_names_the_program_aw_report(monkeypatch, capsys):
 
 
 def test_fetch_help_names_the_subcommand(monkeypatch, capsys):
-    from tw_report.cli.fetch import _build_parser
+    from aw_report.cli.fetch import _build_parser
 
     assert _build_parser().prog == "aw-report fetch"

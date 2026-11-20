@@ -7,7 +7,7 @@ to verify correct week/date assignment when logical day != calendar day.
 import pytest
 from datetime import datetime, date, timezone, timedelta
 
-from tw_report.pipeline.timeline_render import (
+from aw_report.pipeline.timeline_render import (
     get_slot_week_key,
     get_slot_logical_date,
 )

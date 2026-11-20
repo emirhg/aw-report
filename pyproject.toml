@@ -25,7 +25,7 @@ dev = [
 ]
 
 [project.scripts]
-aw-report = "tw_report.cli.main:main"
+aw-report = "aw_report.cli.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -39,7 +39,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.mypy]
 python_version = "3.14"
-packages = ["tw_report"]
+packages = ["aw_report"]
 warn_unused_ignores = true
 warn_redundant_casts = true
 
@@ -48,7 +48,7 @@ testpaths = ["tests"]
 addopts = "-ra"
 filterwarnings = [
     "error",
-    # Deprecated, production-unused APIs (see tw_report.utils.deprecation). Tests that cover
+    # Deprecated, production-unused APIs (see aw_report.utils.deprecation). Tests that cover
     # them assert the warning with pytest.deprecated_call (tests/unit/test_deprecations.py).
     "ignore:Not used by the report pipeline:DeprecationWarning",
     "ignore:Private helper of deprecated:DeprecationWarning",
@@ -61,7 +61,7 @@ markers = [
 
 [tool.coverage.run]
 branch = true
-source = ["src/tw_report"]
+source = ["src/aw_report"]
 
 [tool.coverage.report]
 show_missing = true

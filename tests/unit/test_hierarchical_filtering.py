@@ -7,10 +7,10 @@ When --project Climb is used, both the tree AND metrics should only show Climb d
 
 import pytest
 from datetime import datetime, timedelta, timezone
-from tw_report.core.report_slot import ReportTimelineSlot
-from tw_report.core.filtering import EventFilter
-from tw_report.core.aw_events import TaskWarriorEvent
-from tw_report.pipeline.processors import aggregate_hierarchy_from_slots
+from aw_report.core.report_slot import ReportTimelineSlot
+from aw_report.core.filtering import EventFilter
+from aw_report.core.aw_events import TaskWarriorEvent
+from aw_report.pipeline.processors import aggregate_hierarchy_from_slots
 
 
 class TestHierarchicalFilteringConsistency:

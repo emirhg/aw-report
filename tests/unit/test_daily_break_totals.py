@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta, timezone
 
-from tw_report.core.report_slot import (
+from aw_report.core.report_slot import (
     compute_daily_break_totals,
     compute_total_break_time,
     ReportTimelineSlot,

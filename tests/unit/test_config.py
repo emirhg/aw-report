@@ -1,5 +1,5 @@
 """
-Unit tests for configuration loading and settings resolution (tw_report.config).
+Unit tests for configuration loading and settings resolution (aw_report.config).
 
 Tests verify TOML parsing, XDG path resolution, and settings precedence.
 """
@@ -11,13 +11,13 @@ from unittest.mock import patch
 
 import pytest
 
-from tw_report.config import (
+from aw_report.config import (
     ResolvedSettings,
     get_config_path,
     load_user_config,
     resolve_settings,
 )
-from tw_report.exceptions import ConfigParsingError
+from aw_report.exceptions import ConfigParsingError
 
 
 class TestGetConfigPath:

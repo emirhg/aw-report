@@ -1,0 +1,468 @@
+"""
+Category loading, compilation, and scoring for ActivityWatch categorization.
+
+Loads regex-based categorization rules from ActivityWatch settings JSON,
+compiles them into reusable patterns, and provides scoring/lookup utilities.
+"""
+
+import json
+import logging
+import os
+import re
+from collections.abc import Iterable, Mapping, Sequence
+from datetime import timedelta
+from re import Pattern
+from typing import TYPE_CHECKING, Any
+
+from aw_report.exceptions import CategoryValidationError, ConfigParsingError
+
+if TYPE_CHECKING:
+    from aw_core.models import Event
+
+    from aw_report.core.aw_events import WindowEvent
+
+logger = logging.getLogger(__name__)
+
+
+def load_categories(filepath: str) -> list[dict]:
+    """Load categorization rules from ActivityWatch settings file.
+
+    Args:
+        filepath: Path to ActivityWatch settings JSON file
+
+    Returns:
+        List of category rule dictionaries, or empty list if file not found/invalid
+
+    Raises:
+        ConfigParsingError: If the file exists but is malformed JSON
+    """
+    if not os.path.exists(filepath):
+        logger.warning(f"Categories file not found at '{filepath}', using no rules")
+        return []
+
+    try:
+        with open(filepath, encoding="utf-8") as f:
+            settings = json.load(f)
+            return settings.get("classes", [])
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse categories JSON from '{filepath}': {e}")
+        raise ConfigParsingError(f"Malformed JSON in categories file '{filepath}': {e}") from e
+    except OSError as e:
+        logger.error(f"Failed to read categories file '{filepath}': {e}")
+        raise ConfigParsingError(f"Cannot read categories file '{filepath}': {e}") from e
+
+
+def compile_category_rules(
+    category_rules: list[dict],
+) -> tuple[list[tuple[list[str], Pattern, float]], dict[str, float]]:
+    """Compile regex-based category rules into reusable patterns.
+
+    Takes a list of category rule dictionaries (from ActivityWatch settings),
+    validates them, compiles the regex patterns, and builds a score lookup map
+    with inheritance support (child categories inherit parent scores).
+
+    Args:
+        category_rules: List of rule dicts with 'name', 'rule', 'data' keys
+
+    Returns:
+        Tuple of (compiled_rules, score_map) where:
+        - compiled_rules: List of (category_path, pattern, score) tuples
+        - score_map: Dict mapping category paths to productivity scores
+
+    Raises:
+        CategoryValidationError: If regex compilation fails
+    """
+    compiled_rules = []
+    cat_score_map = {}
+
+    if not category_rules:
+        return [], {}
+
+    # First pass: collect explicit category scores (for inheritance lookup)
+    explicit_scores: dict[str, float | None] = {}
+    for rule_item in category_rules:
+        cat_list = rule_item.get("name", ["Unknown"])
+        if cat_list:
+            full_path = " > ".join(cat_list)
+            score_val = rule_item.get("data", {}).get("score")
+            explicit_scores[full_path] = float(score_val) if score_val is not None else None
+            # Add parent categories with type: "none" and explicit scores
+            rule = rule_item.get("rule", {})
+            if rule.get("type") == "none" and score_val is not None:
+                cat_score_map[full_path] = float(score_val)
+
+    # Second pass: compile regex rules and build score map with inheritance
+    for rule_item in category_rules:
+        rule = rule_item.get("rule", {})
+        if rule.get("type") == "regex" and rule.get("regex"):
+            try:
+                cat_list = rule_item.get("name", ["Unknown"])
+                score_val = rule_item.get("data", {}).get("score")
+                score = float(score_val) if score_val is not None else 0.0
+                ignore_case = rule.get("ignore_case", True)
+                flags = re.IGNORECASE if ignore_case else 0
+                pattern = re.compile(rule["regex"], flags)
+                compiled_rules.append((cat_list, pattern, score))
+
+                # Store in score map for lookup
+                if cat_list:
+                    full_path = " > ".join(cat_list)
+                    if score_val is not None:
+                        cat_score_map[full_path] = score
+                        # Also store leaf category for backward compatibility
+                        cat_score_map[cat_list[-1]] = score
+
+                    # Store parent paths for inheritance lookup
+                    for i in range(len(cat_list) - 1, 0, -1):
+                        parent_path = " > ".join(cat_list[:i])
+                        parent_score = explicit_scores.get(parent_path)
+                        if parent_score is not None and parent_path not in cat_score_map:
+                            cat_score_map[parent_path] = parent_score
+            except re.error as e:
+                logger.error(f"Failed to compile regex for rule {rule_item}: {e}")
+                raise CategoryValidationError(
+                    f"Invalid regex in category rule {rule_item}: {e}"
+                ) from e
+
+    return compiled_rules, cat_score_map
+
+
+def get_category_score(category: str, cat_score_map: dict[str, float]) -> float:
+    """Get productivity score for a category with inheritance support.
+
+    If the category has no direct score, tries progressively shorter paths
+    to find a parent category score. E.g., for "Work > Coding > Python":
+    tries → full path → "Work > Coding" → "Work" → defaults to 0.
+
+    Args:
+        category: Category path (e.g., "Work > Coding > Python")
+        cat_score_map: Score lookup dictionary
+
+    Returns:
+        Productivity score (float), defaults to 0.0 if not found
+    """
+    # Try exact match first
+    if category in cat_score_map:
+        return cat_score_map[category]
+
+    # Try parent categories if category contains hierarchy separator
+    if " > " in category:
+        parts = category.split(" > ")
+        # Work backwards from most specific to most general
+        for i in range(len(parts) - 1, 0, -1):
+            parent = " > ".join(parts[:i])
+            if parent in cat_score_map:
+                return cat_score_map[parent]
+
+    return 0.0
+
+
+def categorize_event(
+    event: WindowEvent, categories: list[tuple[list[str], Pattern, float]]
+) -> None:
+    """Categorize a window event by matching against regex rules.
+
+    Mutates event.data["$category"] in-place with the most specific matching
+    category. Tries to match against: (app + title), app, then title, in that order.
+
+    Args:
+        event: Window event to categorize (mutated in-place)
+        categories: Compiled category rules from compile_category_rules()
+    """
+    # Preserve exact current default strings ("") for backward-compatible matching behavior
+    app_name = event.data.get("app", "")
+    title = event.data.get("title", "")
+    match_strings = [
+        app_name + " " + title,
+        app_name,
+        title,
+    ]
+
+    matched_cats = []
+    for cat_list, pattern, _ in categories:
+        if any(pattern.search(s) for s in match_strings) and cat_list:
+            full_path = " > ".join(cat_list)
+            # Store (specificity, path) for sorting by most-specific first
+            matched_cats.append((len(cat_list), full_path))
+
+    if matched_cats:
+        # Sort by specificity (descending), then alphabetically
+        matched_cats.sort(key=lambda x: (-x[0], x[1]))
+        # Store the most specific matching category
+        event.data["$category"] = [matched_cats[0][1]]
+    else:
+        # No matching category: assign "Uncategorized"
+        # This ensures all window events contribute to coverage calculations
+        # (e.g., OFFLINE task reconciliation), not just those with explicit rules
+        event.data["$category"] = ["Uncategorized"]
+
+
+def build_categories_from_window_events(
+    window_events: Sequence[Event],
+    period_start,
+    period_end,
+) -> list[dict]:
+    """Aggregate window events overlapping a time period into categories > apps > titles.
+
+    Extracts ActivityWatch window categorization data from events that overlap a given
+    time period, builds a nested structure of category > app > title > events, and
+    flattens it into the TimelineSlot.categories list format.
+
+    Used by the slot builder (timeslot_builder) for task-covered slots, and by the
+    productivity breakdown (processors) for window coverage of each slot span.
+
+    Args:
+        window_events: List of ActivityWatch window events
+        period_start: Start of the time period to aggregate (datetime)
+        period_end: End of the time period to aggregate (datetime)
+
+    Returns:
+        List of category dicts with structure:
+        [{
+            "category": "string",
+            "duration": timedelta,
+            "start": datetime,
+            "end": datetime,
+            "apps": [{
+                "app": "string",
+                "duration": timedelta,
+                "start": datetime,
+                "end": datetime,
+                "titles": [{
+                    "title": "string",
+                    "duration": timedelta,
+                    "start": datetime,
+                    "end": datetime,
+                    "events": [Event, ...]
+                }, ...]
+            }, ...]
+        }, ...]
+        Returns empty list if no window events overlap the period.
+    """
+    if not window_events:
+        return []
+
+    categories = {}
+
+    for window_event in window_events:
+        window_start = window_event.timestamp
+        window_end = window_event.timestamp + window_event.duration
+
+        # Check if window event overlaps with the period
+        if window_start < period_end and window_end > period_start:
+            # Calculate overlap duration
+            overlap_start = max(window_start, period_start)
+            overlap_end = min(window_end, period_end)
+            overlap_duration = overlap_end - overlap_start
+
+            # Extract categories from this window event
+            event_categories = window_event.data.get("$category", [])
+            # Only process if there's actual categorization - don't create fake categories
+            # for uncategorized window events
+
+            for cat in event_categories:
+                if cat not in categories:
+                    categories[cat] = {
+                        "category": cat,
+                        "duration": timedelta(0),
+                        "start": overlap_start,
+                        "end": overlap_end,
+                        "apps": {},
+                    }
+                else:
+                    # Expand time window (don't accumulate duration here, do it from apps later)
+                    cat_data = categories[cat]
+                    if overlap_start < cat_data["start"]:
+                        cat_data["start"] = overlap_start
+                    if overlap_end > cat_data["end"]:
+                        cat_data["end"] = overlap_end
+
+                # Extract app name (window title) if available
+                app_name = window_event.data.get("app", "Unknown")
+                if app_name not in categories[cat]["apps"]:
+                    categories[cat]["apps"][app_name] = {
+                        "app": app_name,
+                        "duration": overlap_duration,
+                        "start": overlap_start,
+                        "end": overlap_end,
+                        "titles": {},
+                    }
+                else:
+                    app_data = categories[cat]["apps"][app_name]
+                    app_data["duration"] += overlap_duration
+                    if overlap_start < app_data["start"]:
+                        app_data["start"] = overlap_start
+                    if overlap_end > app_data["end"]:
+                        app_data["end"] = overlap_end
+
+                # Extract title if available
+                title = window_event.data.get("title", "Unknown")
+                if title not in categories[cat]["apps"][app_name]["titles"]:
+                    categories[cat]["apps"][app_name]["titles"][title] = {
+                        "title": title,
+                        "duration": overlap_duration,
+                        "start": overlap_start,
+                        "end": overlap_end,
+                        "events": [window_event],
+                    }
+                else:
+                    title_data = categories[cat]["apps"][app_name]["titles"][title]
+                    title_data["duration"] += overlap_duration
+                    if overlap_start < title_data["start"]:
+                        title_data["start"] = overlap_start
+                    if overlap_end > title_data["end"]:
+                        title_data["end"] = overlap_end
+                    title_data["events"].append(window_event)
+
+    # Convert categories dict to list format for consistency with regular slots
+    merged_categories = []
+    for cat, cat_data in categories.items():
+        # Compute category duration from sum of app durations (to avoid double-counting)
+        cat_duration = sum(
+            (app_data["duration"] for app_data in cat_data["apps"].values()),
+            timedelta(0),
+        )
+
+        # Recalculate category start/end from app children's actual times
+        cat_start = None
+        cat_end = None
+        for app_data in cat_data["apps"].values():
+            app_start = app_data.get("start")
+            app_end = app_data.get("end")
+            if app_start and (cat_start is None or app_start < cat_start):
+                cat_start = app_start
+            if app_end and (cat_end is None or app_end > cat_end):
+                cat_end = app_end
+
+        cat_info = {
+            "category": cat,
+            "duration": cat_duration,
+            "start": cat_start,
+            "end": cat_end,
+        }
+        # Every category is created together with at least one app and every app with at least
+        # one title, so the apps list is always populated.
+        apps_list = []
+        for app_name, app_data in cat_data["apps"].items():
+            # Recalculate app start/end from title children's actual times
+            app_start = None
+            app_end = None
+            for title_data in app_data["titles"].values():
+                title_start = title_data.get("start")
+                title_end = title_data.get("end")
+                if title_start and (app_start is None or title_start < app_start):
+                    app_start = title_start
+                if title_end and (app_end is None or title_end > app_end):
+                    app_end = title_end
+            app_info = {
+                "app": app_name,
+                "duration": app_data["duration"],
+                "start": app_start,
+                "end": app_end,
+                "titles": [
+                    {
+                        "title": t,
+                        "duration": title_data["duration"],
+                        "start": title_data.get("start"),
+                        "end": title_data.get("end"),
+                        "events": title_data.get("events", []),
+                    }
+                    for t, title_data in app_data["titles"].items()
+                ],
+            }
+            apps_list.append(app_info)
+
+        cat_info["apps"] = apps_list
+        merged_categories.append(cat_info)
+
+    return merged_categories
+
+
+def merge_category_trees(category_lists: Iterable[Sequence[Mapping[str, Any]]]) -> list[dict]:
+    """Merge several category lists (category > app > title) into one, summing durations.
+
+    Each input is a list in the shape ``build_categories_from_window_events`` returns. Start and
+    end values widen to the union of their ranges, titles keep their events, and the output is
+    sorted by category name.
+    """
+    merged_cats: dict[str, dict[str, Any]] = {}
+
+    for categories in category_lists:
+        for cat_info in categories:
+            cat = cat_info.get("category", "Uncategorized")
+            if cat not in merged_cats:
+                merged_cats[cat] = {
+                    "category": cat,
+                    "duration": timedelta(0),
+                    "start": cat_info.get("start"),
+                    "end": cat_info.get("end"),
+                    "apps": {},
+                }
+            else:
+                cat_start = cat_info.get("start")
+                cat_end = cat_info.get("end")
+                if cat_start and (
+                    not merged_cats[cat]["start"] or cat_start < merged_cats[cat]["start"]
+                ):
+                    merged_cats[cat]["start"] = cat_start
+                if cat_end and (not merged_cats[cat]["end"] or cat_end > merged_cats[cat]["end"]):
+                    merged_cats[cat]["end"] = cat_end
+
+            merged_cats[cat]["duration"] += cat_info.get("duration", timedelta(0))
+
+            for app_info in cat_info.get("apps", []):
+                app = app_info.get("app", "Unknown App")
+                if app not in merged_cats[cat]["apps"]:
+                    merged_cats[cat]["apps"][app] = {
+                        "app": app,
+                        "duration": timedelta(0),
+                        "start": app_info.get("start"),
+                        "end": app_info.get("end"),
+                        "titles": {},
+                    }
+                else:
+                    app_entry = merged_cats[cat]["apps"][app]
+                    app_start = app_info.get("start")
+                    app_end = app_info.get("end")
+                    if app_start and (not app_entry["start"] or app_start < app_entry["start"]):
+                        app_entry["start"] = app_start
+                    if app_end and (not app_entry["end"] or app_end > app_entry["end"]):
+                        app_entry["end"] = app_end
+
+                app_entry = merged_cats[cat]["apps"][app]
+                app_entry["duration"] += app_info.get("duration", timedelta(0))
+
+                for title_info in app_info.get("titles", []):
+                    title = title_info.get("title", "Unknown Title")
+                    if title not in app_entry["titles"]:
+                        app_entry["titles"][title] = {
+                            "title": title,
+                            "duration": timedelta(0),
+                            "events": [],
+                        }
+                    app_entry["titles"][title]["duration"] += title_info.get(
+                        "duration", timedelta(0)
+                    )
+                    app_entry["titles"][title]["events"].extend(title_info.get("events", []))
+
+    result: list[dict] = []
+    for _cat, cat_data in sorted(merged_cats.items()):
+        cat_entry: dict[str, Any] = {
+            "category": cat_data["category"],
+            "duration": cat_data["duration"],
+            "start": cat_data.get("start"),
+            "end": cat_data.get("end"),
+        }
+        if cat_data["apps"]:
+            cat_entry["apps"] = [
+                {
+                    "app": app_data["app"],
+                    "duration": app_data["duration"],
+                    "start": app_data.get("start"),
+                    "end": app_data.get("end"),
+                    "titles": list(app_data["titles"].values()) if app_data["titles"] else [],
+                }
+                for app_data in cat_data["apps"].values()
+            ]
+        result.append(cat_entry)
+    return result

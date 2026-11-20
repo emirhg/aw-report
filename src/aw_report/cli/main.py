@@ -1,0 +1,865 @@
+"""
+tw-report CLI entry point with full orchestration.
+
+Handles all argument parsing, data fetching, processing, and report generation.
+"""
+
+import logging
+import sys
+from collections.abc import Sequence
+from datetime import datetime, timedelta
+from typing import TypeVar, cast
+
+from aw_client import ActivityWatchClient
+from aw_core.models import Event
+
+from aw_report.cli.args import parse_args, parse_positional_args
+from aw_report.config import load_user_config, resolve_settings
+from aw_report.core.aw_events import AFKEvent
+from aw_report.core.buckets import parse_sources, resolve_buckets
+from aw_report.core.categories import (
+    categorize_event,
+    compile_category_rules,
+    get_category_score,
+    load_categories,
+)
+from aw_report.core.event_filters import filter_by_value
+from aw_report.core.events import (
+    fetch_events,
+    get_events,
+)
+from aw_report.core.filtering import NO_PROJECT, NO_TASK, EventFilter, _is_unassigned_project
+
+# OfflineTaskProcessor removed in Phase 2 refactor — builder handles offline classification
+from aw_report.core.period import PERIOD_TOKENS, local_zoneinfo, parse_period
+from aw_report.core.project_filtering import (
+    _is_uuid_like,
+    get_events_by_project,
+    get_events_by_projects,
+    resolve_project_filter_value,
+)
+from aw_report.core.report_slot import ReportTimelineSlot
+from aw_report.core.task_filtering import (
+    get_events_by_task,
+    get_events_by_tasks,
+    resolve_task_filter_value,
+)
+from aw_report.core.task_uuid_filtering import (
+    get_events_by_uuid,
+    get_task_uuid,
+)
+from aw_report.core.timeslot_builder import build_timeslot_timeline
+from aw_report.exceptions import ConfigParsingError
+from aw_report.pipeline.metrics import state_totals
+
+# generate_untracked_gap_events removed in Phase 2 refactor — builder handles gaps
+from aw_report.pipeline.presenters import HierarchicalReport, TimelineReport
+from aw_report.pipeline.processors import (
+    aggregate_hierarchy_from_slots,
+    build_context,
+    compute_metrics,
+    compute_productivity_breakdown,
+    merge_overlapping_afk_periods,
+)
+from aw_report.pipeline.report_render import print_report
+from aw_report.pipeline.timeline_render import print_timeline_report
+from aw_report.pipeline.timesheet_render import Mode, print_timesheet_report
+from aw_report.utils.deprecation import deprecated
+from aw_report.utils.formatting import normalize_title
+from aw_report.utils.profiling import StageProfiler, enable_unbuffered_output
+
+logger = logging.getLogger(__name__)
+
+
+@deprecated("Not called by the CLI; scheduled for removal.")
+def _matches_any(name: str, patterns: list[str] | None, exact: bool) -> bool:
+    """Check if name matches any pattern (case-insensitive substring or exact)."""
+    if not patterns:
+        return False
+    return any(
+        (exact and name.lower() == p.lower()) or (not exact and p.lower() in name.lower())
+        for p in patterns
+    )
+
+
+@deprecated("Not called by the CLI; scheduled for removal.")
+def _excluded(name: str, exclusions: list[str] | None) -> bool:
+    """Check if name is in exclusion list (case-insensitive substring match)."""
+    if not exclusions:
+        return False
+    return any(excl.lower() in name.lower() for excl in exclusions)
+
+
+def _get_time_ranges_from_events(events: Sequence[Event]) -> list[tuple[datetime, datetime]]:
+    """Extract non-overlapping time ranges from a list of events.
+
+    Merges overlapping or adjacent events into continuous time windows.
+    Used to optimize AFK/window fetching by only querying times when task events exist.
+    """
+    if not events:
+        return []
+
+    # Sort by start time
+    sorted_events = sorted(events, key=lambda e: e.timestamp)
+    ranges: list[tuple[datetime, datetime]] = []
+
+    for event in sorted_events:
+        event_start = event.timestamp
+        event_end = event.timestamp + event.duration
+
+        if ranges and ranges[-1][1] >= event_start:
+            # Overlapping or adjacent: merge
+            ranges[-1] = (ranges[-1][0], max(ranges[-1][1], event_end))
+        else:
+            # New range
+            ranges.append((event_start, event_end))
+
+    return ranges
+
+
+E = TypeVar("E", bound=Event)
+
+
+def _compute_app_bounded_ranges(
+    task_time_ranges: list[tuple[datetime, datetime]] | None,
+    app_matching_windows: Sequence[Event],
+) -> list[tuple[datetime, datetime]]:
+    """Bound time ranges to the envelope of app usage (min start -> max end).
+
+    Uses a single bounding envelope rather than fragmented per-window ranges,
+    so AFK context is preserved for idle/break periods *between* app usages
+    (needed for correct online/offline classification) while still skipping
+    time far outside when the app was ever used.
+
+    If task_time_ranges is given (project/task filter also active), each
+    range is clipped to the app envelope. If clipping removes everything
+    (shouldn't happen since windows came from within task_time_ranges, but
+    guarded defensively), falls back to the original task_time_ranges.
+    """
+    if not app_matching_windows:
+        return task_time_ranges or []
+
+    app_start = min(w.timestamp for w in app_matching_windows)
+    app_end = max(w.timestamp + w.duration for w in app_matching_windows)
+
+    if not task_time_ranges:
+        return [(app_start, app_end)]
+
+    clipped = []
+    for t_start, t_end in task_time_ranges:
+        c_start = max(t_start, app_start)
+        c_end = min(t_end, app_end)
+        if c_start < c_end:
+            clipped.append((c_start, c_end))
+
+    return clipped or task_time_ranges
+
+
+def main():
+    """Main script logic: orchestrate data fetching, processing, and report generation."""
+    enable_unbuffered_output()
+    if len(sys.argv) > 1 and sys.argv[1] == "fetch":
+        from aw_report.cli.fetch import run_fetch
+
+        return run_fetch(sys.argv[2:])
+    return _run(StageProfiler.from_env())
+
+
+def _run(profiler: StageProfiler):
+    profiler.checkpoint("MAIN START")
+    args = parse_args()
+    profiler.checkpoint("parse_args() done")
+
+    # Load config file and resolve settings (CLI args > config file > defaults)
+    try:
+        user_config = load_user_config()
+        buckets = resolve_buckets(user_config.get("buckets"))
+        resolved_settings = resolve_settings(
+            cli_args={"day_start_hour": args.day_start_hour}, user_config=user_config
+        )
+    except ConfigParsingError as config_error:
+        print(f"Error: {config_error}", file=sys.stderr)
+        return 1
+    day_start_hour = resolved_settings.day_start_hour
+    try:
+        # The timesheet defaults to the tasks source; --source tasks,afk adds system activity
+        if args.format == "timesheet" and args.source is None:
+            sources = frozenset({"tasks"})
+        else:
+            sources = parse_sources(args.source)
+    except ValueError as source_error:
+        print(f"Error: {source_error}", file=sys.stderr)
+        return 1
+    if "tasks" not in sources and (args.project or args.task):
+        print(
+            "Error: --project and --task need the tasks source (--source includes tasks)",
+            file=sys.stderr,
+        )
+        return 1
+    if (
+        args.format != "timesheet"
+        and "window" not in sources
+        and (args.app or args.detail_level >= 3)
+    ):
+        print(
+            "Error: --app and --detail-level 3 and above need the window source "
+            "(--source includes window)",
+            file=sys.stderr,
+        )
+        return 1
+    use_tasks = "tasks" in sources and not args.no_taskwarrior
+    client = ActivityWatchClient(
+        "tw-report", host=resolved_settings.aw_host, port=str(resolved_settings.aw_port)
+    )
+    profiler.checkpoint("ActivityWatchClient created")
+
+    # Determine grouping mode (default to --by-day)
+    grouping_mode = None
+    if args.by_project:
+        grouping_mode = "project"
+    elif args.by_day:
+        grouping_mode = "day"
+    elif args.by_week:
+        grouping_mode = "week"
+    elif args.by_month:
+        grouping_mode = "month"
+    elif args.by_year:
+        grouping_mode = "year"
+    else:
+        # Default to by-day if no grouping mode specified
+        grouping_mode = "day"
+
+    if args.format == "timesheet":
+        # The timesheet is a task-only report: it needs taskwarrior and nothing else.
+        for conflict, flag in (
+            (args.by_project, "--by-project"),
+            (args.no_taskwarrior, "--no-taskwarrior"),
+            (args.app, "--app"),
+        ):
+            if conflict:
+                print(
+                    f"Error: --format timesheet cannot be combined with {flag}",
+                    file=sys.stderr,
+                )
+                return 1
+
+    # Parse positional arguments to separate period from search term
+    period, search_term = parse_positional_args(args.args)
+    args.search = search_term  # Set search term from positional args (None if not provided)
+
+    # Adjust default period based on grouping mode (if no explicit period provided)
+    if period == ":today":  # Only adjust if using the default period
+        if grouping_mode == "week" and not any(
+            arg.startswith(":") or arg[0].isdigit() for arg in args.args
+        ):
+            period = ":week"
+        elif grouping_mode == "month" and not any(
+            arg.startswith(":") or arg[0].isdigit() for arg in args.args
+        ):
+            period = ":month"
+        elif grouping_mode == "year" and not any(
+            arg.startswith(":") or arg[0].isdigit() for arg in args.args
+        ):
+            period = ":year"
+
+    # Resolve task UUID if --task-id is provided
+    task_uuid = None
+    if args.task_id:
+        task_uuid = get_task_uuid(args.task_id)
+        if not task_uuid:
+            print(f"Error: Task {args.task_id} not found", file=sys.stderr)
+            return 1
+
+    # Detect task ID/UUID in a single --task value for efficient server-side
+    # filtering (mirrors --task-id). Only applies when exactly one --task value
+    # is given, since bucket-level fetch elsewhere only ever honors args.task[0].
+    if not task_uuid and args.task and len(args.task) == 1:
+        value = args.task[0]
+        if value.isdigit():
+            task_uuid = get_task_uuid(int(value))
+        elif _is_uuid_like(value):
+            task_uuid = value
+        # If resolution fails, leave task_uuid as None — the existing
+        # resolve_task_filter_value() call below will raise the correct
+        # "not found" error for this same value.
+
+    # Check if --project accidentally consumed a period token (e.g., :lastweek)
+    # This happens when --project is used without an argument
+    if args.project:
+        for value in args.project:
+            if value.startswith(":") and value in PERIOD_TOKENS:
+                print(
+                    f"Error: --project requires an argument. Did you mean to use a period "
+                    f"('{value}') without a filter?\n"
+                    f"Correct usage: tw-report {value} --project PATTERN",
+                    file=sys.stderr,
+                )
+                return 1
+
+    # Resolve project filter values (may be task IDs, UUIDs, or literal patterns)
+    if args.project:
+        resolved_projects = []
+        for value in args.project:
+            resolved, error = resolve_project_filter_value(value)
+            if error:
+                print(f"Error: {error}", file=sys.stderr)
+                return 1
+            resolved_projects.append(resolved)
+        args.project = resolved_projects
+
+    # Resolve task filter values (may be task IDs, UUIDs, or literal patterns)
+    if args.task:
+        resolved_tasks = []
+        for value in args.task:
+            resolved, error = resolve_task_filter_value(value)
+            if error:
+                print(f"Error: {error}", file=sys.stderr)
+                return 1
+            resolved_tasks.append(resolved)
+        args.task = resolved_tasks
+
+    # Create unified event filter for consistent filtering across all entry types
+    event_filter = EventFilter(
+        project_patterns=args.project or [],
+        task_patterns=args.task or [],
+        app_patterns=args.app or [],
+        exclude_projects=args.exclude_project or [],
+        exclude_tasks=args.exclude_task or [],
+        exclude_apps=args.exclude_app or [],
+        exclude_non_project=args.exclude_non_project,
+        exact_match=args.exact,
+        search_term=args.search,
+    )
+
+    start_time, end_time = parse_period(
+        period, day_start_hour, tz=local_zoneinfo(resolved_settings.timezone)
+    )
+    categories_json = load_categories(args.categories)
+    compiled_categories, cat_score_map = compile_category_rules(categories_json)
+
+    # PHASE 14 OPTIMIZATION: Fetch TaskWarrior events FIRST (with any filter applied)
+    # to extract time ranges, then use those ranges to limit AFK/window fetching.
+    # This dramatically reduces data volume for sparse task data (e.g., :all with --project).
+    # Example: tw-report --project "Higuera" :all fetches only Higuera's time windows for
+    # AFK/window,
+    # not the entire :all period.
+    task_events_early: Sequence[Event] | None = None
+    task_time_ranges = None
+    task_events = None  # Will be populated later; used for window-fetch decision
+
+    if use_tasks:
+        task_bucket = buckets.tasks
+
+        # Fetch TaskWarrior with ANY available filter (UUID, project, task)
+        # This determines the actual time window we need to fetch AFK/window for
+        if task_uuid:
+            # Task UUID mode: fetch by UUID first
+            task_events_early = get_events_by_uuid(
+                client, task_bucket, start_time, end_time, task_uuid
+            )
+        elif args.project:
+            # Project filter mode: fetch by project(s) first (PHASE 14 optimization)
+            # Support multiple projects for compound filtering (e.g., --project Climb --project
+            # Mercado)
+            if len(args.project) > 1:
+                # Multiple projects: use optimized multi-project fetch (no redundant re-fetching)
+                task_events_early = get_events_by_projects(
+                    client, task_bucket, start_time, end_time, args.project
+                )
+            else:
+                # Single project: use original function
+                task_events_early = get_events_by_project(
+                    client, task_bucket, start_time, end_time, args.project[0]
+                )
+        elif args.task:
+            # Task filter mode: fetch by task name(s) first (PHASE 14 optimization)
+            # Support multiple tasks for compound filtering (e.g., --task "Documentar" --task "Code
+            # review")
+            if len(args.task) > 1:
+                # Multiple tasks: use optimized multi-task fetch (no redundant re-fetching)
+                task_events_early = get_events_by_tasks(
+                    client, task_bucket, start_time, end_time, args.task
+                )
+            else:
+                # Single task: use original function
+                task_events_early = get_events_by_task(
+                    client, task_bucket, start_time, end_time, args.task[0]
+                )
+        # else: no filter specified, defer full fetch until later
+
+        # Extract time ranges from early fetch (if any events found)
+        # This enables AFK/window optimization for filtered queries
+        if task_events_early:
+            # Only fetch AFK/window during these task time windows
+            task_time_ranges = _get_time_ranges_from_events(task_events_early)
+
+    window_events = []
+    afk_events: list[AFKEvent] = []
+
+    # For opt-out: fetch windows by default, skip only in constrained cases
+    # AFK is read for the whole period, never narrowed to task ranges: an untracked gap is
+    # the time between two AFK events of one day, so a task's neighbouring AFK events are needed
+    # even when a --project/--task filter is active. The AFK bucket is small.
+    profiler.checkpoint(f"Fetching AFK events from {start_time.date()} to {end_time.date()}")
+    if "afk" in sources:
+        afk_events = fetch_events(client, buckets.afk, start_time, end_time, event_cls=AFKEvent)
+    else:
+        afk_events = []
+    profiler.checkpoint(f"Fetched {len(afk_events)} AFK events")
+
+    # ============================================================================
+    # CRITICAL ARCHITECTURE: Window Bucket On-Demand Fetching (Phase 13)
+    # ============================================================================
+    # PRIMARY DATA SOURCE: AFK bucket (always fetched)
+    # - Used for: metrics, OFFLINE reconciliation, untracked time detection
+    # - Always available and sufficient for baseline reporting
+    #
+    # SECONDARY DATA SOURCE: Window bucket (ON-DEMAND ONLY)
+    # - Purpose: Refine task event knowledge by partitioning into ACTIVE/AFK/OFFLINE
+    # - Only fetched when: task_events exist AND we need detailed partitioning
+    # - NOT fetched when: no tasks exist (nothing to partition) or task-only modes
+    #
+    # ARCHITECTURAL RULE: Window events are expensive (~10K events per day).
+    # Do NOT fetch speculatively. Only fetch if we have TaskWarrior events
+    # to refine with partitioning. If task_events is None, skip windows entirely.
+    # ============================================================================
+
+    # REVIEW(window-afk): workaround, to be optimised.
+    # The window bucket is fetched only to double-check AFK time: AFK periods without window
+    # coverage are read as possible false positives (system off). This fetch is the cost of that
+    # check. Goal: a source-level signal that makes this window read unnecessary.
+    from aw_report.core.aw_events import WindowEvent
+
+    # Windows only for task time ranges when tasks exist; otherwise the whole period
+    profiler.checkpoint(f"Fetching window events from {start_time.date()} to {end_time.date()}")
+    if "window" in sources:
+        # The timesheet's check-in and check-out need the whole period's activity, so its
+        # windows are not narrowed to the task ranges
+        window_ranges = None if args.format == "timesheet" else task_time_ranges
+        window_events = fetch_events(
+            client,
+            buckets.window,
+            start_time,
+            end_time,
+            ranges=window_ranges,
+            event_cls=WindowEvent,
+        )
+    else:
+        window_events = []
+    profiler.checkpoint(f"Fetched {len(window_events)} window events")
+
+    # Categorize all window events (including those during AFK periods)
+    # This ensures the slot builder can extract categories for AFK slot details
+    for event in window_events:
+        categorize_event(event, compiled_categories)
+
+    # Filter AFK events to only those that START within the requested period
+    # (ActivityWatch sometimes returns events from outside the range if they overlap it)
+    afk_events = [
+        event
+        for event in afk_events
+        if event.timestamp >= start_time and event.timestamp < end_time
+    ]
+
+    # Merge any overlapping not-afk periods (data quality fix)
+    afk_events = merge_overlapping_afk_periods(afk_events)
+
+    # Not-afk events feed the current-session and break metrics below
+    not_afk_events = filter_by_value(afk_events, "status", ["not-afk"])
+
+    # Calculate current session and last break metrics
+    current_session_start = None
+    current_session_end = None
+    current_session_duration = None
+    last_break_start = None
+    last_break_end = None
+    last_break_duration = None
+
+    if not_afk_events:
+        # Sort not-afk events by their end time to find the most recent
+        sorted_not_afk = sorted(not_afk_events, key=lambda e: e.timestamp + e.duration)
+
+        # Current session: the most recent not-afk event (latest end time)
+        last_event = sorted_not_afk[-1]
+        current_session_start = last_event.timestamp.astimezone()
+        current_session_end = (last_event.timestamp + last_event.duration).astimezone()
+        current_session_duration = last_event.duration
+
+        # Last break: find the most recent non-overlapping event before current session
+        # (handles overlapping not-afk periods gracefully)
+        last_event_start = last_event.timestamp
+        non_overlapping_ends = [
+            event.timestamp + event.duration
+            for event in sorted_not_afk
+            if event.timestamp + event.duration <= last_event_start
+        ]
+        if non_overlapping_ends:
+            previous_end = max(non_overlapping_ends)
+            current_start = last_event_start
+
+            # Break is the gap between previous end and current start. Not-afk periods were
+            # merged above (touching or overlapping periods are joined), so the previous end is
+            # always strictly before the current start.
+            last_break_start = previous_end.astimezone()
+            last_break_end = current_start.astimezone()
+            last_break_duration = current_start - previous_end
+
+    task_events = task_events_early  # Use pre-fetched task events if available
+    is_task_based_report = use_tasks
+
+    if is_task_based_report and task_events is None:
+        # TaskWarrior events not fetched early (no filter specified)
+        # Fetch for full period now
+        task_bucket = buckets.tasks
+        task_events = get_events(client, task_bucket, start_time, end_time)
+        # Note: time_ranges will remain None, so AFK/window will use full period
+        # This is correct because we need the full system state when no filter is applied
+        if not task_events:
+            task_events = None
+            is_task_based_report = False
+            # REVIEW(window-afk): keep the window events here (same workaround as above). Even
+            # without tasks, the builder needs them to double-check AFK time; do not clear them.
+
+    # Calculate metrics (used by both report types)
+    # Calculate period from ALL event sources (AFK + window + task) in UTC
+    # Not just not_afk_events, since slots are built from all sources
+    # Window events may start before AFK events, and task events may extend beyond both
+    # CRITICAL: Keep calculations in UTC, convert to local ONLY for display
+    # IMPORTANT: Exclude zero-duration events (metadata only) to match slot builder's behavior
+    all_events_for_period_utc = []
+    if not_afk_events:
+        all_events_for_period_utc.extend(
+            [
+                (e.timestamp, e.timestamp + e.duration)
+                for e in not_afk_events
+                if e.duration > timedelta(0)
+            ]
+        )
+    if window_events:
+        all_events_for_period_utc.extend(
+            [
+                (e.timestamp, e.timestamp + e.duration)
+                for e in window_events
+                if e.duration > timedelta(0)
+            ]
+        )
+    if task_events:
+        all_events_for_period_utc.extend(
+            [
+                (e.timestamp, e.timestamp + e.duration)
+                for e in task_events
+                if e.duration > timedelta(0)
+            ]
+        )
+
+    first_event_time = None
+    last_event_time = None
+    if all_events_for_period_utc:
+        # Keep in UTC for all calculations
+        first_event_time = min(start for start, end in all_events_for_period_utc)
+        last_event_time = max(end for start, end in all_events_for_period_utc)
+
+    # UNIFIED PIPELINE (Session 2026-09-02):
+    # Single builder call feeds both timeline and hierarchical rendering.
+    # Events are NOT pre-filtered — builder needs unfiltered data to correctly classify time as
+    # task-based vs AFK.
+    # Filtering happens on slot output BEFORE metrics calculation.
+    # This ensures both report modes see identical data and metrics.
+
+    # Extract apps helper (needed for app-level filtering)
+
+    # PHASE 14 OPTIMIZATION: App-level time range filtering (composite-aware, with Phase 3B
+    # hardening)
+    # Runs whenever --app is set, whether or not a project/task filter already
+    # narrowed task_time_ranges. When both are active, the app envelope is
+    # clipped against the existing task_time_ranges (composite intersection);
+    # when --app is used alone, it bounds AFK to the app's overall usage span.
+    # Uses bounding envelope (min-max across app usage periods) rather than
+    # fragmented ranges to preserve AFK context for gaps between app usages.
+    app_time_ranges = None
+    if args.app and window_events:
+        # Filter windows by app pattern (case-insensitive substring match)
+        app_matching_windows = []
+        for window_event in window_events:
+            window_app = window_event.data.get("app", "").lower()
+            if any(pattern.lower() in window_app for pattern in args.app):
+                app_matching_windows.append(window_event)
+
+        if app_matching_windows:
+            # Compute app-bounded time ranges (envelope with composite clipping support)
+            app_time_ranges = _compute_app_bounded_ranges(task_time_ranges, app_matching_windows)
+            # Re-fetch AFK events using app-bounded time ranges (PHASE 14 optimization)
+            # This reduces AFK data volume when filtering by app, whether alone or combined
+            # with project/task filters. Bounding envelope preserves AFK context for gaps.
+            afk_events = fetch_events(
+                client,
+                buckets.afk,
+                start_time,
+                end_time,
+                ranges=app_time_ranges,
+                event_cls=AFKEvent,
+            )
+
+    # Tracked Activity from event times (includes all buckets: AFK + window + task)
+    tracked_activity_from_slots = None
+    if first_event_time and last_event_time:
+        tracked_activity_from_slots = last_event_time - first_event_time
+
+    # EVENT-BASED TIMESHEET APPROACH (2026-07-30):
+    # For timesheet modes, use per-event OFFLINE task slots (one per event)
+    # These are now included in partitioned_task_slots, so DON'T add them separately
+    # to avoid duplication. Just document the approach for clarity.
+    # (Previously added event_based_offline_slots separately at this point, but
+    # that caused double-counting with partitioned_task_slots, so we skip it now.)
+
+    # Deduplicate task events before building timeline (handles Phase 14 optimization edge case)
+    # When :all period queries return many events, duplicates can appear in the fetched results
+    # Deduplicating here prevents inflated time calculations and "Multiple task events" warnings
+    def _deduplicate_task_events(events):
+        """Remove duplicate task events, collapsing heartbeat-merge artifacts.
+
+        ActivityWatch's taskwarrior watcher can leave multiple heartbeat rows
+        for the same in-progress task (same uuid + start, growing duration) when
+        an upstream merge step fails to collapse them. Group by (uuid, timestamp)
+        when a uuid is available, and keep only the longest-duration event per group.
+        """
+        groups = {}
+        for event in events:
+            uuid = getattr(event, "uuid", None)
+            key = (
+                (uuid, event.timestamp)
+                if uuid
+                else (event.timestamp, event.duration, getattr(event, "task", None))
+            )
+            if key not in groups or event.duration > groups[key].duration:
+                groups[key] = event
+        deduped = list(groups.values())
+        if len(deduped) < len(events):
+            logger.warning(f"Deduplicated {len(events) - len(deduped)} duplicate task events")
+        return deduped
+
+    task_events_deduped = _deduplicate_task_events(task_events) if task_events else None
+
+    if args.format == "timesheet":
+        # Taskwarrior events are the timesheet's data: clipped per period, grouped by title,
+        # with the same filters the timeline applies to its slots. Check-in and check-out come
+        # from the timeslots of the selected sources (unfiltered: the machine's activity).
+        machine_spans = [
+            (slot.start, slot.end)
+            for slot in build_timeslot_timeline(
+                afk_events=afk_events or [],
+                window_events=window_events or [],
+                task_events=task_events_deduped or [],
+                day_start_hour=day_start_hour,
+                tz=local_zoneinfo(resolved_settings.timezone),
+            )
+        ]
+        print_timesheet_report(
+            [
+                event
+                for event in task_events_deduped or []
+                if event_filter.should_include_entry(
+                    {
+                        "project": event.data.get("project") or NO_PROJECT,
+                        "task": event.data.get("title") or NO_TASK,
+                        "type": "regular",
+                    }
+                )
+            ],
+            # --by-project is rejected for timesheet above, so the mode is day/week/month/year.
+            mode=cast("Mode", grouping_mode),
+            start=start_time,
+            end=end_time,
+            day_start_hour=day_start_hour,
+            tz=local_zoneinfo(resolved_settings.timezone),
+            spans=machine_spans,
+        )
+        return 0
+
+    # Build all timeline slots using the unified sweep-line builder
+    # This produces guaranteed non-overlapping slots classified by active events
+    # Use unfiltered raw events — the builder needs all data to correctly classify time
+    report_slots = build_timeslot_timeline(
+        afk_events=afk_events or [],
+        window_events=window_events or [],
+        task_events=task_events_deduped or [],
+        day_start_hour=day_start_hour,
+        tz=local_zoneinfo(resolved_settings.timezone),
+    )
+
+    # One filter pass on the slot objects, before any metric or rendering: project, task, app
+    # (from the slot's categories) and entry kind. Rows and totals both use this list.
+    display_slots = [
+        s
+        for s in report_slots
+        if event_filter.accepts_slot(s)
+        and not (args.exclude_non_project and _is_unassigned_project(s.project))
+        and not (args.exclude_afk and s.entry_type == "afk")
+    ]
+
+    # Snapshot single-state slots for the productivity split BEFORE consolidation merges
+    # online/AFK/offline states into one slot (consolidated spans dilute window coverage)
+    productivity_source_slots: list[ReportTimelineSlot] | None = None
+    if not args.no_productivity:
+        productivity_source_slots = list(display_slots)
+
+    # Session consolidation (--consolidate): consecutive slots of the same task merge into one
+    if args.consolidate:
+        from aw_report.pipeline.consolidation import consolidate_sessions
+
+        min_duration = timedelta(seconds=1)  # micro-slots are state-change artifacts
+        display_slots = consolidate_sessions(
+            [s for s in display_slots if s.duration >= min_duration]
+        )
+
+    filtered_slots = display_slots
+
+    # The reported span is the span of the reported slots: under a project/task/app filter it is
+    # the filtered work, not the whole AFK range (which is fetched in full for untracked gaps).
+    if display_slots:
+        first_event_time = min(slot.start for slot in display_slots)
+        last_event_time = max(slot.end for slot in display_slots)
+        tracked_activity_from_slots = last_event_time - first_event_time
+
+    # UNIFIED METRICS CALCULATION (single point for both report modes)
+    from aw_report.pipeline.timeline_render import compute_afk_offline_totals
+
+    slot_afk_time, slot_offline_time = compute_afk_offline_totals(filtered_slots)
+
+    # Active and untracked time come from each slot's breakdown (core/time_breakdown.py)
+    filtered_totals = state_totals(filtered_slots)
+    slot_active_time = filtered_totals.active
+    slot_break_time = filtered_totals.untracked
+
+    # Compute productivity metrics from filtered slots
+    # These are shared by both timeline and hierarchical rendering modes
+    metrics = compute_metrics(
+        consolidated_slots=filtered_slots,
+        cat_score_map=cat_score_map,
+        get_category_score=get_category_score,
+        non_afk_time=slot_active_time,
+        first_event_time=first_event_time,
+        last_event_time=last_event_time,
+        current_session_start=current_session_start,
+        current_session_end=current_session_end,
+        current_session_duration=current_session_duration,
+        last_break_start=last_break_start,
+        last_break_end=last_break_end,
+        last_break_duration=last_break_duration,
+        detail_level=args.detail_level,
+    )
+    context = build_context(
+        consolidated_slots=filtered_slots,
+        task_events=task_events,
+        afk_events=afk_events,
+        cat_score_map=cat_score_map,
+        is_task_based_report=is_task_based_report,
+        metrics=metrics,
+    )
+
+    # Productivity split uses the same filtered slots as TOTALS (filter before metrics)
+    productivity_breakdown = None
+    if productivity_source_slots is not None:
+        productivity_breakdown = compute_productivity_breakdown(
+            productivity_source_slots,
+            window_events,
+            cat_score_map,
+            active_total=slot_active_time,
+            afk_total=slot_afk_time,
+        )
+
+    # Now determine which rendering mode to use: timeline (period-based) or hierarchical
+    # BUG REPORTS:
+    # 1. Month consolidation (--by-month) crashes: ValueError zero-duration slot in offline.py
+    #    Root cause: OFFLINE slot duration calculation creates degenerate (start==end) slots
+    #    Fix needed: offline_processor.get_synthetic_slot() duration validation
+    # 2. Year consolidation (--by-year) hangs/timeouts: Possible O(n^2) or infinite loop
+    #    Likely in period grouping or consolidation logic when spanning 56+ years of history
+    #    Fix needed: Performance audit of consolidate_by_period() for large datasets
+    profiler.checkpoint(f"Starting rendering phase with {len(display_slots)} slots")
+    if grouping_mode in ["day", "week", "month", "year"]:
+        profiler.checkpoint(f"Rendering timeline report (period: {period})")
+        TimelineReport(print_timeline_report).present(
+            slots=display_slots,
+            period=period,
+            start_time=start_time,
+            end_time=end_time,
+            detail_level=args.detail_level,
+            non_afk_time=slot_active_time,
+            productive_time=context.metrics.productive_time,
+            productive_task_time=context.metrics.productive_task_time,
+            first_event_time=first_event_time,
+            last_event_time=last_event_time,
+            task_based=context.is_task_based_report,
+            distracting_time=context.metrics.distracting_time,
+            unscored_time=context.metrics.unscored_time,
+            current_session_start=context.metrics.current_session_start,
+            productivity=productivity_breakdown,
+            current_session_end=context.metrics.current_session_end,
+            current_session_duration=context.metrics.current_session_duration,
+            last_break_start=context.metrics.last_break_start,
+            last_break_end=context.metrics.last_break_end,
+            last_break_duration=context.metrics.last_break_duration,
+            afk_events=afk_events,
+            day_start_hour=day_start_hour,
+            tracked_activity=tracked_activity_from_slots,
+            total_break=slot_break_time,
+        )
+    else:
+        # Hierarchical (--by-project) report: use slot-based AFK/Offline calculations for
+        # consistency
+        # Aggregate the filtered slots into a hierarchy for display (display-only aggregation, not
+        # data calculation)
+        report_data, actual_task_based = aggregate_hierarchy_from_slots(
+            consolidated_slots=filtered_slots,
+            task_based=(is_task_based_report and task_events is not None),
+            cat_score_map=cat_score_map,
+            get_category_score=get_category_score,
+            normalize_title=normalize_title,
+            # DO NOT pass event_filter — filtered_slots are already pre-filtered
+        )
+        report_task_based = actual_task_based
+
+        # Use filtered slot-based metrics — same calculation as timeline report
+        afk_time_calc = slot_afk_time if slot_afk_time > timedelta(0) else None
+        total_offline_calc = slot_offline_time if slot_offline_time > timedelta(0) else None
+
+        # Total online time = Active + AFK (using filtered active time)
+        total_time_calc = (
+            slot_active_time + (afk_time_calc or timedelta(0)) if slot_active_time else None
+        )
+
+        HierarchicalReport(print_report).present(
+            report_data=report_data,
+            period=period,
+            start_time=start_time,
+            end_time=end_time,
+            task_based=report_task_based,
+            detail_level=args.detail_level,
+            non_afk_time=slot_active_time,
+            productive_time=context.metrics.productive_time,
+            productive_task_time=context.metrics.productive_task_time,
+            first_event_time=first_event_time,
+            last_event_time=last_event_time,
+            distracting_time=context.metrics.distracting_time,
+            unscored_time=context.metrics.unscored_time,
+            productivity=productivity_breakdown,
+            sort_by_duration=args.sort_by_duration,
+            sort_by_score=not args.sort_alphabetically,
+            current_session_start=context.metrics.current_session_start,
+            current_session_end=context.metrics.current_session_end,
+            current_session_duration=context.metrics.current_session_duration,
+            last_break_start=context.metrics.last_break_start,
+            last_break_end=context.metrics.last_break_end,
+            last_break_duration=context.metrics.last_break_duration,
+            afk_time=afk_time_calc,
+            total_offline_time=total_offline_calc,
+            total_time_all=total_time_calc,
+            total_break=slot_break_time,
+        )
+
+    profiler.checkpoint("MAIN END - rendering complete")
+
+
+if __name__ == "__main__":
+    main()

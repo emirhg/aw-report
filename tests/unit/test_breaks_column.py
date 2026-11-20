@@ -14,12 +14,12 @@ Requirements:
 
 import pytest
 from datetime import datetime, timedelta, timezone
-from tw_report.pipeline.timeline_render import (
+from aw_report.pipeline.timeline_render import (
     calculate_break_duration,
     format_break_column,
     get_gap_between_slots,
 )
-from tw_report.core.report_slot import ReportTimelineSlot
+from aw_report.core.report_slot import ReportTimelineSlot
 
 
 # Minimum break duration threshold

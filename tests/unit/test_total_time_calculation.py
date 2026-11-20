@@ -2,8 +2,8 @@
 
 from datetime import datetime, timedelta, timezone
 
-from tw_report.pipeline.models import ReportTotals
-from tw_report.pipeline.report_render import print_report_totals
+from aw_report.pipeline.models import ReportTotals
+from aw_report.pipeline.report_render import print_report_totals
 
 
 class TestTotalTimeCalculation:

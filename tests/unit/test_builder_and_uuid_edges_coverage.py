@@ -7,10 +7,10 @@ import aw_client  # noqa: F401  (import the real client chain before tests poiso
 import pytest
 from aw_core.models import Event
 
-import tw_report.core.events  # noqa: F401
-from tw_report.core.aw_events import AFKEvent, WindowEvent
-from tw_report.core.task_uuid_filtering import get_events_by_uuid
-from tw_report.core.timeslot_builder import build_timeslot_timeline
+import aw_report.core.events  # noqa: F401
+from aw_report.core.aw_events import AFKEvent, WindowEvent
+from aw_report.core.task_uuid_filtering import get_events_by_uuid
+from aw_report.core.timeslot_builder import build_timeslot_timeline
 
 UTC = timezone.utc
 T0 = datetime(2026, 7, 23, 10, 0, tzinfo=UTC)

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from aw_core.models import Event
 
-from tw_report.core.event_index import EventIndex
+from aw_report.core.event_index import EventIndex
 
 T0 = datetime(2026, 11, 12, 6, 0, tzinfo=timezone.utc)
 

@@ -5,12 +5,12 @@ task-slot categories derive from those events. Results must equal brute-force sc
 
 from datetime import datetime, timedelta, timezone
 
-from tw_report.core.aw_events import AFKEvent, TaskWarriorEvent, WindowEvent
-from tw_report.core.categories import build_categories_from_window_events
-from tw_report.core.event_slot import BUCKET_AFK, BUCKET_WINDOW
-from tw_report.core.report_slot import ReportTimelineSlot
-from tw_report.core.timeslot_builder import build_timeslot_timeline
-from tw_report.pipeline.processors import compute_productivity_breakdown
+from aw_report.core.aw_events import AFKEvent, TaskWarriorEvent, WindowEvent
+from aw_report.core.categories import build_categories_from_window_events
+from aw_report.core.event_slot import BUCKET_AFK, BUCKET_WINDOW
+from aw_report.core.report_slot import ReportTimelineSlot
+from aw_report.core.timeslot_builder import build_timeslot_timeline
+from aw_report.pipeline.processors import compute_productivity_breakdown
 
 T0 = datetime(2026, 11, 12, 10, 0, tzinfo=timezone.utc)
 CAT_SCORES = {"Development": 1.0, "Social": -1.0}
@@ -120,7 +120,7 @@ class TestProductivityFromSlotEvents:
 
 class TestTimelineSlotEvents:
     def test_timeline_slot_dict_round_trip_keeps_events(self):
-        from tw_report.core.timeline import TimelineSlot
+        from aw_report.core.timeline import TimelineSlot
 
         afk, windows, tasks = _scenario()
         slot = next(s for s in build_timeslot_timeline(afk_events=afk, window_events=windows,
@@ -142,7 +142,7 @@ class TestTimelineSlotEvents:
         assert _ids(restored.events[BUCKET_WINDOW]) == _ids(slot.events[BUCKET_WINDOW])
 
     def test_timeline_slot_without_events_omits_the_key(self):
-        from tw_report.core.timeline import TimelineSlot
+        from aw_report.core.timeline import TimelineSlot
 
         slot = TimelineSlot(type="afk", start=T0, end=T0 + timedelta(minutes=5), project="",
                             task="", duration=timedelta(minutes=5),

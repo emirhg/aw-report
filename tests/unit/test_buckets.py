@@ -1,12 +1,12 @@
-"""Tests for bucket resolution from the [buckets] config table (tw_report.core.buckets)."""
+"""Tests for bucket resolution from the [buckets] config table (aw_report.core.buckets)."""
 
 import platform
 
 import pytest
 
-from tw_report.core.buckets import parse_sources, ROLES, BucketIds, default_bucket_id, resolve_buckets
-from tw_report.core.events import get_bucket_id
-from tw_report.exceptions import ConfigParsingError
+from aw_report.core.buckets import parse_sources, ROLES, BucketIds, default_bucket_id, resolve_buckets
+from aw_report.core.events import get_bucket_id
+from aw_report.exceptions import ConfigParsingError
 
 
 def test_defaults_use_watcher_names_and_given_hostname():

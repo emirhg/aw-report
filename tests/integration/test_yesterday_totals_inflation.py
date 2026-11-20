@@ -10,9 +10,9 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch, MagicMock
 from aw_core.models import Event
 
-from tw_report.core.period import parse_period
-from tw_report.core.timeslot_builder import build_timeslot_timeline
-from tw_report.core.aw_events import AFKEvent, WindowEvent, TaskWarriorEvent
+from aw_report.core.period import parse_period
+from aw_report.core.timeslot_builder import build_timeslot_timeline
+from aw_report.core.aw_events import AFKEvent, WindowEvent, TaskWarriorEvent
 
 
 class TestYesterdayTotalsInflation:

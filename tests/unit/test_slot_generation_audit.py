@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../src"))
 
-from tw_report.core.report_slot import ReportTimelineSlot
+from aw_report.core.report_slot import ReportTimelineSlot
 
 
 class TestSlotCreationValidation:
@@ -44,7 +44,7 @@ class TestSlotCreationValidation:
 
     def test_slot_to_dict_preserves_timezone(self):
         """Slots should preserve their original timezone through to_dict()."""
-        from tw_report.core.aw_events import TaskWarriorEvent
+        from aw_report.core.aw_events import TaskWarriorEvent
 
         tz_minus6 = timezone(timedelta(hours=-6))
         start = datetime(2026, 8, 30, 12, 0, tzinfo=tz_minus6)
@@ -125,10 +125,10 @@ class TestSlotGenerationPipeline:
                 print(f"    - Degenerate/duplicate slots now in final output")
 
         print("\nKEY FILES TO INVESTIGATE:")
-        print("  - src/tw_report/pipeline/generation.py (slot creation)")
-        print("  - src/tw_report/core/report_slot.py (ReportTimelineSlot)")
-        print("  - src/tw_report/core/timeline.py (timeline building)")
-        print("  - src/tw_report/core/offline.py (offline task handling)")
+        print("  - src/aw_report/pipeline/generation.py (slot creation)")
+        print("  - src/aw_report/core/report_slot.py (ReportTimelineSlot)")
+        print("  - src/aw_report/core/timeline.py (timeline building)")
+        print("  - src/aw_report/core/offline.py (offline task handling)")
 
     def test_identify_degenerate_slot_source(self):
         """Document where degenerate slots likely originate."""
@@ -162,7 +162,7 @@ class TestSlotDurationValidation:
 
     def test_duration_calculation(self):
         """Duration should always equal end - start."""
-        from tw_report.core.aw_events import TaskWarriorEvent
+        from aw_report.core.aw_events import TaskWarriorEvent
 
         tz = timezone(timedelta(hours=-6))
         start = datetime(2026, 8, 30, 12, 0, tzinfo=tz)

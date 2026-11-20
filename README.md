@@ -546,7 +546,7 @@ Window events are matched to tasks via **temporal overlap**:
 pytest tests/unit/ -v
 
 # With coverage
-pytest --cov=tw_report --cov-report=term-missing
+pytest --cov=aw_report --cov-report=term-missing
 
 # Specific test
 pytest tests/unit/test_filtering.py::TestEventFilterBasics -v

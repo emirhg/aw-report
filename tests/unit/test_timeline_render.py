@@ -1,5 +1,5 @@
 """
-Unit tests for timeline report rendering (tw_report.pipeline.timeline_render).
+Unit tests for timeline report rendering (aw_report.pipeline.timeline_render).
 
 Tests verify slot splitting, grouping, formatting, and timeline organization.
 """
@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from tw_report.pipeline.timeline_render import (
+from aw_report.pipeline.timeline_render import (
     print_timeline_report,
     split_slots_spanning_days,
     _render_slot_detail,

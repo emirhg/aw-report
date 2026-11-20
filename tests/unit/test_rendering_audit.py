@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../src"))
 
-from tw_report.pipeline.timeline_render import (
+from aw_report.pipeline.timeline_render import (
     split_slots_spanning_days,
     get_slot_logical_date,
     get_slot_week_key,

@@ -4,7 +4,7 @@ from datetime import timedelta
 
 import pytest
 
-from tw_report.pipeline.models import PeriodMetrics, ReportTotals, TimeslotDuration
+from aw_report.pipeline.models import PeriodMetrics, ReportTotals, TimeslotDuration
 
 
 class TestTimeslotDuration:

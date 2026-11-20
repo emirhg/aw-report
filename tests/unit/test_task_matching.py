@@ -1,5 +1,5 @@
 """
-Unit tests for task matching and identification (tw_report.core.task_matching).
+Unit tests for task matching and identification (aw_report.core.task_matching).
 
 Tests verify task overlap detection, metadata extraction, offline-tag detection,
 and offline category structure building.
@@ -10,8 +10,8 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from aw_core.models import Event
 
-from tw_report.core.filtering import NO_PROJECT, NO_TASK
-from tw_report.core.task_matching import (
+from aw_report.core.filtering import NO_PROJECT, NO_TASK
+from aw_report.core.task_matching import (
     build_offline_category_structure,
     find_active_task,
     get_task_info,

@@ -13,8 +13,8 @@ Predicates being validated (field-driven):
 import pytest
 from datetime import datetime, timedelta, timezone
 
-from tw_report.core.timeline import TimelineSlot
-from tw_report.core.filtering import NO_PROJECT, NO_TASK
+from aw_report.core.timeline import TimelineSlot
+from aw_report.core.filtering import NO_PROJECT, NO_TASK
 
 
 UTC = timezone.utc

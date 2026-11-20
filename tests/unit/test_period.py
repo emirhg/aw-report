@@ -1,5 +1,5 @@
 """
-Unit tests for period parsing (tw_report.core.period).
+Unit tests for period parsing (aw_report.core.period).
 
 Tests verify parse_period correctly handles all period keywords (:today, :week,
 etc.) and ISO date formats, producing correct start/end boundaries.
@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from tw_report.core.period import local_zoneinfo, parse_period
+from aw_report.core.period import local_zoneinfo, parse_period
 
 
 class TestPeriodKeywords:
@@ -204,12 +204,12 @@ class TestNextBucketStart:
         ],
     )
     def test_next_start(self, bucket, mode, expected):
-        from tw_report.core.period import next_bucket_start
+        from aw_report.core.period import next_bucket_start
 
         assert next_bucket_start(bucket, mode) == expected
 
     def test_unknown_mode_is_an_error(self):
-        from tw_report.core.period import next_bucket_start
+        from aw_report.core.period import next_bucket_start
 
         with pytest.raises(ValueError):
             next_bucket_start(date(2026, 1, 1), "fortnight")

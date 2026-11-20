@@ -15,7 +15,7 @@ import subprocess
 import pytest
 from aw_core.models import Event
 
-from tw_report.core.task_filtering import (
+from aw_report.core.task_filtering import (
     get_events_by_task,
     get_events_by_tasks,
     resolve_task_filter_value,

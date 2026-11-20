@@ -3,9 +3,9 @@
 from datetime import timedelta
 
 from tests.support.slots import BASE, slot
-from tw_report.core.event_slot import DataValue
-from tw_report.core.time_breakdown import TimeBreakdown
-from tw_report.pipeline.consolidation import consolidate_sessions
+from aw_report.core.event_slot import DataValue
+from aw_report.core.time_breakdown import TimeBreakdown
+from aw_report.pipeline.consolidation import consolidate_sessions
 
 
 def test_empty_input_gives_nothing():

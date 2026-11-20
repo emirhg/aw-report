@@ -1,6 +1,6 @@
 """Characterization (golden-output) tests for the tw-report CLI.
 
-These drive the real ``tw_report.cli.main.main()`` end to end with a deterministic
+These drive the real ``aw_report.cli.main.main()`` end to end with a deterministic
 in-memory ActivityWatch server and check stdout against checked-in snapshots. They
 pin *current* behavior so the upcoming refactor cannot change output silently.
 
@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 from tests.support.fake_aw import FakeActivityWatchClient, make_event
-from tw_report.cli import main as cli_main
+from aw_report.cli import main as cli_main
 
 GOLDEN_DIR = Path(__file__).parent / "golden"
 HOST = "testhost"

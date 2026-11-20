@@ -34,7 +34,7 @@ python3.14 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/aw-report :yesterday          # run against a local ActivityWatch server
 ```
 
-A `pip install -e` from another checkout (for example the main checkout) points `tw_report` at
+A `pip install -e` from another checkout (for example the main checkout) points `aw_report` at
 that checkout. Always run the tests from the venv of the tree you are editing.
 
 ## 3. Verification gates (all must pass before a commit)
@@ -157,7 +157,7 @@ The category rules come from ActivityWatch's `settings.json` (`--categories` ove
 ## 8. Deprecated API policy
 
 Production-unused code is **deprecated, not deleted** (decision of the user). Each item carries
-`@deprecated("...")` from `tw_report.utils.deprecation` and emits a `DeprecationWarning` when
+`@deprecated("...")` from `aw_report.utils.deprecation` and emits a `DeprecationWarning` when
 called. The current list is in `tests/unit/test_deprecations.py::CASES`. Rules:
 
 - New code must not call a deprecated API. Use its replacement named in the message.
@@ -213,7 +213,7 @@ the docs that the code no longer supports.
 ## 12. Pending cleanup (confirm with the user before doing)
 
 - `pipeline/presenters.py` is a thin wrapper; `main()` could call the renderers directly.
-- `src/tw_report.egg-info/` is generated but tracked in git; it should be ignored.
+- `src/aw_report.egg-info/` is generated but tracked in git; it should be ignored.
 - `core/report_slot.py` is ~1900 lines and mixes the slot model, merging and bucketing; split it
   along those lines when the model layer is refactored.
 - Mypy and ruff run on `src` only; the test suite is not type-checked.
@@ -231,7 +231,7 @@ stale analysis. Do not leave a finished item described as open.**
 - Sample tool in `samples/` (bash + jq + `timesheet_report.py`, taskwarrior bucket only):
   about 0.18 s wall, five runs.
 - `aw-report` restricted to the taskwarrior bucket (AFK and window return no events):
-  about 0.70 s. Python startup is about 0.05 s and importing `tw_report.cli.main` takes about
+  about 0.70 s. Python startup is about 0.05 s and importing `aw_report.cli.main` takes about
   0.52 s (`aw_client` and `requests` account for about 0.36 s of that). The rest is the report.
 - `aw-report --by-day :lastweek` with all three buckets: about 7.3 s (earlier runs of the same
   command were 6.9 s and 14 to 16 s, so the machine is noisy; compare runs taken close together).
@@ -250,7 +250,7 @@ stale analysis. Do not leave a finished item described as open.**
   large ones, where the jq filter's per-event timestamp parsing and grouping cost more as the event
   count grows (not profiled in detail). Modes that include today can differ between the two runs,
   because ActivityWatch keeps recording.
-- Still open for the benchmark: import time of `tw_report` is not separated yet (see 13.1 above).
+- Still open for the benchmark: import time of `aw_report` is not separated yet (see 13.1 above).
 
 ### 13.2 Full-pipeline profile and candidate changes (no behaviour change intended)
 

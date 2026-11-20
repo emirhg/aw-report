@@ -13,9 +13,9 @@ import sys
 
 import pytest
 
-from tw_report.pipeline.report_render import print_report_totals
-from tw_report.pipeline.models import ReportTotals
-from tw_report.pipeline.timeline_render import print_timeline_report
+from aw_report.pipeline.report_render import print_report_totals
+from aw_report.pipeline.models import ReportTotals
+from aw_report.pipeline.timeline_render import print_timeline_report
 
 
 class TestTotalsOutputCorrectness:
@@ -393,8 +393,8 @@ class TestTotalsLayout:
 
     def test_order_and_indent_levels(self, capsys):
         from datetime import timedelta
-        from tw_report.pipeline.processors import ProductivityBreakdown
-        from tw_report.pipeline.report_render import print_report_totals
+        from aw_report.pipeline.processors import ProductivityBreakdown
+        from aw_report.pipeline.report_render import print_report_totals
 
         breakdown = ProductivityBreakdown(
             active_productive=timedelta(minutes=10),

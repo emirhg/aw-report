@@ -8,11 +8,11 @@ Known performance and efficiency ideas that are documented but not yet implement
 
 ### Current behaviour
 
-- Window events are fetched for every report (`src/tw_report/cli/main.py`, the
+- Window events are fetched for every report (`src/aw_report/cli/main.py`, the
   `task_time_ranges` branch around lines 414-429). With no task ranges, the full period is
   fetched; otherwise only the task ranges are.
 - `can_skip_window` (`main.py:363`) is computed but never used.
-- `should_skip_window_bucket()` (`src/tw_report/core/project_filtering.py:196`) encodes skip
+- `should_skip_window_bucket()` (`src/aw_report/core/project_filtering.py:196`) encodes skip
   rules, but it is only called from tests.
 - The "Window Bucket On-Demand Fetching" comment block (`main.py:386-405` and later) describes
   lazy loading that the code does not yet perform.

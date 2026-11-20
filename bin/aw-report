@@ -2,7 +2,7 @@
 """Entry point for aw-report.
 
 This script sets up the Python path and runs the CLI entry point from
-src/tw_report/cli/main.py (Phase 10 milestone: modularized entry point).
+src/aw_report/cli/main.py (Phase 10 milestone: modularized entry point).
 """
 
 import sys
@@ -18,5 +18,5 @@ sys.path.insert(0, os.path.join(project_root, "src"))
 
 # Now we can safely import and run the CLI entry point
 if __name__ == "__main__":
-    from tw_report.cli.main import main
+    from aw_report.cli.main import main
     main()

@@ -14,8 +14,8 @@ import sys
 import pytest
 
 from aw_core.models import Event
-from tw_report.pipeline.processors import compute_metrics, build_context
-from tw_report.pipeline.models import ReportContext, ReportMetrics
+from aw_report.pipeline.processors import compute_metrics, build_context
+from aw_report.pipeline.models import ReportContext, ReportMetrics
 
 
 class TestMetricsCalculationWithRealEvents:
@@ -28,8 +28,8 @@ class TestMetricsCalculationWithRealEvents:
     def test_simple_work_session_metrics(self, base_time):
         """Single focused work session: all Active Time, no AFK (Phase 2 refactor: slot-based)."""
         # 10:00-12:00 = 2 hours of focused work
-        from tw_report.core.report_slot import ReportTimelineSlot
-        from tw_report.core.aw_events import TaskWarriorEvent
+        from aw_report.core.report_slot import ReportTimelineSlot
+        from aw_report.core.aw_events import TaskWarriorEvent
 
         slot_duration = timedelta(hours=2)
         slot = ReportTimelineSlot(

@@ -1,5 +1,5 @@
 """
-Unit tests for formatting utilities (tw_report.utils.formatting).
+Unit tests for formatting utilities (aw_report.utils.formatting).
 
 Tests verify duration formatting, title sanitization, and timeline line formatting.
 All tested functions are pure (no I/O side effects).
@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from tw_report.utils.formatting import (
+from aw_report.utils.formatting import (
     abbreviate_project_path,
     format_afk_label,
     format_duration,
@@ -401,7 +401,7 @@ class TestFormatTimelineLine:
 
     def test_duration_right_aligned(self):
         """Duration should be right-aligned."""
-        with patch("tw_report.utils.formatting.get_terminal_width", return_value=80):
+        with patch("aw_report.utils.formatting.get_terminal_width", return_value=80):
             result = format_timeline_line("Short", "1:00:00")
             # Duration should be near the end
             assert result.endswith("1:00:00")

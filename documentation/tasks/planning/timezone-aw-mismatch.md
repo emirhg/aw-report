@@ -66,9 +66,9 @@ This is correct when system genuinely was off, but problematic when:
 
 ## Related Code
 
-- `src/tw_report/cli/main.py`: Time parsing and event fetching (lines ~204-370)
-- `src/tw_report/core/offline.py`: Offline task processing and validation (lines ~620-650)
-- `src/tw_report/core/events.py`: Event fetching from AW (lines ~35-80)
+- `src/aw_report/cli/main.py`: Time parsing and event fetching (lines ~204-370)
+- `src/aw_report/core/offline.py`: Offline task processing and validation (lines ~620-650)
+- `src/aw_report/core/events.py`: Event fetching from AW (lines ~35-80)
 
 ## Reproduction Steps
 

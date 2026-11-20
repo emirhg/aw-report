@@ -10,8 +10,8 @@ from zoneinfo import ZoneInfo
 import pytest
 from aw_core.models import Event
 
-from tw_report.core.filtering import NO_TASK
-from tw_report.pipeline.timesheet_render import (
+from aw_report.core.filtering import NO_TASK
+from aw_report.pipeline.timesheet_render import (
     bucket_key,
     bucket_starts,
     build_timesheet,
@@ -177,7 +177,7 @@ def test_every_mode_builds_without_error(mode):
 
 def test_check_in_and_out_come_from_the_machine_spans_not_the_tasks():
     """A period with machine activity and no task time still appears, with the span's clock."""
-    from tw_report.pipeline.timesheet_render import build_timesheet
+    from aw_report.pipeline.timesheet_render import build_timesheet
 
     spans = [
         (datetime(2026, 8, 30, 8, 30, tzinfo=UTC), datetime(2026, 8, 30, 8, 50, tzinfo=UTC)),
@@ -206,7 +206,7 @@ def test_check_in_and_out_come_from_the_machine_spans_not_the_tasks():
 
 
 def test_a_period_with_activity_but_no_task_time_is_listed_with_no_tasks():
-    from tw_report.pipeline.timesheet_render import build_timesheet
+    from aw_report.pipeline.timesheet_render import build_timesheet
 
     spans = [(datetime(2026, 8, 30, 9, 0, tzinfo=UTC), datetime(2026, 8, 30, 10, 0, tzinfo=UTC))]
     periods = build_timesheet(
