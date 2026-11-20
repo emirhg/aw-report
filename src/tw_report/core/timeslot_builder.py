@@ -186,12 +186,10 @@ def _slot(
     categories: list[dict],
     data: dict[str, list[DataValue]],
 ) -> ReportTimelineSlot:
-    duration = end - start
-    slot = ReportTimelineSlot(
+    return ReportTimelineSlot(
         start=start,
         end=end,
-        duration=duration,
-        actual_duration=duration,
+        duration=end - start,
         task_event=task_event,
         events=events,
         categories=categories,
@@ -199,16 +197,3 @@ def _slot(
         data=data,
         tags=list(task_event.tags) if task_event is not None else [],
     )
-    # Legacy fields, kept until the consumers move to the breakdown (removed in piece 3H).
-    breakdown = slot.breakdown
-    slot.actual_duration = (
-        breakdown.active
-        if task_event is not None
-        else (timedelta(0) if afk_state == "afk" else duration)
-    )
-    slot.afk_duration = breakdown.afk if breakdown.afk > timedelta(0) else None
-    slot.offline_extension_duration = (
-        breakdown.offline if breakdown.offline > timedelta(0) else None
-    )
-    slot.event_duration = slot.actual_duration if slot.offline_extension_duration else None
-    return slot

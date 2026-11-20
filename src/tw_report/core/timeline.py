@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from tw_report.core.event_slot import EventMap, merge_event_maps
+from tw_report.utils.deprecation import deprecated
 
 
 class TimelineSlotValidationError(ValueError):
@@ -31,6 +32,7 @@ class TimelineSlotValidationError(ValueError):
     pass
 
 
+@deprecated("Not used by the report pipeline; the report renders ReportTimelineSlot objects.")
 @dataclass
 class TimelineSlot:
     """
@@ -229,6 +231,7 @@ class TimelineSlot:
         return self.start <= dt < self.end
 
 
+@deprecated("Not used by the report pipeline; the report renders ReportTimelineSlot objects.")
 class Timeline:
     """
     Manages a sorted collection of TimelineSlots.

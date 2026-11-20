@@ -24,7 +24,6 @@ def slot(state=None, tags=(), project="Climb", title="Task1", categories=None):
         start=T0,
         end=T0 + TEN,
         duration=TEN,
-        actual_duration=TEN,
         task_event=task(tags, project, title),
         afk_state=state,
         categories=categories or [],
@@ -85,7 +84,7 @@ def test_dict_without_state_keeps_the_old_shape():
     plain = ReportTimelineSlot(start=T0, end=T0 + TEN, duration=TEN, actual_duration=TEN)
     d = plain.to_dict()
     assert "afk_state" not in d
-    assert "breakdown" not in d
+    assert d["actual_duration"] == TEN
 
 
 def test_filter_accepts_slot_uses_its_apps_for_the_app_filter():
@@ -101,10 +100,21 @@ def test_filter_accepts_slot_drops_excluded_projects():
     assert flt.accepts_slot(slot("not-afk", project="Other"))
 
 
-def test_legacy_event_duration_is_serialised_when_set():
+def test_legacy_names_are_views_of_the_breakdown():
     legacy = slot("untracked", tags=["offline"])
-    legacy.event_duration = timedelta(minutes=5)
-    legacy.offline_extension_duration = timedelta(minutes=7)
     serialised = legacy.to_dict()
-    assert serialised["event_duration"] == timedelta(minutes=5)
-    assert serialised["offline_extension_duration"] == timedelta(minutes=7)
+    assert serialised["offline_extension_duration"] == TEN
+    assert serialised["event_duration"] == timedelta(0)
+    assert legacy.is_offline_task and not legacy.is_afk_only
+
+
+def test_split_prorates_a_stored_breakdown():
+    consolidated = ReportTimelineSlot(
+        start=T0,
+        end=T0 + timedelta(hours=2),
+        duration=timedelta(hours=2),
+        stored_breakdown=TimeBreakdown(active=timedelta(hours=1), afk=timedelta(hours=1)),
+    )
+    pieces = consolidated.split_at_boundaries("day", 0)
+    assert sum((p.breakdown.active for p in pieces), timedelta(0)) == timedelta(hours=1)
+    assert sum((p.breakdown.afk for p in pieces), timedelta(0)) == timedelta(hours=1)

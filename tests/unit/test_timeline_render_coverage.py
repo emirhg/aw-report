@@ -93,29 +93,6 @@ def wide_terminal(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_untracked_slot_overlapping_offline_period_is_dropped(capsys):
-    out = render(
-        capsys,
-        [
-            offline(D1, 10, 12),
-            regular(D1, 11, 11.5, project="No project assigned", task="No task assigned"),
-        ],
-    )
-    assert "No project assigned" not in out
-
-
-def test_same_task_slot_overlapping_offline_period_is_dropped(capsys):
-    out = render(
-        capsys,
-        [
-            offline(D1, 10, 12),
-            regular(D1, 10.5, 11, project="Climb", task="Writing"),
-        ],
-    )
-    assert "Writing" in out  # the offline row itself remains
-    assert out.count("Writing") == 1
-
-
 def test_other_task_is_kept_next_to_offline_period(capsys):
     out = render(
         capsys,
@@ -239,20 +216,6 @@ def test_compute_afk_offline_totals_come_from_the_breakdown():
     assert afk == h(0.5)
 
 
-@pytest.mark.parametrize(
-    "slot, expected",
-    [
-        ({"type": "afk", "actual_duration": h(0.5), "duration": h(1)}, h(0.5)),
-        ({"type": "afk", "duration": h(1)}, h(1)),
-        ({"type": "offline_task", "actual_duration": h(0.25), "duration": h(2)}, h(0.25)),
-        ({"type": "offline_task", "duration": h(2)}, timedelta(0)),
-        ({"type": "regular", "duration": h(3)}, h(3)),
-    ],
-)
-def test_displayed_duration_prefers_actual_for_afk_and_offline_task(slot, expected):
-    assert _get_displayed_duration(slot) == expected
-
-
 D3 = datetime(2026, 7, 27, 0, 0, tzinfo=UTC)  # Monday: a new ISO week after D1 (Thursday)
 
 
@@ -299,20 +262,6 @@ def test_date_change_within_a_week_separates_day_totals(capsys):
     )
     assert out.count("Day total:") == 2
     assert "2026-07-24" in out
-
-
-def test_offline_periods_for_the_same_task_each_remove_their_own_overlaps(capsys):
-    out = render(
-        capsys,
-        [
-            offline(D1, 10, 11),
-            offline(D1, 12, 13),
-            regular(D1, 12.25, 12.5, project="Climb", task="Writing"),  # inside 2nd offline
-            regular(D1, 11.25, 11.5, project="Climb", task="Writing"),  # between the two
-        ],
-    )
-    assert "11:15 - 11:30" in out
-    assert "12:15 - 12:30" not in out
 
 
 def test_slot_outside_a_single_day_period_is_not_rendered_and_no_week_total_appears(capsys):
@@ -368,3 +317,12 @@ def test_detail_level_one_hides_task_names(capsys):
 def test_offline_task_rows_are_prefixed_with_an_asterisk(capsys):
     out = render(capsys, [offline(D1, 10, 12)])
     assert "*Writing" in out
+
+
+def test_displayed_duration_is_the_wall_clock_duration_of_every_slot():
+    from tests.support.slots import slot as state_slot
+    from tw_report.pipeline.timeline_render import _get_displayed_duration
+
+    for state, offline in [("afk", False), ("not-afk", False), ("untracked", True), (None, False)]:
+        built = state_slot(0, 40, state, offline=offline)
+        assert _get_displayed_duration(built) == timedelta(minutes=40)

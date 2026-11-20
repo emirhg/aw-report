@@ -3,8 +3,8 @@
 The marker is PEP 702 (`__deprecated__`), set by typing_extensions / warnings.deprecated.
 """
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict
+from datetime import UTC, datetime, timedelta, timezone
+from typing import Any
 
 import pytest
 
@@ -12,10 +12,10 @@ from tw_report.cli import main as cli_main
 from tw_report.core.aw_events import TaskWarriorEvent
 from tw_report.core.report_slot import ReportEntries, ReportTimelineSlot, _merge_categories_full
 from tw_report.core.task_matching import task_has_offline_tag
-from tw_report.core.timeline import TimelineSlot
+from tw_report.core.timeline import Timeline, TimelineSlot
 from tw_report.pipeline import report_render, timeline_render
 
-UTC = timezone.utc
+UTC = UTC
 T0 = datetime(2026, 7, 23, 10, 0, tzinfo=UTC)
 
 
@@ -43,7 +43,7 @@ def _h(hours):
     return timedelta(hours=hours)
 
 
-def _print_report_header_args() -> Dict[str, Any]:
+def _print_report_header_args() -> dict[str, Any]:
     return dict(
         title="Hdr",
         period="p",
@@ -56,6 +56,20 @@ def _print_report_header_args() -> Dict[str, Any]:
 
 # (name, marked object, call that must warn)
 CASES = [
+    (
+        "TimelineSlot",
+        TimelineSlot,
+        lambda: TimelineSlot(
+            type="regular",
+            start=datetime(2026, 8, 30, 9, tzinfo=timezone.utc),
+            end=datetime(2026, 8, 30, 10, tzinfo=timezone.utc),
+            project="P",
+            task="T",
+            duration=timedelta(hours=1),
+            actual_duration=timedelta(hours=1),
+        ),
+    ),
+    ("Timeline", Timeline, lambda: Timeline()),
     (
         "ReportEntries.as_dicts",
         ReportEntries.as_dicts,

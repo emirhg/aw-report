@@ -718,22 +718,6 @@ def test_split_at_year_boundary_preserves_total_duration():
     assert sum((p.duration for p in pieces), timedelta(0)) == timedelta(hours=4)
 
 
-def test_split_prorates_event_and_offline_extension_durations():
-    slot = ReportTimelineSlot(
-        start=at(13),
-        end=at(15),
-        duration=timedelta(hours=2),
-        actual_duration=timedelta(hours=2),
-        event_duration=timedelta(hours=2),
-        afk_duration=timedelta(hours=1),
-        offline_extension_duration=timedelta(0),
-    )
-    pieces = slot.split_at_boundaries("day", 0)
-    assert len(pieces) == 2
-    assert all(p.event_duration == timedelta(hours=1) for p in pieces)
-    assert all(p.afk_duration == timedelta(minutes=30) for p in pieces)
-
-
 def test_split_keeps_offline_extension_as_remainder_after_event_time():
     slot = ReportTimelineSlot(
         start=at(13),
@@ -866,19 +850,6 @@ def test_consolidate_consecutive_drops_untracked_zero_activity_slots():
     assert entries(afk(0, 1), afk(1, 2)).consolidate_consecutive().slots() == []
 
 
-def test_offline_extension_not_prorated_when_event_time_covers_the_piece():
-    slot = ReportTimelineSlot(
-        start=at(13),
-        end=at(15),
-        duration=timedelta(hours=2),
-        actual_duration=timedelta(0),
-        event_duration=timedelta(hours=2),
-        offline_extension_duration=timedelta(hours=1),
-    )
-    for piece in slot.split_at_boundaries("day", 0):
-        assert piece.offline_extension_duration is None
-
-
 def test_embedded_afk_for_work_without_project_or_task_has_no_task_event():
     untracked_ts = TimelineSlot(
         type="regular",
@@ -899,11 +870,19 @@ def test_embedded_afk_for_work_without_project_or_task_has_no_task_event():
 def test_report_entries_as_dicts_lists_every_slot_with_its_optional_fields():
     from tests.support.slots import slot as state_slot
 
-    afk = state_slot(10, 5, "afk")
-    afk.afk_duration = timedelta(minutes=5)
-    offline = state_slot(15, 30, "untracked", offline=True)
-    offline.offline_extension_duration = timedelta(minutes=30)
-    offline.event_duration = timedelta(0)
+    afk = ReportTimelineSlot(
+        start=at(10),
+        end=at(10) + timedelta(minutes=5),
+        duration=timedelta(minutes=5),
+        afk_duration=timedelta(minutes=5),
+    )
+    offline = ReportTimelineSlot(
+        start=at(15),
+        end=at(15) + timedelta(minutes=30),
+        duration=timedelta(minutes=30),
+        offline_extension_duration=timedelta(minutes=30),
+        event_duration=timedelta(0),
+    )
     with_events = state_slot(0, 10, "not-afk")
     with_events.events = {"window": [object()]}
     entries = ReportEntries(slots_list=[with_events, afk, offline])

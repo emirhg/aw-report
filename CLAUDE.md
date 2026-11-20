@@ -417,9 +417,14 @@ WIP branch `wip/intersection-slots` (not green; do not merge as is):
   exclusions leave Total and Break; AFK fetched for the whole period; span follows the reported slots; hierarchy
   counts worked time; consolidate keeps offline). See the commit message of the golden commit.
   Done since: 3E (consolidation on objects, `pipeline/consolidation.py`; the day split now keeps the stored breakdown).
-  Still open before the squash: 3H (remove
-  actual_duration, afk_duration, offline_extension_duration, event_duration and the builder shim; they are still
-  written by the builder for the legacy readers).
+  3H done: the stored fields actual_duration, afk_duration, offline_extension_duration and event_duration are
+  gone from the model. They are read-only views of the breakdown (`ReportTimelineSlot` properties), and the
+  constructor still takes the old names for deprecated callers (they map onto the breakdown when the slot has
+  no AFK state). The builder shim is removed. The offline-overlap filter in the renderer is removed (no-op
+  with intersection slots). `TimelineSlot` and `Timeline` are `@deprecated` (with CASES); the deprecated
+  `ReportEntries` methods keep working (policy: deprecated, not deleted).
+  Still open: the dead formatting helpers in `utils/formatting.py` (test-only) are not yet deprecated; the
+  squash into logical commits and the fast-forward of `main` wait for the user's decision.
 
 Failing now (30): 25 golden snapshots (expected output change; NOT updated) and 5 legacy typed fixtures
 (test_totals_output x3, test_timeline_render_coverage, test_processors_coverage) that need afk_state.

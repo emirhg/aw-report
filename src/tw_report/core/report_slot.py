@@ -369,7 +369,24 @@ def _breakdown_from_dict(raw: dict[str, float] | None) -> TimeBreakdown | None:
     return TimeBreakdown(**{k: timedelta(seconds=float(v)) for k, v in raw.items()})
 
 
-@dataclass
+def _legacy_breakdown(
+    duration: timedelta,
+    actual: timedelta | None,
+    afk: timedelta | None,
+    offline: timedelta | None,
+) -> TimeBreakdown:
+    """The breakdown described by the legacy time arguments of a slot.
+
+    The part of the duration the arguments do not cover is no-AFK-data (the slot has no state).
+    """
+    active = max(actual or timedelta(0), timedelta(0))
+    afk_time = max(afk or timedelta(0), timedelta(0))
+    offline_time = max(offline or timedelta(0), timedelta(0))
+    rest = max(duration - active - afk_time - offline_time, timedelta(0))
+    return TimeBreakdown(active=active, afk=afk_time, offline=offline_time, no_afk_data=rest)
+
+
+@dataclass(init=False)
 class ReportTimelineSlot:
     """
     Report-optimized consolidated timeline slot (merged from TimelineSlot + wrapper).
@@ -404,14 +421,10 @@ class ReportTimelineSlot:
     start: datetime
     end: datetime
     duration: timedelta
-    actual_duration: timedelta
-    productive_duration: timedelta = field(default_factory=lambda: timedelta(0))
-    task_event: TaskWarriorEvent | None = None
-    events: EventMap = field(default_factory=dict)
-    afk_duration: timedelta | None = None
-    offline_extension_duration: timedelta | None = None
-    event_duration: timedelta | None = None
-    tags: list[str] = field(default_factory=list)
+    productive_duration: timedelta
+    task_event: TaskWarriorEvent | None
+    events: EventMap
+    tags: list[str]
     categories: list[dict[str, Any]] = field(default_factory=list)
     apps: list[dict[str, Any]] | None = None
     source_slots: list[ReportTimelineSlot | TimelineSlot] = field(default_factory=list)
@@ -423,6 +436,88 @@ class ReportTimelineSlot:
     afk_state: AfkState | None = None
     data: dict[str, list[DataValue]] = field(default_factory=dict)
     stored_breakdown: TimeBreakdown | None = None
+
+    def __init__(
+        self,
+        start: datetime,
+        end: datetime,
+        duration: timedelta,
+        actual_duration: timedelta | None = None,
+        productive_duration: timedelta = timedelta(0),
+        task_event: TaskWarriorEvent | None = None,
+        events: EventMap | None = None,
+        afk_duration: timedelta | None = None,
+        offline_extension_duration: timedelta | None = None,
+        event_duration: timedelta | None = None,
+        tags: list[str] | None = None,
+        categories: list[dict[str, Any]] | None = None,
+        apps: list[dict[str, Any]] | None = None,
+        source_slots: list[ReportTimelineSlot | TimelineSlot] | None = None,
+        is_consolidated: bool = False,
+        bucket_mode: Literal["day", "week", "month", "year"] | None = None,
+        bucket_start_date: date | None = None,
+        afk_state: AfkState | None = None,
+        data: dict[str, list[DataValue]] | None = None,
+        stored_breakdown: TimeBreakdown | None = None,
+    ) -> None:
+        """Build a slot from its state, or from the legacy time arguments.
+
+        A slot with an AFK state (or a stored breakdown) takes its breakdown from them. A slot
+        built only with the legacy arguments (actual_duration, afk_duration,
+        offline_extension_duration) takes the breakdown those arguments describe; time they do
+        not cover is untracked or no-AFK-data, by state. The legacy names are read-only views.
+        """
+        self.start = start
+        self.end = end
+        self.duration = duration
+        self.productive_duration = productive_duration
+        self.task_event = task_event
+        self.events = events if events is not None else {}
+        self.tags = tags if tags is not None else []
+        self.categories = categories if categories is not None else []
+        self.apps = apps
+        self.source_slots = source_slots if source_slots is not None else []
+        self.is_consolidated = is_consolidated
+        self.bucket_mode = bucket_mode
+        self.bucket_start_date = bucket_start_date
+        self.afk_state = afk_state
+        self.data = data if data is not None else {}
+        if (
+            stored_breakdown is None
+            and afk_state is None
+            and (
+                actual_duration is not None
+                or afk_duration is not None
+                or offline_extension_duration is not None
+            )
+        ):
+            stored_breakdown = _legacy_breakdown(
+                duration, actual_duration, afk_duration, offline_extension_duration
+            )
+        self.stored_breakdown = stored_breakdown
+        self.__post_init__()
+
+    @property
+    def actual_duration(self) -> timedelta:
+        """Active (not-AFK) time of the slot (legacy name for breakdown.active)."""
+        return self.breakdown.active
+
+    @property
+    def afk_duration(self) -> timedelta | None:
+        """AFK time of the slot, or None when there is none (legacy name for breakdown.afk)."""
+        afk = self.breakdown.afk
+        return afk if afk > timedelta(0) else None
+
+    @property
+    def offline_extension_duration(self) -> timedelta | None:
+        """Offline time of the slot, or None when there is none (legacy name)."""
+        offline = self.breakdown.offline
+        return offline if offline > timedelta(0) else None
+
+    @property
+    def event_duration(self) -> timedelta | None:
+        """Online time of an offline task, or None (legacy name for offline tasks)."""
+        return self.breakdown.active if self.breakdown.offline > timedelta(0) else None
 
     def __post_init__(self) -> None:
         """Validate slot integrity: reject zero-duration slots and normalize timezones."""
@@ -486,14 +581,7 @@ class ReportTimelineSlot:
         - offline_extension_duration: system-off time (primary field after consolidation)
         - event_duration: online time within task (used before consolidation)
         """
-        if self.task_event is None:
-            return False
-        has_offline_ext = (
-            self.offline_extension_duration is not None
-            and self.offline_extension_duration > timedelta(0)
-        )
-        has_event_dur = self.event_duration is not None and self.event_duration > timedelta(0)
-        return has_offline_ext or has_event_dur
+        return self.task_event is not None and self.breakdown.offline > timedelta(0)
 
     @property
     def is_afk_only(self) -> bool:
@@ -508,11 +596,11 @@ class ReportTimelineSlot:
         Slots with task_event represent work periods; even if embedded AFK is recorded,
         they represent "work with idle" not "pure idle", so they classify as "regular".
         """
+        breakdown = self.breakdown
         return (
-            self.afk_duration is not None
-            and self.afk_duration > timedelta(0)
-            and self.actual_duration == timedelta(0)
-            and self.event_duration is None
+            breakdown.afk > timedelta(0)
+            and breakdown.active == timedelta(0)
+            and breakdown.offline == timedelta(0)
             and self.task_event is None
         )
 
@@ -523,13 +611,12 @@ class ReportTimelineSlot:
 
         No task, no activity, offline_extension set.
         """
+        breakdown = self.breakdown
         return (
             self.task_event is None
-            and self.actual_duration == timedelta(0)
-            and (self.afk_duration is None or self.afk_duration == timedelta(0))
-            and self.offline_extension_duration is not None
-            and self.offline_extension_duration > timedelta(0)
-            and self.event_duration is None
+            and breakdown.active == timedelta(0)
+            and breakdown.afk == timedelta(0)
+            and breakdown.offline > timedelta(0)
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -958,36 +1045,9 @@ class ReportTimelineSlot:
 
             # Proportionally allocate durations (self.duration > 0 is guaranteed by __post_init__)
             ratio = piece_duration.total_seconds() / self.duration.total_seconds()
-
-            # Calculate prorated durations
-            piece_actual_duration = timedelta(seconds=self.actual_duration.total_seconds() * ratio)
             piece_productive_duration = timedelta(
                 seconds=self.productive_duration.total_seconds() * ratio
             )
-
-            # Conditionally prorate optional duration fields (guard against None)
-            piece_afk_duration = None
-            if self.afk_duration is not None and self.afk_duration.total_seconds() > 0:
-                piece_afk_duration = timedelta(seconds=self.afk_duration.total_seconds() * ratio)
-
-            piece_event_duration = None
-            if self.event_duration is not None:
-                piece_event_duration = timedelta(
-                    seconds=self.event_duration.total_seconds() * ratio
-                )
-
-            # offline_extension_duration must be calculated from split piece duration -
-            # event_duration
-            # to avoid rounding error accumulation when both are prorated independently
-            piece_offline_extension_duration = None
-            if (
-                self.offline_extension_duration is not None
-                and self.offline_extension_duration.total_seconds() > 0
-            ):
-                piece_event_dur = piece_event_duration or timedelta(0)
-                piece_offline_ext = piece_duration - piece_event_dur
-                if piece_offline_ext > timedelta(0):
-                    piece_offline_extension_duration = piece_offline_ext
 
             # Build the piece as ReportTimelineSlot directly
             piece_bucket_start = ReportTimelineSlot.bucket_start(piece_start, mode)
@@ -995,19 +1055,16 @@ class ReportTimelineSlot:
                 start=piece_start,
                 end=piece_end,
                 duration=piece_duration,
-                actual_duration=piece_actual_duration,
                 productive_duration=piece_productive_duration,
                 task_event=self.task_event,
                 events=merge_event_maps(self.events),
                 afk_state=self.afk_state,
+                # A slot with a state takes its breakdown from it; one without keeps a share
                 stored_breakdown=(
                     self.breakdown.prorated(piece_duration, self.duration)
-                    if self.stored_breakdown is not None
+                    if self.afk_state is None
                     else None
                 ),
-                afk_duration=piece_afk_duration,
-                offline_extension_duration=piece_offline_extension_duration,
-                event_duration=piece_event_duration,
                 tags=self.tags,
                 categories=self.categories,  # NOT prorated
                 apps=self.apps,

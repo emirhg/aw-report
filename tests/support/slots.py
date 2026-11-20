@@ -32,7 +32,6 @@ def slot(
         start=start,
         end=start + duration,
         duration=duration,
-        actual_duration=duration,
         task_event=task_event,
         afk_state=state,
         categories=categories or [],

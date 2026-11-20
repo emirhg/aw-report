@@ -63,7 +63,7 @@ from typing import TYPE_CHECKING, Any, overload
 
 from aw_core.models import Event
 
-from tw_report.core.filtering import NO_PROJECT, NO_TASK
+from tw_report.core.filtering import NO_PROJECT
 from tw_report.core.period import local_zoneinfo, logical_date
 from tw_report.core.report_slot import dash_width, right_section_width
 from tw_report.pipeline.metrics import state_totals
@@ -216,44 +216,9 @@ def get_slot_logical_date(slot: dict | ReportTimelineSlot, day_start_hour: int =
     return logical_date(start_time, day_start_hour)
 
 
-def _get_displayed_duration(slot: dict | ReportTimelineSlot) -> timedelta:
-    """Return the duration that's actually displayed for this slot.
-
-    Matches the exact logic used in rendering code to ensure totals are consistent:
-    - AFK slots: prefer actual_duration over duration
-    - OFFLINE tasks: prefer actual_duration over duration
-    - Regular slots: use wall-clock duration
-
-    This ensures day/week/report totals sum to the displayed entries.
-
-    Args:
-        slot: A timeline slot (dict or ReportTimelineSlot object)
-
-    Returns:
-        The duration as displayed in the output
-    """
-    if isinstance(slot, dict):
-        slot_type = slot.get("type")
-        if slot_type == "afk":
-            # AFK slots: prefer actual_duration
-            return slot.get("actual_duration", slot.get("duration", timedelta(0)))
-        elif slot_type == "offline_task":
-            # OFFLINE tasks: prefer actual_duration
-            return slot.get("actual_duration", timedelta(0))
-        else:
-            # Regular slots: use wall-clock duration
-            return slot.get("duration", timedelta(0))
-    else:
-        # ReportTimelineSlot object
-        if slot.is_afk_only:
-            # AFK slots: prefer actual_duration
-            return slot.actual_duration if slot.actual_duration else slot.duration
-        elif slot.is_offline_task:
-            # OFFLINE tasks: prefer actual_duration
-            return slot.actual_duration or timedelta(0)
-        else:
-            # Regular slots: use wall-clock duration
-            return slot.duration
+def _get_displayed_duration(slot: ReportTimelineSlot) -> timedelta:
+    """The duration shown for a slot: its wall-clock duration (its breakdown sums to it)."""
+    return slot.duration
 
 
 @overload
@@ -748,9 +713,7 @@ def print_timeline_report(
     # Filter to only include slots within the requested date range
     # After splitting, we should only show portions that fall within [start_time, end_time)
     normalized = [
-        s
-        for s in normalized
-        if s.start < end_time and (s.start + (s.actual_duration or s.duration)) > start_time
+        s for s in normalized if s.start < end_time and (s.start + s.duration) > start_time
     ]
 
     # Recalculate total_time_all after filtering to match the displayed slots
@@ -774,78 +737,6 @@ def print_timeline_report(
         for s in normalized
         if s.duration > timedelta(milliseconds=100)  # > 100ms to handle rounding
     ]
-
-    # Remove regular slots that overlap/fall within OFFLINE periods for the same task
-    # OFFLINE slots represent untracked periods; showing both OFFLINE + regular slots creates
-    # visual duplication and confusion.
-    #
-    # ARCHITECTURAL NOTE: This filtering should ideally happen at slot generation time
-    # (OfflineTaskProcessor.consumed_window_event_ids in offline.py), not in rendering.
-    # Currently kept here as the proper generation-layer fix requires additional investigation.
-    offline_slots_by_task: dict[tuple[Any, Any], list[ReportTimelineSlot]] = {}
-
-    # Helper to check if slot has event_duration (field-driven offline_task detection)
-    def is_offline_task_slot(s):
-        return s.event_duration is not None
-
-    for slot in normalized:
-        if is_offline_task_slot(slot):
-            key = (slot.project, slot.task)
-            if key not in offline_slots_by_task:
-                offline_slots_by_task[key] = []
-            offline_slots_by_task[key].append(slot)
-
-    # Remove regular slots that occur within OFFLINE periods
-    # This includes:
-    # 1. Regular slots for the same task (originally implemented)
-    # 2. "No project assigned" unassigned slots (new fix for overlapping unassigned activity)
-    filtered_slots = []
-    all_offline_periods = []
-    for offline_slots in offline_slots_by_task.values():
-        for offline_slot in offline_slots:
-            all_offline_periods.append(
-                (offline_slot.start, offline_slot.start + offline_slot.duration)
-            )
-
-    for slot in normalized:
-        if is_offline_task_slot(slot):
-            filtered_slots.append(slot)
-        else:
-            slot_start = slot.start
-            slot_end = slot.start + slot.duration
-
-            overlaps_offline = False
-
-            # Check if slot is "No project assigned" - these should be removed if they overlap with
-            # ANY OFFLINE period
-            if slot.project in [NO_PROJECT, "No project assigned", None, ""] or slot.task in [
-                NO_TASK,
-                "No task assigned",
-                None,
-                "",
-            ]:
-                # "No project assigned" slots should not overlap with any OFFLINE period
-                # Use > (not >=) to allow slots that end exactly when OFFLINE starts (boundary touch
-                # is OK)
-                for offline_start, offline_end in all_offline_periods:
-                    if slot_start < offline_end and slot_end > offline_start:
-                        overlaps_offline = True
-                        break
-            else:
-                # Regular task slots: only remove if they match the same task as an OFFLINE period
-                key = (slot.project, slot.task)
-                if key in offline_slots_by_task:
-                    for offline_slot in offline_slots_by_task[key]:
-                        offline_start = offline_slot.start
-                        offline_end = offline_start + offline_slot.duration
-                        if slot_start < offline_end and slot_end > offline_start:
-                            overlaps_offline = True
-                            break
-
-            if not overlaps_offline:
-                filtered_slots.append(slot)
-
-    normalized = filtered_slots
 
     # ============================================================================
     # PERIOD-AWARE CONSOLIDATION
@@ -1062,8 +953,6 @@ def print_timeline_report(
 
         slot_start = slot.start
         slot_end = slot.end if hasattr(slot, "end") else slot.start + slot.duration
-        slot_afk = get_slot_attr(slot, "afk_duration")
-        slot_event_duration = get_slot_attr(slot, "event_duration")
         slot_productive = get_slot_attr(slot, "productive_duration")
 
         # Render slot with DisplayColumns (works for all slot types)
@@ -1077,7 +966,7 @@ def print_timeline_report(
 
         # Render detail (categories/apps/titles for detail_level >= 3)
         # Skip for offline_task slots (no window data) - field-driven check
-        if slot_event_duration is None:
+        if slot.entry_type != "offline_task":
             _render_slot_detail(slot.to_dict(), detail_level, width)
 
         # UNIFIED METRICS & ACCUMULATION (field-driven, no type discrimination):
