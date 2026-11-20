@@ -6,11 +6,12 @@ Tracked Activity                00:45:00
 Active Time                     00:45:00
 Project Tracking                100.0% (00:45:00)
 Current Session                 00:45:00 (10:45 to 11:30)
+Last Break                      00:15:00 (10:30 to 10:45)
 --------------------------------------------------------------------------------
-Wk  Date       Day                                                                      BREAK       OFFLINE     AFK         ACTIVE                    
+Wk  Date       Day                                                                      UNTRACKED   OFFLINE     AFK         ACTIVE                    
 W35 2026-08-30 Sun
        10:45 - 11:30  ▶ Higuera  ▶▶ Refactor                                     00:45:00                  
-                                                                                         --------------------------------              
+                                                                                         ------------------------------------------------              
        Day total:                                                                                                            00:45:00                  
 
 

@@ -37,6 +37,7 @@ class TestMetricsCalculationWithRealEvents:
             end=base_time + slot_duration,
             duration=slot_duration,
             actual_duration=slot_duration,
+            afk_state="not-afk",
             productive_duration=slot_duration,
             task_event=TaskWarriorEvent(
                 timestamp=base_time,

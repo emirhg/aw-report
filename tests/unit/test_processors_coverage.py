@@ -26,23 +26,25 @@ def at(hours: float) -> datetime:
 def slot(
     h0, h1, project="P", task="T", categories=None, with_task_event=True
 ) -> ReportTimelineSlot:
+    """A not-AFK slot of the given hours, built on the state model (no legacy converter)."""
+    from tw_report.core.aw_events import TaskWarriorEvent
+
     d = timedelta(hours=h1 - h0)
-    ts = TimelineSlot(
-        type="regular",
+    task_event = (
+        TaskWarriorEvent(timestamp=at(h0), duration=d, data={"project": project, "title": task})
+        if with_task_event
+        else None
+    )
+    return ReportTimelineSlot(
         start=at(h0),
         end=at(h1),
         duration=d,
         actual_duration=d,
         productive_duration=d,
-        project=project,
-        task=task,
+        task_event=task_event,
         categories=categories or [],
-        tags=[],
+        afk_state="not-afk",
     )
-    rs = ReportTimelineSlot.from_timeline_slot(ts)
-    if not with_task_event:
-        rs.task_event = None
-    return rs
 
 
 def score_by_name(scores):

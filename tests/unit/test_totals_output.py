@@ -179,6 +179,7 @@ class TestTimelineReportTotalsInvariants:
                 "productive_duration": timedelta(hours=1),
             },
             {
+                "afk_state": "afk",
                 "type": "afk",
                 "start": base_time.replace(hour=10),
                 "end": base_time.replace(hour=11),
@@ -222,18 +223,32 @@ class TestTimelineReportTotalsInvariants:
 
         slots = [
             {
+                # 30 min of online work inside the offline task (AFK says not-afk)
+                "afk_state": "not-afk",
+                "tags": ["offline"],
                 "project": "TestProj",
                 "task": "OfflineTask",
-                "type": "offline_task",
+                "type": "regular",
                 "start": base_time.replace(hour=11),
-                "end": base_time.replace(hour=13),  # 2 hour wall-clock
-                "duration": timedelta(hours=2),
-                "event_duration": timedelta(minutes=30),  # 30 min AW overlap
+                "end": base_time.replace(hour=11, minute=30),
+                "duration": timedelta(minutes=30),
                 "actual_duration": timedelta(minutes=30),
-                "offline_extension_duration": timedelta(hours=2) - timedelta(minutes=30),
                 "productive_duration": timedelta(minutes=30),
             },
             {
+                # 1.5 h while the machine was off: offline
+                "afk_state": "untracked",
+                "tags": ["offline"],
+                "project": "TestProj",
+                "task": "OfflineTask",
+                "type": "offline_task",
+                "start": base_time.replace(hour=11, minute=30),
+                "end": base_time.replace(hour=13),
+                "duration": timedelta(hours=1, minutes=30),
+                "actual_duration": timedelta(0),
+            },
+            {
+                "afk_state": "afk",
                 "type": "afk",
                 "start": base_time.replace(hour=9),
                 "end": base_time.replace(hour=10),
@@ -288,6 +303,8 @@ class TestTimelineReportTotalsInvariants:
 
         slots = [
             {
+                "afk_state": "untracked",
+                "tags": ["offline"],
                 "project": "Ecosistema",
                 "task": "OfflineWork",
                 "type": "offline_task",
@@ -300,6 +317,7 @@ class TestTimelineReportTotalsInvariants:
                 "productive_duration": timedelta(0),
             },
             {
+                "afk_state": "afk",
                 "type": "afk",
                 "start": base_time + timedelta(hours=2),
                 "end": base_time + timedelta(hours=2, minutes=15),

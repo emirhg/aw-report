@@ -1,33 +1,33 @@
 =============================== Timeline Report ================================
 SUMMARY
 ────────────────────────────────────────────────────────────────────────────────
-Period                          2026-08-30 (2026-08-30 09:00:00 to 2026-08-30 12:00:00)
-Tracked Activity                03:00:00
-Active Time                     02:15:00
-Project Tracking                84.4% (02:15:00)
+Period                          2026-08-30 (2026-08-30 10:00:00 to 2026-08-30 12:10:00)
+Tracked Activity                02:10:00
+Active Time                     01:15:00
+Project Tracking                75.0% (01:15:00)
 Current Session                 00:45:00 (10:45 to 11:30)
 Last Break                      00:15:00 (10:30 to 10:45)
 --------------------------------------------------------------------------------
-Wk  Date       Day                                                                      BREAK       OFFLINE     AFK         ACTIVE                    
+Wk  Date       Day                                                                      UNTRACKED   OFFLINE     AFK         ACTIVE                    
 W35 2026-08-30 Sun
-       09:00 - 10:30  ▶ Climb  ▶▶ Task1                                     01:30:00                  
+       10:00 - 10:30  ▶ Climb  ▶▶ Task1                                     00:30:00                  
        10:30 - 10:45  ▶ No project assigned                            00:15:00                              
        10:45 - 11:30  ▶ Higuera  ▶▶ Refactor                                     00:45:00                  
        11:30 - 12:00  ▶ Climb  ▶▶ Writing             00:30:00                                          
        12:00 - 12:10  ▶ No project assigned                            00:10:00                              
-                                                                                         --------------------------------              
-       Day total:                                                                                    00:30:00    00:25:00    02:15:00                  
+                                                                                         ------------------------------------------------              
+       Day total:                                                                                    00:30:00    00:25:00    01:15:00                  
 
 
 TOTALS
 ────────────────────────────────────────────────────────────────────────────────
-Total Time                                      03:10:00
-  Worked Time                                     03:10:00
-    Online                                          02:40:00
-      Active Time                                     02:15:00
+Total Time                                      02:10:00
+  Worked Time                                     02:10:00
+    Online                                          01:40:00
+      Active Time                                     01:15:00
         Productive                                      00:00:00
         Unproductive                                    00:00:00
-        Undefined                                       02:15:00
+        Undefined                                       01:15:00
       AFK time                                        00:25:00
         Productive                                      00:00:00
         Unproductive                                    00:00:00

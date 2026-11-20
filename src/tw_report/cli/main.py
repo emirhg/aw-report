@@ -48,9 +48,9 @@ from tw_report.core.task_uuid_filtering import (
     get_events_by_uuid,
     get_task_uuid,
 )
-from tw_report.core.timeline import Timeline, TimelineSlot
 from tw_report.core.timeslot_builder import build_timeslot_timeline
 from tw_report.exceptions import ConfigParsingError
+from tw_report.pipeline.metrics import state_totals
 
 # generate_untracked_gap_events removed in Phase 2 refactor — builder handles gaps
 from tw_report.pipeline.presenters import HierarchicalReport, TimelineReport
@@ -69,17 +69,6 @@ from tw_report.utils.formatting import normalize_title
 from tw_report.utils.profiling import StageProfiler, enable_unbuffered_output
 
 logger = logging.getLogger(__name__)
-
-
-def _get_apps_from_slot(slot) -> list[str]:
-    """Extract all unique app names from slot's categories."""
-    apps = set()
-    for cat_entry in slot.categories or []:
-        for app_entry in cat_entry.get("apps", []):
-            app_name = app_entry.get("app", "")
-            if app_name:
-                apps.add(app_name)
-    return list(apps)
 
 
 @deprecated("Not called by the CLI; scheduled for removal.")
@@ -408,33 +397,15 @@ def _run(profiler: StageProfiler):
     afk_events: list[AFKEvent] = []
 
     # For opt-out: fetch windows by default, skip only in constrained cases
-    # AFK data is always needed for metrics and OFFLINE reconciliation
-    # Fetch AFK events (always required for metrics and OFFLINE reconciliation)
-    # Only fetch AFK for task time ranges when tasks exist (sparse data, e.g. :year, :all);
-    # otherwise the whole period.
+    # AFK is read for the whole period, never narrowed to task ranges: an untracked gap is
+    # the time between two AFK events of one day, so a task's neighbouring AFK events are needed
+    # even when a --project/--task filter is active. The AFK bucket is small.
     profiler.checkpoint(f"Fetching AFK events from {start_time.date()} to {end_time.date()}")
     if "afk" in sources:
-        afk_events = fetch_events(
-            client, buckets.afk, start_time, end_time, ranges=task_time_ranges, event_cls=AFKEvent
-        )
+        afk_events = fetch_events(client, buckets.afk, start_time, end_time, event_cls=AFKEvent)
     else:
         afk_events = []
     profiler.checkpoint(f"Fetched {len(afk_events)} AFK events")
-
-    # Filter AFK to only events overlapping task time ranges (if available)
-    # CRITICAL: Only filter if task_time_ranges is non-empty. If no tasks exist,
-    # we still need all AFK events to display untracked time and detect system state.
-    if task_time_ranges:
-        filtered_afk = []
-        for afk_event in afk_events:
-            afk_start = afk_event.timestamp
-            afk_end = afk_start + afk_event.duration
-            for task_start, task_end in task_time_ranges:
-                if afk_start < task_end and afk_end > task_start:
-                    filtered_afk.append(afk_event)
-                    break
-        afk_events = filtered_afk
-    # else: keep all AFK events if no tasks exist (showing untracked time)
 
     # ============================================================================
     # CRITICAL ARCHITECTURE: Window Bucket On-Demand Fetching (Phase 13)
@@ -631,9 +602,6 @@ def _run(profiler: StageProfiler):
     if first_event_time and last_event_time:
         tracked_activity_from_slots = last_event_time - first_event_time
 
-    # Use Timeline for internal slot management (Phase 3 migration)
-    timeline = Timeline()
-
     # EVENT-BASED TIMESHEET APPROACH (2026-07-30):
     # For timesheet modes, use per-event OFFLINE task slots (one per event)
     # These are now included in partitioned_task_slots, so DON'T add them separately
@@ -700,131 +668,56 @@ def _run(profiler: StageProfiler):
         afk_events=afk_events or [],
         window_events=window_events or [],
         task_events=task_events_deduped or [],
+        day_start_hour=day_start_hour,
+        tz=local_zoneinfo(resolved_settings.timezone),
     )
 
-    # Convert ReportTimelineSlot objects to dict format for downstream processing
-    # Add the 'type' field based on slot discriminators
-    def _infer_slot_type(slot):
-        if slot.is_afk_only:
-            return "afk"
-        elif slot.is_offline_task:
-            return "offline_task"
-        else:
-            return "regular"
-
-    all_slot_entries = []
-    for s in report_slots:
-        slot_dict = s.to_dict()
-        slot_dict["type"] = _infer_slot_type(s)
-        all_slot_entries.append(slot_dict)
-
-    # Apply EventFilter to the flat slot list
-    # This is the single, unified filter application point (replaces 3 scattered implementations)
-    all_slot_entries = [
-        g
-        for g in all_slot_entries
-        if event_filter.should_include_entry(g, entry_type=g.get("type", "regular"))
-        and not (args.exclude_non_project and _is_unassigned_project(g.get("project")))
+    # One filter pass on the slot objects, before any metric or rendering: project, task, app
+    # (from the slot's categories) and entry kind. Rows and totals both use this list.
+    display_slots = [
+        s
+        for s in report_slots
+        if event_filter.accepts_slot(s)
+        and not (args.exclude_non_project and _is_unassigned_project(s.project))
+        and not (args.exclude_afk and s.entry_type == "afk")
     ]
-
-    # FIX: --exclude-afk removes AFK period slots from the timeline
-    if args.exclude_afk:
-        all_slot_entries = [g for g in all_slot_entries if g.get("type") != "afk"]
 
     # Snapshot single-state slots for the productivity split BEFORE consolidation merges
     # online/AFK/offline states into one slot (consolidated spans dilute window coverage)
     productivity_source_slots: list[ReportTimelineSlot] | None = None
     if not args.no_productivity:
-        from tw_report.core.report_slot import ReportTimelineSlot
+        productivity_source_slots = list(display_slots)
 
-        productivity_source_slots = [ReportTimelineSlot.from_dict(g) for g in all_slot_entries]
-
-    # Apply session consolidation to timeline slots if --consolidate flag is set
-    # This merges multiple work sessions with same (date, project, task) into one entry
+    # Session consolidation (--consolidate). Still dict-based until piece 3E.
     if args.consolidate:
         from tw_report.pipeline.consolidation import consolidate_sessions
 
-        # Filter out micro-slots (< 1 second) before consolidation
-        # These are spurious state-change events that fragment work sessions
         min_duration = timedelta(seconds=1)
-        filtered_entries = [
-            s for s in all_slot_entries if s.get("duration", timedelta(0)) >= min_duration
+        entries = [
+            {**s.to_dict(), "type": s.entry_type}
+            for s in display_slots
+            if s.duration >= min_duration
         ]
+        display_slots = [ReportTimelineSlot.from_dict(d) for d in consolidate_sessions(entries)]
 
-        all_slot_entries = consolidate_sessions(filtered_entries)
+    filtered_slots = display_slots
 
-    # All timeline-based modes (--by-day/week/month/year and hierarchical/project)
-    # Use the standard timeline rendering which shows chronological slots
-    # Each slot renders independently: no combining of work slots with embedded AFK
-
-    # Add all slot entries to timeline (auto-sorts on insertion)
-    timeline.add_slots([TimelineSlot.from_dict(g) for g in all_slot_entries])
-
-    # Convert timeline to ReportEntries for type normalization
-    # CRITICAL: This converts "active_task"/"afk_task" types to standard "regular"/"afk" types
-    # that the rendering code understands. Do NOT combine work with embedded AFK here.
-    report_timeline = timeline.to_report_timeline()
-
-    # NOTE: consolidate_by_task() is now called in the rendering layer (print_timeline_report)
-    # so that consolidation respects the rendering period (day, week, month, year)
-    # This prevents cross-period consolidation that would create entries spanning multiple days
-
-    final_dicts = report_timeline.as_dicts()
-
-    # CRITICAL: Do NOT consolidate_by_task() on builder output!
-    # The sweep-line builder produces GUARANTEED non-overlapping slots by construction.
-    # Consolidating would merge non-contiguous gaps into one mega-slot, re-introducing overlaps.
-    # Instead, use the raw builder output directly for rendering, and apply filtering.
-
-    from tw_report.core.report_slot import ReportTimelineSlot
-    from tw_report.pipeline.timeline_render import compute_afk_offline_totals
-
-    # Convert final_dicts to ReportTimelineSlot objects for filtering
-    report_slots = []
-    for slot_dict in final_dicts:
-        slot_obj = ReportTimelineSlot.from_dict(slot_dict)
-        report_slots.append(slot_obj)
-
-    # Apply EventFilter to slots BEFORE any metrics calculation
-    # Totals should only include entries that match the applied filters
-    # The entry type must reflect the real slot kind so the AFK/offline/gap
-    # branch of should_include_entry is used for those slots
-    def _slot_entry_type(s: ReportTimelineSlot) -> str:
-        if s.is_afk_only:
-            return "afk"
-        if s.is_offline_task:
-            return "offline_task"
-        return "regular"
-
-    filtered_slots = [
-        s
-        for s in report_slots
-        if event_filter.should_include_entry(
-            {
-                "project": s.project,
-                "task": s.task,
-                "app": "|".join(_get_apps_from_slot(s)) or "",
-            },
-            entry_type=_slot_entry_type(s),
-        )
-    ]
+    # The reported span is the span of the reported slots: under a project/task/app filter it is
+    # the filtered work, not the whole AFK range (which is fetched in full for untracked gaps).
+    if display_slots:
+        first_event_time = min(slot.start for slot in display_slots)
+        last_event_time = max(slot.end for slot in display_slots)
+        tracked_activity_from_slots = last_event_time - first_event_time
 
     # UNIFIED METRICS CALCULATION (single point for both report modes)
-    # All metrics now computed from filtered_slots (same input for both timeline and hierarchical)
+    from tw_report.pipeline.timeline_render import compute_afk_offline_totals
 
-    # Recalculate ALL metrics from filtered slots (non-overlapping by construction)
     slot_afk_time, slot_offline_time = compute_afk_offline_totals(filtered_slots)
 
-    # Calculate filtered active time from builder output
-    # Active time = actual_duration (work time without AFK)
-    slot_active_time = sum(
-        (s.actual_duration or timedelta(0) for s in filtered_slots), timedelta(0)
-    )
-
-    # Calculate break time from filtered slots (gaps between consecutive slots per day)
-    from tw_report.core.report_slot import compute_total_break_time
-
-    slot_break_time = compute_total_break_time(filtered_slots, day_start_hour)
+    # Active and untracked time come from each slot's breakdown (core/time_breakdown.py)
+    filtered_totals = state_totals(filtered_slots)
+    slot_active_time = filtered_totals.active
+    slot_break_time = filtered_totals.untracked
 
     # Compute productivity metrics from filtered slots
     # These are shared by both timeline and hierarchical rendering modes
@@ -863,11 +756,6 @@ def _run(profiler: StageProfiler):
             afk_total=slot_afk_time,
         )
 
-    # Convert slots back to dicts for rendering (use raw builder output, NO filtering)
-    # IMPORTANT: Rendering shows ALL slots (including AFK) while metrics can be filtered.
-    # This is by design — the report shows complete timeline, but summary metrics respect filters.
-    consolidated_dicts = [s.to_dict() if hasattr(s, "to_dict") else s for s in report_slots]
-
     # Now determine which rendering mode to use: timeline (period-based) or hierarchical
     # BUG REPORTS:
     # 1. Month consolidation (--by-month) crashes: ValueError zero-duration slot in offline.py
@@ -876,11 +764,11 @@ def _run(profiler: StageProfiler):
     # 2. Year consolidation (--by-year) hangs/timeouts: Possible O(n^2) or infinite loop
     #    Likely in period grouping or consolidation logic when spanning 56+ years of history
     #    Fix needed: Performance audit of consolidate_by_period() for large datasets
-    profiler.checkpoint(f"Starting rendering phase with {len(report_slots)} slots")
+    profiler.checkpoint(f"Starting rendering phase with {len(display_slots)} slots")
     if grouping_mode in ["day", "week", "month", "year"]:
         profiler.checkpoint(f"Rendering timeline report (period: {period})")
         TimelineReport(print_timeline_report).present(
-            slots=consolidated_dicts,
+            slots=display_slots,
             period=period,
             start_time=start_time,
             end_time=end_time,
@@ -925,9 +813,9 @@ def _run(profiler: StageProfiler):
         total_offline_calc = slot_offline_time if slot_offline_time > timedelta(0) else None
 
         # Total online time = Active + AFK (using filtered active time)
-        total_time_calc = None
-        if slot_active_time:
-            total_time_calc = slot_active_time + (afk_time_calc or timedelta(0))
+        total_time_calc = (
+            slot_active_time + (afk_time_calc or timedelta(0)) if slot_active_time else None
+        )
 
         HierarchicalReport(print_report).present(
             report_data=report_data,

@@ -228,13 +228,15 @@ def test_day_total_line_with_narrow_width_appends_right_section(capsys):
 # ---------------------------------------------------------------------------
 
 
-def test_compute_afk_offline_totals_uses_duration_minus_event_for_plain_slots():
-    slot = ReportTimelineSlot.from_dict(regular(D1, 9, 10))
-    slot.offline_extension_duration = None
-    slot.event_duration = h(0.25)
-    afk, offline_total = compute_afk_offline_totals([slot])
-    assert offline_total == h(0.75)  # duration 1h - event 0.25h
-    assert afk == timedelta(0)
+def test_compute_afk_offline_totals_come_from_the_breakdown():
+    from tests.support.slots import slot as state_slot
+
+    offline = state_slot(0, 60, "untracked", offline=True)
+    afk_slot = state_slot(60, 30, "afk")
+    active = state_slot(90, 45, "not-afk")
+    afk, offline_total = compute_afk_offline_totals([offline, afk_slot, active])
+    assert offline_total == h(1)
+    assert afk == h(0.5)
 
 
 @pytest.mark.parametrize(
@@ -262,7 +264,7 @@ def very_wide_terminal(monkeypatch):
 def test_very_wide_terminal_aligns_header_and_day_totals(very_wide_terminal, capsys):
     out = render(capsys, [regular(D1, 9, 10), regular(D1, 13, 14, task="Other")])
     header = next(line for line in out.splitlines() if line.startswith("Wk  Date"))
-    assert "BREAK" in header and "ACTIVE" in header
+    assert "UNTRACKED" in header and "ACTIVE" in header
     assert "Day total:" in out
 
 

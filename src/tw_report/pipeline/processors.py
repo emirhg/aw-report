@@ -76,8 +76,9 @@ def aggregate_hierarchy_from_slots(
     for slot in consolidated_slots:
         # Include all slots, even AFK-only (idle time is still tracked time)
 
-        # Use slot's actual_duration as the work duration for this slot
-        slot_work_duration = slot.actual_duration or slot.duration or timedelta(0)
+        # Worked time (active plus offline work) is the duration of this slot in the hierarchy;
+        # AFK and untracked time are not work
+        slot_work_duration = slot.breakdown.worked
 
         # If slot has no categories, create an "Uncategorized" default entry
         # This handles "No project assigned" slots which often lack categories
@@ -208,7 +209,7 @@ def compute_metrics(
             for cat_entry in slot.categories:
                 category = cat_entry.get("category", "Uncategorized")
                 score = get_category_score(category, cat_score_map)
-                slot_duration = slot.actual_duration or timedelta(0)
+                slot_duration = slot.breakdown.active
 
                 if score > 0:
                     productive_time += slot_duration
@@ -439,8 +440,8 @@ def compute_productivity_breakdown(
     dilute the split. Offline-tagged slots are not skipped: they contribute only
     the online/AFK time they actually carry.
 
-    AFK amounts mirror compute_afk_offline_totals(): afk_duration when slots
-    are consolidated, otherwise the duration of is_afk_only slots.
+    Active and AFK amounts are the slot breakdowns (see core/time_breakdown.py), the same
+    values compute_afk_offline_totals() reports.
 
     If active_total / afk_total are given, each group is rescaled so its parts
     sum exactly to the displayed TOTALS figure (this absorbs micro-slots dropped
@@ -456,14 +457,13 @@ def compute_productivity_breakdown(
         "unproductive": timedelta(0),
         "undefined": timedelta(0),
     }
-    has_consolidated_afk = any(s.afk_duration is not None for s in filtered_slots)
 
     def add(parts: dict[str, timedelta], split: dict[str, timedelta]) -> None:
         for bucket, amount in split.items():
             parts[bucket] += amount
 
     for slot in filtered_slots:
-        active = slot.actual_duration or timedelta(0)
+        active = slot.breakdown.active
         if active > timedelta(0):
             add(
                 active_parts,
@@ -476,10 +476,7 @@ def compute_productivity_breakdown(
                 ),
             )
 
-        if has_consolidated_afk:
-            afk = slot.afk_duration or timedelta(0)
-        else:
-            afk = (slot.actual_duration or slot.duration) if slot.is_afk_only else timedelta(0)
+        afk = slot.breakdown.afk
         if afk > timedelta(0):
             add(
                 afk_parts,

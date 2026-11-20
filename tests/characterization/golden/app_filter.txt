@@ -1,15 +1,28 @@
 =============================== Timeline Report ================================
 SUMMARY
 ────────────────────────────────────────────────────────────────────────────────
-Period                          2026-08-30 (2026-08-30 09:00:00 to 2026-08-30 12:00:00)
-Tracked Activity                03:00:00
+Period                          2026-08-30 (2026-08-30 10:00:00 to 2026-08-30 11:30:00)
+Tracked Activity                01:30:00
+Active Time                     01:15:00
+Project Tracking                100.0% (01:15:00)
+Current Session                 00:45:00 (10:45 to 11:30)
+Last Break                      00:15:00 (10:30 to 10:45)
 --------------------------------------------------------------------------------
-No activity found for the specified period.
-Wk  Date       Day                                                                      BREAK       OFFLINE     AFK         ACTIVE                    
+Wk  Date       Day                                                                      UNTRACKED   OFFLINE     AFK         ACTIVE                    
+W35 2026-08-30 Sun
+       10:00 - 10:30  ▶ Climb  ▶▶ Task1                                     00:30:00                  
+       10:45 - 11:30  ▶ Higuera  ▶▶ Refactor                                     00:45:00                  
+                                                                                         ------------------------------------------------              
+       Day total:                                                                                                            01:15:00                  
+
 
 TOTALS
 ────────────────────────────────────────────────────────────────────────────────
-Total Time                                      00:00:00
-  Worked Time                                     00:00:00
-    Online                                          00:00:00
+Total Time                                      01:15:00
+  Worked Time                                     01:15:00
+    Online                                          01:15:00
+      Active Time                                     01:15:00
+        Productive                                      00:00:00
+        Unproductive                                    00:00:00
+        Undefined                                       01:15:00
 ================================================================================

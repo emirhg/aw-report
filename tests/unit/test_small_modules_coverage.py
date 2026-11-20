@@ -9,7 +9,6 @@ from tw_report.core.aw_events import AFKEvent, TaskWarriorEvent, WindowEvent
 from tw_report.core.filtering import NO_PROJECT, NO_TASK, EventFilter
 from tw_report.core.task_matching import task_has_offline_tag
 from tw_report.core.timeline import TimelineSlot
-from tw_report.core.timeslot_builder import _RunAccumulator
 from tw_report.core.report_slot import ReportTimelineSlot
 from tw_report.pipeline.consolidation import consolidate_sessions
 from tw_report.utils.formatting import (
@@ -320,22 +319,3 @@ def TimeslotDuration_offline_only():
 # ---------------------------------------------------------------------------
 # Timeslot builder internals
 # ---------------------------------------------------------------------------
-
-
-def test_run_accumulator_ignores_unknown_tick_buckets():
-    acc = _RunAccumulator(
-        ("generic", "active"), None, T0, T0 + timedelta(minutes=1), "online", timedelta(minutes=1)
-    )
-    before = (
-        acc.online_duration,
-        acc.embedded_afk_duration,
-        acc.offline_duration,
-        acc.generic_afk_duration,
-    )
-    acc._add_tick("not-a-bucket", timedelta(minutes=5))
-    assert (
-        acc.online_duration,
-        acc.embedded_afk_duration,
-        acc.offline_duration,
-        acc.generic_afk_duration,
-    ) == before

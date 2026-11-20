@@ -10,7 +10,7 @@ from aw_core.models import Event
 import tw_report.core.events  # noqa: F401
 from tw_report.core.aw_events import AFKEvent, WindowEvent
 from tw_report.core.task_uuid_filtering import get_events_by_uuid
-from tw_report.core.timeslot_builder import _merge_slot_group, build_timeslot_timeline
+from tw_report.core.timeslot_builder import build_timeslot_timeline
 
 UTC = timezone.utc
 T0 = datetime(2026, 7, 23, 10, 0, tzinfo=UTC)
@@ -51,9 +51,9 @@ def test_builder_accepts_missing_task_events():
     assert all(s.task_event is None for s in slots)
 
 
-def test_span_without_any_coverage_produces_no_slot():
-    # Window activity and AFK cover 0-10 min; AFK resumes at 30 min. Nothing covers 10-30 min,
-    # and the builder deliberately emits no slot for uncovered time.
+def test_span_between_afk_events_is_untracked_time():
+    # Window activity and AFK cover 0-10 min; AFK resumes at 30 min. The 10-30 min span lies
+    # between two AFK events of one day, so it is untracked time: slots, not invented data.
     afk = [
         afk_event(0, 600, "not-afk"),
         afk_event(1800, 600, "not-afk"),
@@ -65,7 +65,10 @@ def test_span_without_any_coverage_produces_no_slot():
     ]
     slots = build_timeslot_timeline(afk_events=afk, window_events=window, task_events=[])
     gap_start, gap_end = T0 + timedelta(minutes=10), T0 + timedelta(minutes=30)
-    assert all(s.end <= gap_start or s.start >= gap_end for s in slots)
+    gap_slots = [s for s in slots if s.start >= gap_start and s.end <= gap_end]
+    assert gap_slots
+    assert all(s.afk_state == "untracked" for s in gap_slots)
+    assert sum((s.duration for s in gap_slots), timedelta(0)) == gap_end - gap_start
 
 
 def test_builder_returns_nothing_for_sub_millisecond_only_input():
@@ -75,8 +78,3 @@ def test_builder_returns_nothing_for_sub_millisecond_only_input():
 
 def test_builder_with_no_events_returns_empty_list():
     assert build_timeslot_timeline(afk_events=[], window_events=[], task_events=[]) == []
-
-
-def test_merge_slot_group_rejects_empty_group():
-    with pytest.raises(ValueError, match="empty slot group"):
-        _merge_slot_group([])

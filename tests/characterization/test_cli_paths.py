@@ -335,18 +335,20 @@ def test_app_envelope_keeps_only_the_task_ranges_it_overlaps():
 
 
 def test_app_names_are_collected_from_category_entries_and_empty_names_skipped():
-    class _Slot:
-        categories = [
-            {"category": "Coding", "apps": [{"app": "VSCode"}, {"app": ""}, {"app": "VSCode"}]},
-            {"category": "Misc"},  # no apps key at all
-        ]
+    """--app matches the apps of a slot's categories; empty names and missing apps are skipped."""
+    from tests.support.slots import slot
+    from tw_report.core.filtering import EventFilter
 
-    assert sorted(cli_main._get_apps_from_slot(_Slot())) == ["VSCode"]
+    cats = [
+        {"category": "Coding", "apps": [{"app": "VSCode"}, {"app": ""}, {"app": "VSCode"}]},
+        {"category": "Misc"},  # no apps key at all
+    ]
+    with_apps = slot(0, 10, "not-afk", categories=cats)
+    assert EventFilter(app_patterns=["VSCode"]).accepts_slot(with_apps)
+    assert not EventFilter(app_patterns=["Firefox"]).accepts_slot(with_apps)
 
-    class _Empty:
-        categories = None
-
-    assert cli_main._get_apps_from_slot(_Empty()) == []
+    no_apps = slot(0, 10, "not-afk", categories=None)
+    assert not EventFilter(app_patterns=["VSCode"]).accepts_slot(no_apps)
 
 
 def _write_config(tmp_path, text):

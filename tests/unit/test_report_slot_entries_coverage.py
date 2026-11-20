@@ -173,40 +173,53 @@ def _display_slot(**overrides):
     return base
 
 
-def test_display_columns_prefers_actual_duration_over_fallback():
-    cols = DisplayColumns.from_slot_dict(
-        _display_slot(actual_duration=timedelta(minutes=45), afk_duration=timedelta(minutes=15)),
-        at(0),
-        at(1),
+def test_display_columns_active_time_comes_from_the_breakdown():
+    from tests.support.slots import slot as state_slot
+
+    cols = DisplayColumns.from_slot_dict(state_slot(0, 60, "not-afk"), at(0), at(1))
+    assert cols.active_time == "01:00:00"
+    assert "01:00:00" in cols.format(terminal_width=120)
+
+
+def test_display_columns_afk_and_untracked_fill_their_own_columns():
+    from tests.support.slots import slot as state_slot
+
+    afk = DisplayColumns.from_slot_dict(state_slot(0, 60, "afk"), at(0), at(1))
+    assert afk.afk_time == "01:00:00"
+    assert afk.active_time == ""
+
+    untracked = DisplayColumns.from_slot_dict(state_slot(0, 20, "untracked"), at(0), at(1))
+    assert untracked.break_time == "00:20:00"
+    assert untracked.offline_time == ""
+
+
+def test_display_columns_no_afk_data_and_offline_tagged_task():
+    from tests.support.slots import slot as state_slot
+
+    no_state = DisplayColumns.from_slot_dict(state_slot(0, 15, None), at(0), at(1))
+    assert no_state.no_afk_time == "00:15:00"
+
+    offline = DisplayColumns.from_slot_dict(
+        state_slot(0, 30, "untracked", offline=True), at(0), at(1)
     )
-    assert "00:45:00" in cols.format(terminal_width=120)
+    assert offline.offline_time == "00:30:00"
+    assert offline.break_time == ""
 
 
-def test_display_columns_falls_back_to_duration_minus_afk():
-    cols = DisplayColumns.from_slot_dict(
-        _display_slot(actual_duration=None, afk_duration=timedelta(minutes=20)),
-        at(0),
-        at(1),
-    )
-    assert "00:40:00" in cols.format(terminal_width=120)
+def test_display_columns_no_afk_column_is_drawn_only_when_requested():
+    from tests.support.slots import slot as state_slot
 
-
-def test_display_columns_non_timedelta_active_duration_is_zero():
-    cols = DisplayColumns.from_slot_dict(
-        _display_slot(actual_duration="bogus", afk_duration=None), at(0), at(1)
-    )
-    assert cols.active_time == ""
-
-
-def test_display_columns_missing_duration_is_zero():
-    cols = DisplayColumns.from_slot_dict(
-        _display_slot(duration=None, actual_duration=None), at(0), at(1)
-    )
-    assert cols.active_time == ""
+    cols = DisplayColumns.from_slot_dict(state_slot(0, 15, None), at(0), at(1))
+    without = cols.format(terminal_width=120)
+    with_column = cols.format(terminal_width=120, show_no_afk=True)
+    assert "00:15:00" not in without
+    assert "00:15:00" in with_column
 
 
 def test_display_columns_format_handles_narrow_and_wide_terminals():
-    cols = DisplayColumns.from_slot_dict(_display_slot(), at(0), at(1))
+    from tests.support.slots import slot as state_slot
+
+    cols = DisplayColumns.from_slot_dict(state_slot(0, 60, "not-afk"), at(0), at(1))
     narrow = cols.format(terminal_width=20)
     wide = cols.format(terminal_width=200)
     assert "01:00:00" in narrow
@@ -881,3 +894,23 @@ def test_embedded_afk_for_work_without_project_or_task_has_no_task_event():
     )
     combined = ReportTimelineSlot.from_work_slot_with_embedded_afk(untracked_ts, [])
     assert combined.task_event is None
+
+
+def test_report_entries_as_dicts_lists_every_slot_with_its_optional_fields():
+    from tests.support.slots import slot as state_slot
+
+    afk = state_slot(10, 5, "afk")
+    afk.afk_duration = timedelta(minutes=5)
+    offline = state_slot(15, 30, "untracked", offline=True)
+    offline.offline_extension_duration = timedelta(minutes=30)
+    offline.event_duration = timedelta(0)
+    with_events = state_slot(0, 10, "not-afk")
+    with_events.events = {"window": [object()]}
+    entries = ReportEntries(slots_list=[with_events, afk, offline])
+    with pytest.warns(DeprecationWarning):
+        dicts = entries.as_dicts()
+    assert len(dicts) == 3
+    assert "events" in dicts[0]
+    assert dicts[1]["afk_duration"] == timedelta(minutes=5)
+    assert dicts[2]["offline_extension_duration"] == timedelta(minutes=30)
+    assert dicts[2]["event_duration"] == timedelta(0)

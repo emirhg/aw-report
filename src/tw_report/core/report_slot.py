@@ -116,6 +116,23 @@ def compute_total_break_time(
     return sum(daily_totals.values(), timedelta(0))
 
 
+# Right-hand duration layout of every timeline line (header, rows, day totals, separators).
+# UNTRACKED 12 | OFFLINE 12 | AFK 12 | ACTIVE 12 | [NO AFK 12, only when present] | PRODUCTIVITY 14
+DURATION_COLUMN_WIDTH = 12
+PRODUCTIVITY_COLUMN_WIDTH = 14
+
+
+def right_section_width(show_no_afk: bool = False) -> int:
+    """Width of the duration columns, including the optional NO AFK column."""
+    extra = DURATION_COLUMN_WIDTH if show_no_afk else 0
+    return 4 * DURATION_COLUMN_WIDTH + extra + PRODUCTIVITY_COLUMN_WIDTH
+
+
+def dash_width(show_no_afk: bool = False) -> int:
+    """Width of the underline under the duration columns (everything but productivity)."""
+    return right_section_width(show_no_afk) - PRODUCTIVITY_COLUMN_WIDTH
+
+
 @dataclass
 class DisplayColumns:
     """Fixed-width columns for consistent timeline display.
@@ -138,9 +155,12 @@ class DisplayColumns:
     offline_time: str  # "(HH:MM:SS)" if present, else blank (12 chars)
     afk_time: str  # "(HH:MM:SS)" if present, else blank (12 chars)
     active_time: str  # "HH:MM:SS" (8 chars)
-    productivity: str  # "[prod XXX%]" if present, else blank (12 chars)
+    productivity: str  # "[prod XXX%]" if present, else blank (14 chars)
+    no_afk_time: str = (
+        ""  # "HH:MM:SS" when the slot has no AFK data; drawn only if the report has any
+    )
 
-    def format(self, terminal_width: int = 120) -> str:
+    def format(self, terminal_width: int = 120, show_no_afk: bool = False) -> str:
         """Format columns into a single line with dynamic project/task sizing.
 
         CRITICAL: This format is the ONLY source of truth for column widths and structure.
@@ -230,16 +250,19 @@ class DisplayColumns:
         offline_col = ljust_display(self.offline_time, 12)
         afk_col = ljust_display(self.afk_time, 12)
         active_col = ljust_display(self.active_time, 12)
+        no_afk_col = ljust_display(self.no_afk_time, 12) if show_no_afk else ""
         productivity_col = (
             ljust_display("  " + self.productivity, 14) if self.productivity else " " * 14
         )
 
-        right_section = f"{break_col}{offline_col}{afk_col}{active_col}{productivity_col}"
-        right_section_width = 62  # BREAK(12) + OFFLINE(12) + AFK(12) + ACTIVE(12) + PROD(14)
+        right_section = (
+            f"{break_col}{offline_col}{afk_col}{active_col}{no_afk_col}{productivity_col}"
+        )
+        total_right_width = right_section_width(show_no_afk)
 
         # Calculate absolute column start position: terminal_width - right_section_width
         # This ensures columns always start at the same position
-        column_start_pos = terminal_width - right_section_width
+        column_start_pos = terminal_width - total_right_width
 
         left_section_width = display_width(left_section)
 
@@ -256,7 +279,7 @@ class DisplayColumns:
     @classmethod
     def from_slot_dict(
         cls,
-        slot: dict[str, Any] | ReportTimelineSlot,
+        slot: ReportTimelineSlot,
         start_time: datetime,
         end_time: datetime,
     ) -> DisplayColumns:
@@ -274,19 +297,12 @@ class DisplayColumns:
         from tw_report.core.filtering import NO_PROJECT, NO_TASK
         from tw_report.utils.formatting import abbreviate_project_path, format_duration
 
-        # Helper to get slot field (works with both dicts and objects)
-        def get_field(field, default=None):
-            if isinstance(slot, dict):
-                return slot.get(field, default)
-            else:
-                return getattr(slot, field, default) if hasattr(slot, field) else default
-
         # Format time range
         time_range = f"{start_time.strftime('%H:%M')} - {end_time.strftime('%H:%M')}"
 
         # Format project and task using the same abbreviation logic as rendering
-        project_name = get_field("project", NO_PROJECT)
-        task_name = get_field("task", NO_TASK)
+        project_name = slot.project
+        task_name = slot.task
 
         # Use abbreviate_project_path for consistent formatting
         abbrev_project = abbreviate_project_path(
@@ -301,56 +317,26 @@ class DisplayColumns:
         else:
             task_display = " " if abbrev_project else ""
 
-        # Format duration columns (no parenthesis)
-        # CRITICAL: Only show OFFLINE if there's at least 1 second of offline time
-        # (avoids showing "00:00:00" for sub-second precision rounding artifacts)
-        offline_time = ""
-        offline_dur = get_field("offline_extension_duration")
-        if isinstance(offline_dur, timedelta) and offline_dur.total_seconds() >= 1.0:
-            offline_time = format_duration(offline_dur)
+        # Duration columns come from the slot's breakdown. A column shows only time of at least
+        # one second (avoids "00:00:00" for sub-second rounding artifacts).
+        breakdown = slot.breakdown
 
-        # CRITICAL: Only show AFK if there's at least 1 second of AFK time
-        # (avoids showing "00:00:00" for sub-second precision rounding artifacts)
-        afk_time = ""
-        afk_dur = get_field("afk_duration")
-        if isinstance(afk_dur, timedelta) and afk_dur.total_seconds() >= 1.0:
-            afk_time = format_duration(afk_dur)
+        def column(value: timedelta) -> str:
+            return format_duration(value) if value.total_seconds() >= 1.0 else ""
 
-        # Active time = non-AFK time during the slot (field-driven, no type discrimination)
-        active_time = ""
-        active_duration = timedelta(0)
+        break_time = column(breakdown.untracked)
+        offline_time = column(breakdown.offline)
+        afk_time = column(breakdown.afk)
+        no_afk_time = column(breakdown.no_afk_data)
+        active_duration = breakdown.active
+        active_time = (
+            format_duration(active_duration) if active_duration.total_seconds() > 0 else ""
+        )
 
-        # IMPORTANT: actual_duration is already the non-AFK time, don't subtract AFK from it!
-        # If actual_duration exists, use it directly as active time
-        # Otherwise fall back to duration minus AFK (old behavior for compatibility)
-        actual_dur = get_field("actual_duration")
-        if actual_dur is not None:
-            # actual_duration is already non-AFK, use it directly
-            active_duration = actual_dur if isinstance(actual_dur, timedelta) else timedelta(0)
-        else:
-            # Fall back to duration minus AFK (old behavior for compatibility)
-            online_duration = get_field("duration")
-            afk_duration_slot = get_field("afk_duration") or timedelta(0)
-            if online_duration and isinstance(online_duration, timedelta):
-                active_duration = online_duration - afk_duration_slot
-            else:
-                active_duration = timedelta(0)
-
-        if active_duration and active_duration.total_seconds() > 0:
-            active_time = format_duration(active_duration)
-        else:
-            active_time = ""
-
-        # Productivity metric
+        # Productivity metric (share of the active time)
         productivity = ""
-        prod_dur = get_field("productive_duration")
-        if (
-            prod_dur
-            and isinstance(prod_dur, timedelta)
-            and isinstance(active_duration, timedelta)
-            and active_duration.total_seconds() > 0
-            and prod_dur.total_seconds() > 0
-        ):
+        prod_dur = slot.productive_duration
+        if prod_dur.total_seconds() > 0 and active_duration.total_seconds() > 0:
             pct = (prod_dur.total_seconds() / active_duration.total_seconds()) * 100
             productivity = f"[prod {pct:>3.0f}%]"
 
@@ -358,11 +344,12 @@ class DisplayColumns:
             time_range=time_range,
             project=project_display,
             task=task_display,
-            break_time="",
+            break_time=break_time,
             offline_time=offline_time,
             afk_time=afk_time,
             active_time=active_time,
             productivity=productivity,
+            no_afk_time=no_afk_time,
         )
 
 
@@ -470,9 +457,10 @@ class ReportTimelineSlot:
     @property
     def offline_tagged(self) -> bool:
         """True when the slot's task carries the offline tag (case-insensitive)."""
-        if self.task_event is None:
-            return False
-        return any(str(tag).lower() == "offline" for tag in self.task_event.tags)
+        # The slot's own tags (copied from its task) survive dict round trips; the task event
+        # is the fallback for slots built without them.
+        tags = list(self.tags) + (list(self.task_event.tags) if self.task_event else [])
+        return any(str(tag).lower() == "offline" for tag in tags)
 
     @property
     def breakdown(self) -> TimeBreakdown:
@@ -1670,6 +1658,7 @@ class ReportEntries:
         """Get the internal slots list."""
         return self.slots_list
 
+    @deprecated("Not used by the report pipeline; the report renders ReportTimelineSlot objects.")
     def as_dicts(self) -> list[dict[str, Any]]:
         """Convert all slots to dict format for backward compatibility.
 

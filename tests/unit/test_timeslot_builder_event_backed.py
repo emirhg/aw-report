@@ -16,50 +16,37 @@ from tw_report.core.timeslot_builder import build_timeslot_timeline
 class TestEventBackedInvariant:
     """Core invariant: Every slot must be backed by at least one event"""
 
-    def test_no_phantom_slots_for_gaps_without_events(self):
+    def test_gap_between_afk_events_is_untracked_not_phantom(self):
         """
-        BUG: Builder creates phantom slots for gaps with zero event coverage.
+        A gap between two AFK events of one logical day is untracked time (its own state),
+        not a phantom slot. Its slots carry afk_state "untracked" and no task.
 
         Scenario:
         - AFK event: 14:00-14:03:11
-        - [GAP 14:03:14-14:18:43: ZERO events]
+        - [GAP 14:03:11-14:18:44: no events]
         - AFK event: 14:18:44-14:30:00
-
-        WRONG: Builder creates a slot for 14:03:14-14:18:43 (phantom)
-        CORRECT: No slot should exist for that gap
-
-        This test WILL FAIL until builder is fixed.
         """
         afk_events = [
             AFKEvent(
-                timestamp=datetime(2026, 8, 30, 20, 0, 0, tzinfo=timezone.utc),
+                timestamp=datetime(2026, 8, 30, 14, 0, 0, tzinfo=timezone.utc),
                 duration=timedelta(minutes=3, seconds=11),
                 data={"status": "not-afk"},
             ),
             AFKEvent(
-                timestamp=datetime(2026, 8, 30, 20, 18, 44, tzinfo=timezone.utc),
+                timestamp=datetime(2026, 8, 30, 14, 18, 44, tzinfo=timezone.utc),
                 duration=timedelta(minutes=11, seconds=16),
                 data={"status": "not-afk"},
             ),
         ]
-
-        # NO window or task events - pure gap
         slots = build_timeslot_timeline(afk_events, [], [])
+        gap_start = datetime(2026, 8, 30, 14, 3, 11, tzinfo=timezone.utc)
+        gap_end = datetime(2026, 8, 30, 14, 18, 44, tzinfo=timezone.utc)
+        gap_slots = [s for s in slots if s.start >= gap_start and s.end <= gap_end]
 
-        # Should have exactly 2 slots (one per AFK event)
-        assert len(slots) == 2, (
-            f"Expected 2 slots, got {len(slots)}. Phantom slots created for gap!"
-        )
-
-        # Verify no slot spans the gap
-        for slot in slots:
-            gap_start = datetime(2026, 8, 30, 20, 3, 14, tzinfo=timezone.utc)
-            gap_end = datetime(2026, 8, 30, 20, 18, 43, tzinfo=timezone.utc)
-
-            # Slot must not cover the entire gap
-            assert not (slot.start <= gap_start and slot.end >= gap_end), (
-                f"Slot {slot.start}-{slot.end} covers the gap with no events!"
-            )
+        assert gap_slots, "the gap must be represented as untracked time"
+        assert all(s.afk_state == "untracked" for s in gap_slots)
+        assert all(s.task_event is None for s in gap_slots)
+        assert sum((s.duration for s in gap_slots), timedelta(0)) == gap_end - gap_start
 
     def test_every_slot_has_event_coverage(self):
         """
@@ -134,12 +121,10 @@ class TestEventBackedInvariant:
 
     def test_no_invented_durations(self):
         """
-        CRITICAL: No slot should have duration beyond what events cover.
+        Slot time is exactly the event time plus the untracked gap between AFK events.
 
-        Example BUG:
-        - Gap 14:03:14-14:18:43 (15.5 minutes) with ZERO events
-        - Builder creates slot with duration 00:15:32
-        - This duration is INVENTED, not backed by any event!
+        Events: 20:00-20:05 and 20:20-20:25 (10 minutes of events).
+        Untracked gap: 20:05-20:20 (15 minutes, inside one logical day).
         """
         afk_events = [
             AFKEvent(
@@ -147,37 +132,28 @@ class TestEventBackedInvariant:
                 duration=timedelta(minutes=5),
                 data={"status": "not-afk"},
             ),
-            # GAP: 14:05-14:20 (15 minutes, zero events)
             AFKEvent(
                 timestamp=datetime(2026, 8, 30, 20, 20, 0, tzinfo=timezone.utc),
                 duration=timedelta(minutes=5),
                 data={"status": "not-afk"},
             ),
         ]
-
         total_event_duration = sum((e.duration for e in afk_events), timedelta(0))
+        gap = timedelta(minutes=15)
 
         slots = build_timeslot_timeline(afk_events, [], [])
         total_slot_duration = sum((s.duration for s in slots), timedelta(0))
 
-        # Total slot duration should match total event duration
-        # (no invented duration for gaps)
-        assert total_slot_duration == total_event_duration, (
-            f"Invented duration! Events total {total_event_duration}, slots total {total_slot_duration}"
+        assert total_slot_duration == total_event_duration + gap, (
+            f"Events {total_event_duration} + gap {gap} != slots {total_slot_duration}"
         )
 
     def test_gap_detection_realistic_scenario(self):
         """
-        Real-world scenario: 14:03-14:18 gap with zero AFK/WINDOW/TASK events.
+        Real-world scenario: the 20:03-20:18 gap has no AFK, window or task events.
 
-        This is the EXACT bug we caught:
-        - AFK ends at 14:03:11
-        - WINDOW ends at 14:03:14
-        - ZERO events from 14:03:14 to 14:18:43
-        - AFK resumes at 14:18:44
-
-        Expected: NO slot for the gap
-        Actual (BUGGY): Creates phantom "No project assigned" slot with 00:15:32
+        Expected: the gap is untracked time (afk_state "untracked") and every slot in it is
+        untracked; no slot claims an AFK state or a task inside it.
         """
         afk_events = [
             AFKEvent(
@@ -197,32 +173,18 @@ class TestEventBackedInvariant:
                 duration=timedelta(minutes=3, seconds=14),
                 data={"app": "kitty"},
             ),
-            # WINDOW ends at 14:03:14
-            # AFK resumes at 14:18:44
-            # GAP: 14:03:14-14:18:43 with ZERO events
             WindowEvent(
                 timestamp=datetime(2026, 8, 30, 20, 18, 43, tzinfo=timezone.utc),
                 duration=timedelta(minutes=6),
                 data={"app": "kitty"},
             ),
         ]
-
         slots = build_timeslot_timeline(afk_events, window_events, [])
 
-        # Should NOT have a slot covering 14:03:14-14:18:43
-        gap_start = datetime(2026, 8, 30, 20, 3, 14, tzinfo=timezone.utc)
-        gap_end = datetime(2026, 8, 30, 20, 18, 43, tzinfo=timezone.utc)
+        gap_start = datetime(2026, 8, 30, 20, 3, 11, tzinfo=timezone.utc)
+        gap_end = datetime(2026, 8, 30, 20, 18, 44, tzinfo=timezone.utc)
+        in_gap = [s for s in slots if s.start < gap_end and s.end > gap_start]
 
-        for slot in slots:
-            # If slot overlaps the gap, it's a phantom
-            overlaps_gap = slot.start < gap_end and slot.end > gap_start
-
-            if overlaps_gap:
-                # Verify this slot is actually backed by an event in the gap
-                has_backing = any(
-                    (e.timestamp < gap_end and e.timestamp + e.duration > gap_start)
-                    for e in afk_events + window_events
-                )
-                assert has_backing, (
-                    f"Phantom slot {slot.start}-{slot.end} in gap {gap_start}-{gap_end}"
-                )
+        assert in_gap, "the gap must produce untracked slots"
+        assert all(s.afk_state == "untracked" for s in in_gap)
+        assert sum((s.duration for s in in_gap), timedelta(0)) == gap_end - gap_start

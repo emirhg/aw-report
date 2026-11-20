@@ -26,6 +26,7 @@ def _active_slot(start_min, minutes):
         end=end,
         duration=end - start,
         actual_duration=end - start,
+        afk_state="not-afk",
     )
 
 
@@ -38,6 +39,7 @@ def _afk_slot(start_min, minutes):
         duration=end - start,
         actual_duration=timedelta(0),
         afk_duration=end - start,
+        afk_state="afk",
     )
 
 
@@ -108,13 +110,16 @@ class TestConsolidatedShapes:
         """Consolidated offline-tagged slots keep their active time in the breakdown."""
         start = T0
         end = T0 + timedelta(minutes=20)
+        from tw_report.core.time_breakdown import TimeBreakdown
+
         slot = ReportTimelineSlot(
             start=start,
             end=end,
             duration=timedelta(minutes=20),
             actual_duration=timedelta(minutes=20),
-            offline_extension_duration=timedelta(minutes=10),
-            event_duration=timedelta(minutes=20),
+            stored_breakdown=TimeBreakdown(
+                active=timedelta(minutes=20), offline=timedelta(minutes=10)
+            ),
         )
         windows = [_window(0, 20, "Work")]
         result = compute_productivity_breakdown([slot], windows, SCORES)

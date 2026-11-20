@@ -10,12 +10,9 @@ Timeline: Manages a sorted collection of TimelineSlots
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from tw_report.core.event_slot import EventMap, merge_event_maps
-
-if TYPE_CHECKING:
-    from tw_report.core.report_slot import ReportEntries
 
 
 class TimelineSlotValidationError(ValueError):
@@ -323,21 +320,6 @@ class Timeline:
     def count(self) -> int:
         """Get number of slots in timeline."""
         return len(self.slots)
-
-    def to_report_timeline(self) -> ReportEntries:
-        """
-        Convert this Timeline to a ReportEntries for reporting/consolidation operations.
-
-        Wraps every TimelineSlot as a singleton ReportTimelineSlot.
-        This is the bridge from the granular Timeline model to the report model.
-
-        Returns:
-            ReportEntries with each slot wrapped
-        """
-        # Lazy import to avoid circular dependency
-        from tw_report.core.report_slot import ReportEntries
-
-        return ReportEntries.from_timeline(self)
 
     def _sort(self) -> None:
         """Sort slots by start time (internal method)."""

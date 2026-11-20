@@ -57,6 +57,11 @@ def _print_report_header_args() -> Dict[str, Any]:
 # (name, marked object, call that must warn)
 CASES = [
     (
+        "ReportEntries.as_dicts",
+        ReportEntries.as_dicts,
+        lambda: ReportEntries().as_dicts(),
+    ),
+    (
         "ReportEntries.combine_work_with_embedded_afk",
         ReportEntries.combine_work_with_embedded_afk,
         lambda: ReportEntries().combine_work_with_embedded_afk(),
