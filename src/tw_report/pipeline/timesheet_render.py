@@ -1,8 +1,12 @@
 """Text timesheet report: check-in, check-out, active hours and per-task totals per period.
 
-Same layout and numbers as samples/timesheet_report.py (text mode). It is built from the raw
-taskwarrior events, clipped to each period, instead of from builder slots: slots lose the task
-uuid and can split one event into several pieces. See CLAUDE.md section 13.
+Same layout and numbers as samples/timesheet_report.py (text mode) for the tasks source. Active
+hours and the per-task table come from the raw taskwarrior events, clipped to each period (slots
+lose the task uuid and can split one event into several pieces).
+
+Check-in and check-out come from the machine spans: the timeslots of the selected sources, so
+with --source tasks,afk the day runs from the first to the last recorded activity whatever the
+tracked task. Each span is clipped to the period. See CLAUDE.md section 13.
 """
 
 import math
@@ -93,14 +97,19 @@ def _label(key: date, mode: Mode) -> str:
 
 
 def _summarise(
-    ordered: list[Event], lo: datetime, hi: datetime, key: date, mode: Mode
+    ordered: list[Event],
+    spans: list[tuple[datetime, datetime]],
+    lo: datetime,
+    hi: datetime,
+    key: date,
+    mode: Mode,
 ) -> TimesheetPeriod | None:
-    """One period's summary; None when no event with time in [lo, hi) remains."""
+    """One period's summary; None when no machine span or task event remains in [lo, hi)."""
+    clipped = [
+        (max(begin, lo), min(end, hi)) for begin, end in spans if min(end, hi) > max(begin, lo)
+    ]
     groups: dict[str | None, _Group] = {}
     total_seconds = 0.0
-    first_begin: datetime | None = None
-    last_begin: datetime | None = None
-    last_seconds = 0.0
     for event in ordered:
         begin = max(event.timestamp, lo)
         finish = min(event.timestamp + event.duration, hi)
@@ -108,18 +117,14 @@ def _summarise(
             continue
         seconds = (finish - begin).total_seconds()
         total_seconds += seconds
-        if first_begin is None:
-            first_begin = begin
-        last_begin = begin
-        last_seconds = seconds
         title = event.data.get("title")
         group = groups.setdefault(title, _Group(project=event.data.get("project")))
         group.seconds += seconds
         group.count += 1
 
-    active = round_hours(total_seconds)
-    if first_begin is None or last_begin is None or active == 0:
+    if not clipped:
         return None
+    active = round_hours(total_seconds)
     tasks = []
     for title in sorted(groups, key=lambda t: (t is not None, t or "")):
         group = groups[title]
@@ -131,10 +136,9 @@ def _summarise(
                 count=group.count,
             )
         )
-    # Whole-second start, plus the clipped duration: the shell tool's arithmetic, kept so the
-    # check-in and check-out clock times match it exactly.
-    check_in = int(first_begin.timestamp())
-    check_out = int(last_begin.timestamp()) + last_seconds
+    # Whole-second start, as the shell tool does, so the clock times match it exactly.
+    check_in = int(min(begin for begin, _ in clipped).timestamp())
+    check_out = max(end for _, end in clipped).timestamp()
     return TimesheetPeriod(
         label=_label(key, mode),
         check_in=check_in,
@@ -156,14 +160,22 @@ def build_timesheet(
     end: datetime,
     day_start_hour: int,
     tz: tzinfo,
+    spans: Iterable[tuple[datetime, datetime]] | None = None,
 ) -> list[TimesheetPeriod]:
-    """Summaries of every period between ``start`` and ``end``, empty periods omitted."""
+    """Summaries of every period between ``start`` and ``end``, empty periods omitted.
+
+    ``spans`` are the machine spans (timeslots) that set check-in and check-out. When omitted,
+    the task events themselves do, which is the tasks-only report.
+    """
     ordered = sorted(events, key=lambda e: e.timestamp)
+    machine = (
+        [(e.timestamp, e.timestamp + e.duration) for e in ordered] if spans is None else list(spans)
+    )
     periods = []
     for key in bucket_starts(start.astimezone(tz), end.astimezone(tz), mode, day_start_hour):
         lo = day_boundary(key, day_start_hour, tz)
         hi = day_boundary(next_bucket_start(key, mode), day_start_hour, tz)
-        period = _summarise(ordered, lo, hi, key, mode)
+        period = _summarise(ordered, machine, lo, hi, key, mode)
         if period is not None:
             periods.append(period)
     return periods
@@ -219,7 +231,8 @@ def print_timesheet_report(
     end: datetime,
     day_start_hour: int,
     tz: tzinfo,
+    spans: Iterable[tuple[datetime, datetime]] | None = None,
 ) -> None:
-    periods = build_timesheet(events, mode, start, end, day_start_hour, tz)
+    periods = build_timesheet(events, mode, start, end, day_start_hour, tz, spans)
     for line in format_timesheet(periods, mode, tz):
         print(line)

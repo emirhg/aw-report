@@ -40,9 +40,11 @@ def test_timesheet_by_week_labels_the_period(monkeypatch, capsys):
     "argv, message",
     [
         (["--format", "timesheet", "--by-project", DAY], "cannot be combined with --by-project"),
-        (["--format", "timesheet", "--no-taskwarrior", DAY], "cannot be combined with --no-taskwarrior"),
+        (
+            ["--format", "timesheet", "--no-taskwarrior", DAY],
+            "cannot be combined with --no-taskwarrior",
+        ),
         (["--format", "timesheet", "--app", "Firefox", DAY], "cannot be combined with --app"),
-        (["--format", "timesheet", "--source", "afk", DAY], "reads the tasks source only"),
     ],
 )
 def test_timesheet_rejects_combinations_it_cannot_honour(monkeypatch, capsys, argv, message):
@@ -58,3 +60,20 @@ def test_unknown_format_is_an_argparse_error(monkeypatch, capsys):
     _out, code, err = run_cli(monkeypatch, capsys, ["--format", "csv", DAY], client)
     assert code == 2
     assert "invalid choice" in err
+
+
+def test_timesheet_check_out_follows_the_machine_spans_of_the_selected_sources(monkeypatch, capsys):
+    """Tasks end at 12:00 and the AFK data runs to 12:10: check-out follows the selected sources."""
+    client = FakeActivityWatchClient(scenario_buckets())
+    tasks_out, _code, _err = run_cli(monkeypatch, capsys, ["--format", "timesheet", DAY], client)
+    assert "Check-out: 12:00 PM" in tasks_out
+
+    client = FakeActivityWatchClient(scenario_buckets())
+    both_out, code, _err = run_cli(
+        monkeypatch, capsys, ["--format", "timesheet", "--source", "tasks,afk", DAY], client
+    )
+    assert code == 0
+    assert {call["bucket_id"] for call in client.calls} >= {TASKS, f"aw-watcher-afk_{HOST}"}
+    assert "Check-out: 12:10 PM" in both_out
+    # The task hours are unchanged: the per-task table still comes from taskwarrior
+    assert "Refactor" in both_out

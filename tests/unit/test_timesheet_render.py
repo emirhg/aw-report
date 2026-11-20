@@ -93,9 +93,7 @@ class TestBuildTimesheet:
 
     def test_empty_periods_are_omitted(self):
         events = [task(utc(2026, 11, 4, 15, 0), 30)]
-        periods = build_timesheet(
-            events, "day", local(2026, 11, 2), local(2026, 11, 4, 23), 0, TZ
-        )
+        periods = build_timesheet(events, "day", local(2026, 11, 2), local(2026, 11, 4, 23), 0, TZ)
         assert [p.label for p in periods] == ["Wednesday, Nov 04, 2026"]
 
     def test_event_outside_the_range_gives_no_period(self):
@@ -119,9 +117,7 @@ class TestBuildTimesheet:
 class TestFormat:
     def test_exact_text_of_a_single_day(self):
         events = [task(utc(2026, 11, 2, 21, 0), 30, project="Proj", title="Write docs")]
-        periods = build_timesheet(
-            events, "day", local(2026, 11, 2), local(2026, 11, 2, 23), 0, TZ
-        )
+        periods = build_timesheet(events, "day", local(2026, 11, 2), local(2026, 11, 2, 23), 0, TZ)
         rule = "=" * 78
         assert format_timesheet(periods, "day", TZ) == [
             rule,
@@ -144,18 +140,14 @@ class TestFormat:
     def test_long_titles_are_cut_to_35_characters_and_dots(self):
         title = "x" * 50
         events = [task(utc(2026, 11, 2, 21, 0), 30, title=title)]
-        periods = build_timesheet(
-            events, "day", local(2026, 11, 2), local(2026, 11, 2, 23), 0, TZ
-        )
+        periods = build_timesheet(events, "day", local(2026, 11, 2), local(2026, 11, 2, 23), 0, TZ)
         (row,) = [line for line in format_timesheet(periods, "day", TZ) if "xxx" in line]
         assert "x" * 35 + "..." in row
         assert "x" * 36 not in row
 
     def test_footer_noun_follows_the_mode(self):
         events = [task(utc(2026, 11, 2, 21, 0), 30)]
-        periods = build_timesheet(
-            events, "week", local(2026, 11, 2), local(2026, 11, 8, 23), 0, TZ
-        )
+        periods = build_timesheet(events, "week", local(2026, 11, 2), local(2026, 11, 8, 23), 0, TZ)
         assert format_timesheet(periods, "week", TZ)[-2] == " Across 1 active weeks"
 
     def test_no_activity_prints_header_and_zero_totals(self):
@@ -181,3 +173,52 @@ def test_every_mode_builds_without_error(mode):
     events = [task(utc(2026, 11, 2, 21, 0), 30)]
     periods = build_timesheet(events, mode, local(2026, 11, 2), local(2026, 11, 2, 23), 0, TZ)
     assert len(periods) == 1
+
+
+def test_check_in_and_out_come_from_the_machine_spans_not_the_tasks():
+    """A period with machine activity and no task time still appears, with the span's clock."""
+    from tw_report.pipeline.timesheet_render import build_timesheet
+
+    spans = [
+        (datetime(2026, 8, 30, 8, 30, tzinfo=UTC), datetime(2026, 8, 30, 8, 50, tzinfo=UTC)),
+        (datetime(2026, 8, 30, 9, 0, tzinfo=UTC), datetime(2026, 8, 30, 12, 0, tzinfo=UTC)),
+    ]
+    tasks = [
+        Event(
+            timestamp=datetime(2026, 8, 30, 9, 0, tzinfo=UTC),
+            duration=timedelta(hours=3),
+            data={"project": "Proj", "title": "Work"},
+        )
+    ]
+    periods = build_timesheet(
+        tasks,
+        "day",
+        datetime(2026, 8, 30, 0, 0, tzinfo=UTC),
+        datetime(2026, 8, 30, 23, 59, tzinfo=UTC),
+        0,
+        UTC,
+        spans,
+    )
+    assert len(periods) == 1
+    assert periods[0].check_in == int(datetime(2026, 8, 30, 8, 30, tzinfo=UTC).timestamp())
+    assert periods[0].check_out == datetime(2026, 8, 30, 12, 0, tzinfo=UTC).timestamp()
+    assert periods[0].wall_hours == 3.5
+
+
+def test_a_period_with_activity_but_no_task_time_is_listed_with_no_tasks():
+    from tw_report.pipeline.timesheet_render import build_timesheet
+
+    spans = [(datetime(2026, 8, 30, 9, 0, tzinfo=UTC), datetime(2026, 8, 30, 10, 0, tzinfo=UTC))]
+    periods = build_timesheet(
+        [],
+        "day",
+        datetime(2026, 8, 30, 0, 0, tzinfo=UTC),
+        datetime(2026, 8, 30, 23, 59, tzinfo=UTC),
+        0,
+        UTC,
+        spans,
+    )
+    assert len(periods) == 1
+    assert periods[0].active_hours == 0
+    assert periods[0].tasks == ()
+    assert periods[0].wall_hours == 1.0

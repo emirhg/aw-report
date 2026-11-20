@@ -259,9 +259,11 @@ aw-report :today --detail-level 3
 ## Features in Detail
 
 #### Timesheet View (`--format timesheet`)
-A per-period text timesheet built from taskwarrior events only (no AFK or window data), with
-the same layout as `samples/timesheet_report.py`: check-in and check-out, active hours, wall-clock
-span, then one row per task with project, hours and count:
+A per-period text timesheet with the same layout as `samples/timesheet_report.py`: check-in and
+check-out, active hours, wall-clock span, then one row per task with project, hours and count. Active
+hours and the task rows come from taskwarrior events. Check-in and check-out come from the timeslots
+of the selected sources: by default only tasks (so the span is the tracked tasks), and with
+`--source tasks,afk` (or `window`) the span is the machine's activity, whatever the task:
 ```
 📅 Monday, Nov 09, 2026
    Check-in: 06:31 AM | Check-out: 07:04 AM | Active: 0.56 hrs | Wall Clock: 0.56 hrs
@@ -269,7 +271,8 @@ span, then one row per task with project, hours and count:
     Project              | Task Title                             | Hours  | Count
 ```
 Use it with `--by-day` (default), `--by-week`, `--by-month` or `--by-year`. It cannot be combined
-with `--by-project`, `--no-taskwarrior` or `--app`, and it reads the tasks source only.
+with `--by-project`, `--no-taskwarrior` or `--app`. Use `--source tasks,afk` to take check-in and
+check-out from the system activity; the default `--source tasks` keeps the tracked-task span.
 Tasks are grouped by title. Hours clipped to each period, so an event crossing a boundary counts
 in both periods.
 
@@ -283,7 +286,7 @@ in both periods.
 | `--by-week` | Consolidated — one line per project per week | Weekly summary |
 | `--by-month` | Consolidated — one line per project per month | Monthly summary |
 | `--by-year` | Consolidated — one line per project per year | Yearly summary |
-| `--format timesheet` | Text timesheet — check-in/out, hours and tasks per period | Timesheet entry from taskwarrior only |
+| `--format timesheet` | Text timesheet — check-in/out, hours and tasks per period | Check-in/out from the selected sources; hours from taskwarrior |
 
 ### Detail Levels
 
@@ -349,8 +352,9 @@ Run the command from the project venv, or from your shell after a pipx install:
 .venv/bin/python bin/aw-report :today              # development wrapper, runs src/ directly
 ```
 
-`--format timesheet` reads taskwarrior only, so it needs the tasks source and cannot be combined
-with `--by-project`, `--no-taskwarrior` or `--app`. See "Features in Detail" for the other flags.
+`--format timesheet` takes its hours from taskwarrior and its check-in/out from the selected sources
+(default `--source tasks`). It cannot be combined with `--by-project`, `--no-taskwarrior` or `--app`.
+See "Features in Detail" for the other flags.
 
 ### Dependencies
 

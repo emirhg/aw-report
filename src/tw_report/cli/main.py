@@ -182,7 +182,11 @@ def _run(profiler: StageProfiler):
         return 1
     day_start_hour = resolved_settings.day_start_hour
     try:
-        sources = frozenset({"tasks"}) if args.format == "timesheet" else parse_sources(args.source)
+        # The timesheet defaults to the tasks source; --source tasks,afk adds system activity
+        if args.format == "timesheet" and args.source is None:
+            sources = frozenset({"tasks"})
+        else:
+            sources = parse_sources(args.source)
     except ValueError as source_error:
         print(f"Error: {source_error}", file=sys.stderr)
         return 1
@@ -238,10 +242,6 @@ def _run(profiler: StageProfiler):
                     file=sys.stderr,
                 )
                 return 1
-        if args.source is not None and parse_sources(args.source) != frozenset({"tasks"}):
-            print("Error: --format timesheet reads the tasks source only", file=sys.stderr)
-            return 1
-        args.source = "tasks"
 
     # Parse positional arguments to separate period from search term
     period, search_term = parse_positional_args(args.args)
@@ -433,12 +433,15 @@ def _run(profiler: StageProfiler):
     # Windows only for task time ranges when tasks exist; otherwise the whole period
     profiler.checkpoint(f"Fetching window events from {start_time.date()} to {end_time.date()}")
     if "window" in sources:
+        # The timesheet's check-in and check-out need the whole period's activity, so its
+        # windows are not narrowed to the task ranges
+        window_ranges = None if args.format == "timesheet" else task_time_ranges
         window_events = fetch_events(
             client,
             buckets.window,
             start_time,
             end_time,
-            ranges=task_time_ranges,
+            ranges=window_ranges,
             event_cls=WindowEvent,
         )
     else:
@@ -639,7 +642,18 @@ def _run(profiler: StageProfiler):
 
     if args.format == "timesheet":
         # Taskwarrior events are the timesheet's data: clipped per period, grouped by title,
-        # with the same filters the timeline applies to its slots.
+        # with the same filters the timeline applies to its slots. Check-in and check-out come
+        # from the timeslots of the selected sources (unfiltered: the machine's activity).
+        machine_spans = [
+            (slot.start, slot.end)
+            for slot in build_timeslot_timeline(
+                afk_events=afk_events or [],
+                window_events=window_events or [],
+                task_events=task_events_deduped or [],
+                day_start_hour=day_start_hour,
+                tz=local_zoneinfo(resolved_settings.timezone),
+            )
+        ]
         print_timesheet_report(
             [
                 event
@@ -658,6 +672,7 @@ def _run(profiler: StageProfiler):
             end=end_time,
             day_start_hour=day_start_hour,
             tz=local_zoneinfo(resolved_settings.timezone),
+            spans=machine_spans,
         )
         return 0
 
