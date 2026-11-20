@@ -61,3 +61,14 @@ class TestCollectSpanEvents:
     def test_empty_buckets_are_omitted(self):
         events = collect_span_events(T0, T0 + timedelta(minutes=10), {"afk": EventIndex([])})
         assert events == {}
+
+
+def test_data_value_keeps_its_bucket_and_interval():
+    from tw_report.core.event_slot import DataValue
+
+    value = DataValue(bucket="window", value="Code", start=T0, end=T0 + timedelta(minutes=5))
+    assert (value.bucket, value.value, value.end - value.start) == (
+        "window",
+        "Code",
+        timedelta(minutes=5),
+    )

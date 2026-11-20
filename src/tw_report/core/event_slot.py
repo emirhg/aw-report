@@ -10,6 +10,7 @@ builder fills a slot. The mapping itself is bucket-agnostic: any key works.
 """
 
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -18,6 +19,21 @@ from aw_core.models import Event
 from tw_report.core.event_index import EventIndex
 
 EventMap = dict[str, list[Event]]
+
+
+@dataclass(frozen=True)
+class DataValue:
+    """One value of a slot key, with the bucket that set it and the interval it applies to.
+
+    A key set by several buckets is kept as a list of these, so no value is overwritten and each
+    value still says when it held.
+    """
+
+    bucket: str
+    value: Any
+    start: datetime
+    end: datetime
+
 
 BUCKET_AFK = "afk"
 BUCKET_WINDOW = "window"
