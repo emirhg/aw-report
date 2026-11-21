@@ -40,6 +40,7 @@ from aw_report.core.project_filtering import (
     resolve_project_filter_value,
 )
 from aw_report.core.report_slot import ReportTimelineSlot
+from aw_report.core.single_instance import AlreadyRunningError, single_instance
 from aw_report.core.task_filtering import (
     get_events_by_task,
     get_events_by_tasks,
@@ -168,11 +169,16 @@ def _needs_window(args: argparse.Namespace) -> bool:
 def main():
     """Main script logic: orchestrate data fetching, processing, and report generation."""
     enable_unbuffered_output()
-    if len(sys.argv) > 1 and sys.argv[1] == "fetch":
-        from aw_report.cli.fetch import run_fetch
+    try:
+        with single_instance("aw-report"):
+            if len(sys.argv) > 1 and sys.argv[1] == "fetch":
+                from aw_report.cli.fetch import run_fetch
 
-        return run_fetch(sys.argv[2:])
-    return _run(StageProfiler.from_env())
+                return run_fetch(sys.argv[2:])
+            return _run(StageProfiler.from_env())
+    except AlreadyRunningError:
+        print("Another instance is already running, quitting.", file=sys.stderr)
+        return 1
 
 
 def _run(profiler: StageProfiler):

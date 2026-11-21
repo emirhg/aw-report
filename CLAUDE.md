@@ -268,8 +268,9 @@ stale analysis. Do not leave a finished item described as open.**
 - `aw_client` is replaced by `core/aw_http.py` (standard library, same `get_events` contract).
   Its import cost (about 0.6 s) is gone: `--format timesheet --source tasks :lastweek` went from
   about 0.82 s to about 0.53 s (10 interleaved runs). `fetch` JSON and the reports with explicit
-  sources are byte-identical to `main`. `aw_client` also used to refuse a second concurrent run
-  (singleinstance); that guard is gone with it.
+  sources are byte-identical to `main`. The single-instance guard that `aw_client` provided is
+  kept: `core/single_instance.py` holds a non-blocking lock (`$XDG_CACHE_HOME/aw-report/locks`)
+  for the whole `main()` run, and a second run exits with code 1.
 
 ### 13.3 Detail levels versus data sources (decided direction, not implemented)
 
