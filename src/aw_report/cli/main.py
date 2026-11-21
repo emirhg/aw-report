@@ -4,6 +4,7 @@ tw-report CLI entry point with full orchestration.
 Handles all argument parsing, data fetching, processing, and report generation.
 """
 
+import argparse
 import logging
 import sys
 from collections.abc import Sequence
@@ -159,6 +160,11 @@ def _compute_app_bounded_ranges(
     return clipped or task_time_ranges
 
 
+def _needs_window(args: argparse.Namespace) -> bool:
+    """True when the requested output needs window events (app filters, detail 3 and above)."""
+    return bool(args.app or args.exclude_app or args.detail_level >= 3)
+
+
 def main():
     """Main script logic: orchestrate data fetching, processing, and report generation."""
     enable_unbuffered_output()
@@ -191,6 +197,9 @@ def _run(profiler: StageProfiler):
             sources = frozenset({"tasks"})
         else:
             sources = parse_sources(args.source)
+            # Detail that needs windows (--app, detail 3+) asks for them when --source is not given
+            if args.source is None and args.format != "timesheet" and _needs_window(args):
+                sources = sources | {"window"}
     except ValueError as source_error:
         print(f"Error: {source_error}", file=sys.stderr)
         return 1
@@ -200,11 +209,7 @@ def _run(profiler: StageProfiler):
             file=sys.stderr,
         )
         return 1
-    if (
-        args.format != "timesheet"
-        and "window" not in sources
-        and (args.app or args.detail_level >= 3)
-    ):
+    if args.format != "timesheet" and "window" not in sources and _needs_window(args):
         print(
             "Error: --app and --detail-level 3 and above need the window source "
             "(--source includes window)",
@@ -433,10 +438,8 @@ def _run(profiler: StageProfiler):
     # to refine with partitioning. If task_events is None, skip windows entirely.
     # ============================================================================
 
-    # REVIEW(window-afk): workaround, to be optimised.
-    # The window bucket is fetched only to double-check AFK time: AFK periods without window
-    # coverage are read as possible false positives (system off). This fetch is the cost of that
-    # check. Goal: a source-level signal that makes this window read unnecessary.
+    # Window events only add detail to the slots (categories, apps, titles) and the --app filter.
+    # The AFK/offline classification does not read them (see core/time_breakdown.py).
     from aw_report.core.aw_events import WindowEvent
 
     # Windows only for task time ranges when tasks exist; otherwise the whole period
@@ -526,8 +529,6 @@ def _run(profiler: StageProfiler):
         if not task_events:
             task_events = None
             is_task_based_report = False
-            # REVIEW(window-afk): keep the window events here (same workaround as above). Even
-            # without tasks, the builder needs them to double-check AFK time; do not clear them.
 
     # Calculate metrics (used by both report types)
     # Calculate period from ALL event sources (AFK + window + task) in UTC

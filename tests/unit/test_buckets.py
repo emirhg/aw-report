@@ -80,9 +80,9 @@ def test_non_string_or_blank_values_are_rejected(value):
 
 
 class TestParseSources:
-    def test_none_and_empty_mean_every_role(self):
-        assert parse_sources(None) == frozenset(ROLES)
-        assert parse_sources("") == frozenset(ROLES)
+    def test_none_and_empty_mean_the_default_roles_without_window(self):
+        assert parse_sources(None) == frozenset({"tasks", "afk"})
+        assert parse_sources("") == frozenset({"tasks", "afk"})
 
     def test_comma_list_is_parsed_case_and_space_insensitively(self):
         assert parse_sources(" Tasks , afk ") == frozenset({"tasks", "afk"})

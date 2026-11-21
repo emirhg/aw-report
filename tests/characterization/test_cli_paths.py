@@ -360,7 +360,7 @@ def _write_config(tmp_path, text):
 
 def test_configured_bucket_ids_are_used_and_match_the_default_report(monkeypatch, capsys, tmp_path):
     baseline, _, _ = run_cli(
-        monkeypatch, capsys, [DAY], FakeActivityWatchClient(scenario_buckets())
+        monkeypatch, capsys, ["--source", "afk,window,tasks", DAY], FakeActivityWatchClient(scenario_buckets())
     )
     buckets = scenario_buckets()
     renamed = {
@@ -375,7 +375,7 @@ def test_configured_bucket_ids_are_used_and_match_the_default_report(monkeypatch
     )
     monkeypatch.setenv("XDG_CONFIG_HOME", xdg)
     client = FakeActivityWatchClient(renamed)
-    out, code, err = run_cli(monkeypatch, capsys, [DAY], client)
+    out, code, err = run_cli(monkeypatch, capsys, ["--source", "afk,window,tasks", DAY], client)
     assert code == 0
     assert out == baseline
     assert {c["bucket_id"] for c in client.calls} == set(renamed)

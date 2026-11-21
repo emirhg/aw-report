@@ -368,6 +368,12 @@ Run the command from the project venv, or from your shell after a pipx install:
 .venv/bin/aw-report --format timesheet :lastweek   # text timesheet: check-in/out, hours, tasks
 .venv/bin/aw-report --format timesheet --by-month 2026-10-01 2026-10-31
 .venv/bin/aw-report --source tasks :today          # read taskwarrior only (no AFK or windows)
+```
+
+By default the report reads `tasks` and `afk`. The `window` bucket (apps and titles, categories)
+is read only when the output needs it: `--source window`, `--app`, `--exclude-app`, or
+`--detail-level 3` and above. A default run therefore shows no categories, apps or titles.
+```bash
 .venv/bin/aw-report fetch :lastweek                # raw events of the three roles, as JSON
 .venv/bin/python bin/aw-report :today              # development wrapper, runs src/ directly
 ```

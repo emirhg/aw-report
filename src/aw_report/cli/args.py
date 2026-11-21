@@ -223,7 +223,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         metavar="ROLES",
         help=(
-            "Data to read, comma-separated: tasks, afk, window (default: all). "
+            "Data to read, comma-separated: tasks, afk, window (default: tasks,afk). "
             "Example: --source tasks reports tracked task time only, without AFK or windows."
         ),
     )

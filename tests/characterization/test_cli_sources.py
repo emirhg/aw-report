@@ -31,11 +31,21 @@ def test_source_tasks_reads_only_the_taskwarrior_bucket(monkeypatch, capsys):
     assert "Timeline Report" in out
 
 
-def test_default_source_reads_all_three_buckets(monkeypatch, capsys):
+def test_default_source_reads_tasks_and_afk_only(monkeypatch, capsys):
     client = FakeActivityWatchClient(scenario_buckets())
     _out, code, _err = run_cli(monkeypatch, capsys, [DAY], client)
     assert code == 0
-    assert {AFK, WINDOW, TASKS} <= queried(client)
+    assert queried(client) == {AFK, TASKS}
+
+
+@pytest.mark.parametrize(
+    "extra", [["--detail-level", "3"], ["--app", "Firefox"], ["--exclude-app", "Firefox"]]
+)
+def test_window_is_read_when_the_output_needs_it(monkeypatch, capsys, extra):
+    client = FakeActivityWatchClient(scenario_buckets())
+    _out, code, _err = run_cli(monkeypatch, capsys, [*extra, DAY], client)
+    assert code == 0
+    assert WINDOW in queried(client)
 
 
 def test_source_afk_and_window_skip_taskwarrior(monkeypatch, capsys):

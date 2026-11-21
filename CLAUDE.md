@@ -252,15 +252,18 @@ stale analysis. Do not leave a finished item described as open.**
   because ActivityWatch keeps recording.
 - Still open for the benchmark: import time of `aw_report` is not separated yet (see 13.1 above).
 
-### 13.2 Full-pipeline performance: partly done (branch `perf/index-and-categories`)
+### 13.2 Full-pipeline performance: done (branch `perf/index-and-categories`)
 
 - `EventIndex` precomputes each event's end time once (`_ends`), so lookups no longer read
   `timestamp + duration` through aw_core on every query. Output is unchanged.
 - Measured on `:lastweek`: `--by-day` about 5.9 s on `main`, about 4.3 s with this change.
-- Open, and the main cost: the window bucket is read on every default run (the sources default to
-  all roles). On `:lastweek`, a default `--by-day` takes about 4.7 s and `--source tasks,afk` takes
-  about 1.1 s. `--detail-level 2` does not skip the read, because the window fetch does not depend
-  on the detail level. Decision pending: which runs should read window by default.
+- Window is no longer read by default. The default sources are `tasks,afk` (`DEFAULT_SOURCES` in
+  `core/buckets.py`). Window is read with `--source window`, `--app`, `--exclude-app` or
+  `--detail-level 3` and above (`_needs_window` in `cli/main.py`). The false-positive check that
+  needed window is gone (section 13.4); offline time comes from the offline tag only.
+  Measured on `:lastweek`: a default `--by-day` run went from about 4.7 s to about 1.8 s.
+- Output change, by design: window events cut the slots, so the default run without window has
+  fewer zero-length fragments; totals move by seconds. The goldens did not change.
 - Not a cache: categories are still computed per event (`categorize_event`), as before.
 
 ### 13.3 Detail levels versus data sources (decided direction, not implemented)
