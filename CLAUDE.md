@@ -252,21 +252,16 @@ stale analysis. Do not leave a finished item described as open.**
   because ActivityWatch keeps recording.
 - Still open for the benchmark: import time of `aw_report` is not separated yet (see 13.1 above).
 
-### 13.2 Full-pipeline profile and candidate changes (no behaviour change intended)
+### 13.2 Full-pipeline performance: partly done (branch `perf/index-and-categories`)
 
-Profile of `--by-day :lastweek` (cProfile, all three buckets, about 8,000 window events):
-- `categorize_event` runs the regex rules on every window event. About 3 s of the profile.
-  Its result depends only on `(app, title)`, so each unique pair can be computed once.
-- `EventIndex.active_at` reads `timestamp` and `duration` through aw_core property accessors on
-  every lookup (about 1.9 million property calls). Precomputing the end times removes that.
-- The builder only needs to know whether any window event is active at a tick
-  (`has_window_activity`). An early-exit `any_active_at` avoids building lists.
-- Remaining cost: about 1.9 s of socket reads for the window payload. Fetch and transfer volume
-  is the limit; the sample avoids it by letting the server aggregate per period.
-
-A prototype with the first three changes ran the full `--by-day :lastweek` in about 3.9 s, against
-about 7.3 s for the current code, with byte-identical output. It was not committed. The change is
-still open: implement it on its own commit with the usual gates and a parity check.
+- `EventIndex` precomputes each event's end time once (`_ends`), so lookups no longer read
+  `timestamp + duration` through aw_core on every query. Output is unchanged.
+- Measured on `:lastweek`: `--by-day` about 5.9 s on `main`, about 4.3 s with this change.
+- Open, and the main cost: the window bucket is read on every default run (the sources default to
+  all roles). On `:lastweek`, a default `--by-day` takes about 4.7 s and `--source tasks,afk` takes
+  about 1.1 s. `--detail-level 2` does not skip the read, because the window fetch does not depend
+  on the detail level. Decision pending: which runs should read window by default.
+- Not a cache: categories are still computed per event (`categorize_event`), as before.
 
 ### 13.3 Detail levels versus data sources (decided direction, not implemented)
 

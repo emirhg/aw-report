@@ -33,6 +33,11 @@ class EventIndex[E: Event]:
             range(len(self._events)), key=lambda i: (self._events[i].timestamp, i)
         )
         self._starts: list[datetime] = [self._events[i].timestamp for i in self._order]
+        # End times in the same order, computed once: the queries below run per slot tick
+        # and per span, and re-reading timestamp + duration through aw_core is the hot cost.
+        self._ends: list[datetime] = [
+            self._events[i].timestamp + self._events[i].duration for i in self._order
+        ]
         self._max_duration: timedelta = max(
             (e.duration for e in self._events), default=timedelta(0)
         )
@@ -41,22 +46,21 @@ class EventIndex[E: Event]:
         """Events covering ``moment`` (``ts <= moment < ts + duration``), in start order."""
         lo = bisect_left(self._starts, moment - self._max_duration)
         hi = bisect_right(self._starts, moment)
+        ends = self._ends
         result: list[E] = []
         for pos in range(lo, hi):
-            event = self._events[self._order[pos]]
-            if moment < event.timestamp + event.duration:
-                result.append(event)
+            if moment < ends[pos]:
+                result.append(self._events[self._order[pos]])
         return result
 
     def overlapping(self, start: datetime, end: datetime) -> list[E]:
         """Events with ``ts < end and ts + duration > start``, in original input order."""
         lo = bisect_left(self._starts, start - self._max_duration)
         hi = bisect_left(self._starts, end)
+        ends = self._ends
         hit_positions = []
         for pos in range(lo, hi):
-            index = self._order[pos]
-            event = self._events[index]
-            if event.timestamp + event.duration > start:
-                hit_positions.append(index)
+            if ends[pos] > start:
+                hit_positions.append(self._order[pos])
         hit_positions.sort()
         return [self._events[i] for i in hit_positions]
