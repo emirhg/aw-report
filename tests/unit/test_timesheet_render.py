@@ -240,8 +240,8 @@ class TestSeconds:
         from aw_report.pipeline.timesheet_render import _clock
 
         moment = datetime(2026, 11, 2, 15, 3, 9, tzinfo=UTC)
-        assert _clock(moment, UTC, "seconds") == "03:03:09 PM"
-        assert _clock(moment, UTC) == "03:03 PM"
+        assert _clock(moment, UTC, "seconds") == "15:03:09"
+        assert _clock(moment, UTC) == "15:03"
 
 
 class TestNanoseconds:
@@ -255,7 +255,7 @@ class TestNanoseconds:
         from aw_report.pipeline.timesheet_render import _clock
 
         moment = datetime(2026, 11, 2, 15, 3, 9, 123456, tzinfo=UTC)
-        assert _clock(moment, UTC, "nanoseconds") == "03:03:09.123456000 PM"
+        assert _clock(moment, UTC, "nanoseconds") == "15:03:09.123456000"
 
 
 class TestWrapping:
@@ -380,3 +380,60 @@ def test_the_table_keeps_a_right_margin_as_wide_as_its_left_indent():
         assert display_width(header) == width - 4
         assert display_width(dashes) == width - 4
         assert lines[0] == lines[2] == "=" * width  # the rules keep the full width
+
+
+class TestPeriodLines:
+    def test_the_clock_is_24_hours_without_am_pm(self):
+        from aw_report.pipeline.timesheet_render import _clock
+
+        assert _clock(datetime(2026, 11, 2, 0, 0, tzinfo=UTC), UTC) == "00:00"
+        assert _clock(datetime(2026, 11, 2, 12, 0, tzinfo=UTC), UTC) == "12:00"
+        assert _clock(datetime(2026, 11, 2, 23, 25, 7, tzinfo=UTC), UTC, "seconds") == "23:25:07"
+
+    def test_the_two_rows_have_aligned_separators(self):
+        from aw_report.pipeline.timesheet_render import _aligned
+        from aw_report.utils.formatting import display_width
+
+        first = ["Check-in: 07:17", "Check-out: 23:25", "Wall Clock: 16:08"]
+        second = ["Tracked: 04:22", "Untracked: 11:45", "Active: 02:55"]
+        lines = _aligned([first, second], 80)
+        assert len(lines) == 2
+        separators = [[i for i, c in enumerate(line) if c == "|"] for line in lines]
+        assert separators[0] == separators[1]
+        assert all(display_width(line) <= 80 for line in lines)
+        assert lines[1].index("Tracked") < lines[1].index("Untracked") < lines[1].index("Active")
+
+    def test_aligned_rows_fall_back_to_wrapping_when_they_do_not_fit(self):
+        from aw_report.pipeline.timesheet_render import _aligned
+        from aw_report.utils.formatting import display_width
+
+        long = [f"Part{i}: {'9' * 30}" for i in range(3)]
+        lines = _aligned([long, long], 60)
+        assert all(display_width(line) <= 60 for line in lines)
+        assert len(lines) > 2  # each row wrapped on its own
+
+    def test_totals_list_tracked_untracked_active_then_wall_clock(self):
+        events = [task(utc(2026, 11, 2, 21, 0), 30)]
+        periods = build_timesheet(events, "day", local(2026, 11, 2), local(2026, 11, 2, 23), 0, TZ)
+        totals = format_timesheet(periods, "day", TZ)
+        start = totals.index(" GRAND TOTALS") + 1
+        end = next(i for i, line in enumerate(totals) if line.startswith(" Across"))
+        joined = " ".join(totals[start:end])
+        assert joined.index("Tracked") < joined.index("Untracked") < joined.index("Active")
+        assert joined.index("Active") < joined.index("Wall Clock")
+
+
+def test_the_period_block_lines_up_the_values_of_each_column():
+    from aw_report.pipeline.timesheet_render import _aligned
+
+    lines = _aligned(
+        [
+            ["Check-in: 07:17:03", "Check-out: 23:45:48", "Wall Clock: 16:28:45"],
+            ["Tracked: 04:43:31", "Untracked: 11:45:14", "Active: 03:15:29"],
+        ],
+        100,
+    )
+    assert lines == [
+        "   Check-in: 07:17:03 | Check-out: 23:45:48 | Wall Clock: 16:28:45",
+        "   Tracked:  04:43:31 | Untracked: 11:45:14 | Active:     03:15:29",
+    ]

@@ -249,16 +249,16 @@ def build_timesheet(
 
 
 def _clock(moment: datetime, tz: tzinfo, precision: Precision = "minutes") -> str:
-    """A clock time in the report zone: 09:00 AM, 09:00:12 AM, or 09:00:12.000000000 AM.
+    """A clock time in the report zone, 24-hour: 09:00, 09:00:12, or 09:00:12.000000000.
 
     Event timestamps have microsecond precision, so the nanosecond digits end in 000.
     """
     local = moment.astimezone(tz)
     if precision == "nanoseconds":
-        return f"{local:%I:%M:%S}.{local.microsecond * 1000:09d} {local:%p}"
+        return f"{local:%H:%M:%S}.{local.microsecond * 1000:09d}"
     if precision == "seconds":
-        return local.strftime("%I:%M:%S %p")
-    return local.strftime("%I:%M %p")
+        return local.strftime("%H:%M:%S")
+    return local.strftime("%H:%M")
 
 
 def layout(columns: int | None) -> int:
@@ -324,21 +324,58 @@ def _amount(seconds: float | None, precision: Precision = "minutes") -> str:
     return "--" if seconds is None else clock(seconds, precision)
 
 
+def _aligned(rows: list[list[str]], width: int) -> list[str]:
+    """Rows of "Label: value" parts, with the values of each column lined up on their right edge.
+
+    The spaces go between a label and its value, so every column of the block has the width of its
+    widest part; the separators line up. If the aligned rows would not fit ``width``, each row is
+    wrapped on its own instead.
+    """
+    pairs = [[tuple(part.split(": ", 1)) for part in row] for row in rows]
+    columns = max(len(row) for row in pairs)
+    # the width of a column: the widest "Label: value" in it
+    widths = [
+        max(
+            len(label) + 2 + len(value)
+            for row in pairs
+            if i < len(row)
+            for label, value in [row[i]]
+        )
+        for i in range(columns)
+    ]
+    lines = []
+    for row in pairs:
+        cells = []
+        for i, (label, value) in enumerate(row):
+            gap = widths[i] - len(label) - 1 - len(value)  # at least one space after the colon
+            cells.append(f"{label}:{' ' * gap}{value}")
+        lines.append("   " + " | ".join(cells))
+    if any(display_width(line) > width for line in lines):
+        return [line for row in rows for line in _flow(row, width)]
+    return lines
+
+
+def _period_lines(
+    period: TimesheetPeriod, tz: tzinfo, precision: Precision, width: int
+) -> list[str]:
+    """A period's times: Check-in, Check-out, Wall Clock, then Tracked, Untracked, Active."""
+    first = [
+        f"Check-in: {_clock(period.check_in, tz, precision)}",
+        f"Check-out: {_clock(period.check_out, tz, precision)}",
+        f"Wall Clock: {clock(period.wall_seconds, precision)}",
+    ]
+    second = [
+        f"Tracked: {clock(period.tracked_seconds, precision)}",
+        f"Untracked: {clock(period.untracked_seconds, precision)}",
+        f"Active: {_amount(period.active_seconds, precision)}",
+    ]
+    return _aligned([first, second], width)
+
+
 def _flow(parts: list[str], width: int) -> list[str]:
     """Labelled values on lines of ``width`` columns, joined by " | ", wrapped with indentation."""
     lines = _pack(parts, width - 3, " " * 5, " | ")
     return ["   " + lines[0], *lines[1:]]
-
-
-def _period_parts(period: TimesheetPeriod, tz: tzinfo, precision: Precision) -> list[str]:
-    return [
-        f"Check-in: {_clock(period.check_in, tz, precision)}",
-        f"Check-out: {_clock(period.check_out, tz, precision)}",
-        f"Wall Clock: {clock(period.wall_seconds, precision)}",
-        f"Active: {_amount(period.active_seconds, precision)}",
-        f"Tracked: {clock(period.tracked_seconds, precision)}",
-        f"Untracked: {clock(period.untracked_seconds, precision)}",
-    ]
 
 
 def _total_parts(periods: list[TimesheetPeriod], precision: Precision) -> list[str]:
@@ -352,9 +389,9 @@ def _total_parts(periods: list[TimesheetPeriod], precision: Precision) -> list[s
     untracked = sum(p.untracked_seconds for p in periods)
     wall = sum(p.wall_seconds for p in periods)
     return [
-        f"Active: {_amount(active, precision)}",
         f"Tracked: {clock(tracked, precision)}",
         f"Untracked: {clock(untracked, precision)}",
+        f"Active: {_amount(active, precision)}",
         f"Wall Clock: {clock(wall, precision)}",
     ]
 
@@ -404,7 +441,7 @@ def format_timesheet(
     for period in periods:
         lines.append("")
         lines.append(f"{DAY_MARKER} {period.label}")
-        lines.extend(_flow(_period_parts(period, tz, precision), width))
+        lines.extend(_period_lines(period, tz, precision, width))
         lines.append("-" * width)
         lines.append(
             f"    {'Project':<{project_width}} | {'Task Title':<{title_width}} | "

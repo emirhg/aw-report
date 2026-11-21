@@ -265,20 +265,20 @@ of the selected sources: by default only tasks (so the span is the tracked tasks
 `--source tasks,afk` (or `window`) it is the machine's activity, whatever the task:
 ```
 📅 Monday, Nov 09, 2026
-   Check-in: 06:31 AM | Check-out: 07:04 AM | Wall Clock: 00:34
-   Active: -- | Tracked: 00:34 | Untracked: --
+   Check-in: 06:31 | Check-out: 07:04 | Wall Clock: 00:34
+   Tracked:  00:34 | Untracked: 00:00 | Active:     --
 ------------------------------------------------------------------------------
     Project              | Task Title                             | Hours  | Count
 ```
-Times are HH:MM (rounded to the minute). `--seconds` shows HH:MM:SS, and the check-in and check-out clock
+Times are HH:MM (rounded to the minute, 24-hour clock). `--seconds` shows HH:MM:SS, and the check-in and check-out clock
 with seconds. `--nanoseconds` shows HH:MM:SS.nnnnnnnnn; the start and end come from
 the exact timestamps (ActivityWatch records microseconds, so the last three digits are 000), and Tracked
 plus Untracked equals Wall Clock at that precision. The period's times are:
-- **Active**: the not-AFK time of the machine (needs the `afk` source; `--` without it).
 - **Tracked**: the time covered by timeslots that carry events of the selected sources (tasks, AFK or
   window), AFK included.
 - **Untracked**: the empty time: stretches between check-in and check-out where no event was reported,
   whatever the source. This is not the timeline's UNTRACKED column, which is AFK-gap time.
+- **Active**: the not-AFK time of the machine (needs the `afk` source; `--` without it).
 - **Wall Clock**: check-out minus check-in. Tracked plus Untracked always equals it.
 Each task's Hours is its taskwarrior time, clipped to the period.
 
