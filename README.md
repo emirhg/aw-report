@@ -270,7 +270,10 @@ of the selected sources: by default only tasks (so the span is the tracked tasks
 ------------------------------------------------------------------------------
     Project              | Task Title                             | Hours  | Count
 ```
-Times are HH:MM (rounded to the minute). The period's times are:
+Times are HH:MM (rounded to the minute). `--seconds` shows HH:MM:SS, and the check-in and check-out clock
+with seconds. `--nanoseconds` shows HH:MM:SS.nnnnnnnnn; the start and end come from
+the exact timestamps (ActivityWatch records microseconds, so the last three digits are 000), and Tracked
+plus Untracked equals Wall Clock at that precision. The period's times are:
 - **Active**: the not-AFK time of the machine (needs the `afk` source; `--` without it).
 - **Tracked**: the time covered by timeslots that carry events of the selected sources (tasks, AFK or
   window), AFK included.
@@ -278,6 +281,13 @@ Times are HH:MM (rounded to the minute). The period's times are:
   whatever the source. This is not the timeline's UNTRACKED column, which is AFK-gap time.
 - **Wall Clock**: check-out minus check-in. Tracked plus Untracked always equals it.
 Each task's Hours is its taskwarrior time, clipped to the period.
+
+The report uses the whole terminal width. A long project or task name is not cut: it continues on the
+next line, indented, so each row can span several lines (the first line carries the hours and the count).
+Project names wrap at their dots, task titles at spaces, and a word too long for a line is split. The
+period and total lines wrap the same way. Piped or redirected output is 78 columns.
+The width can be fixed with `terminal_width` in the config file. The table keeps a right margin as wide as its left indent (4 columns). The minimum supported width is
+56 columns (59 with `--seconds`, 69 with `--nanoseconds`); narrower terminals overflow.
 Use it with `--by-day` (default), `--by-week`, `--by-month` or `--by-year`. It cannot be combined
 with `--by-project`, `--no-taskwarrior` or `--app`. Use `--source tasks,afk` to take check-in and
 check-out from the system activity; the default `--source tasks` keeps the tracked-task span.
@@ -295,6 +305,8 @@ in both periods.
 | `--by-month` | Consolidated — one line per project per month | Monthly summary |
 | `--by-year` | Consolidated — one line per project per year | Yearly summary |
 | `--format timesheet` | Text timesheet — check-in/out, hours and tasks per period | Check-in/out from the selected sources; hours from taskwarrior |
+| `--seconds` | Timesheet: show every time with seconds (HH:MM:SS) | Timesheet only |
+| `--nanoseconds` | Timesheet: show every time with nanoseconds (HH:MM:SS.nnnnnnnnn) | Timesheet only |
 
 ### Detail Levels
 

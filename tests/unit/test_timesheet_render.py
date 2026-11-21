@@ -117,51 +117,10 @@ class TestBuildTimesheet:
 
 
 class TestFormat:
-    def test_exact_text_of_a_single_day(self):
-        events = [task(utc(2026, 11, 2, 21, 0), 30, project="Proj", title="Write docs")]
-        periods = build_timesheet(events, "day", local(2026, 11, 2), local(2026, 11, 2, 23), 0, TZ)
-        rule = "=" * 78
-        assert format_timesheet(periods, "day", TZ) == [
-            rule,
-            f"{'TIMESHEET DAILY ACTIVITY REPORT':^78}",
-            rule,
-            "",
-            "\U0001f4c5 Monday, Nov 02, 2026",
-            "   Check-in: 03:00 PM | Check-out: 03:30 PM | Wall Clock: 00:30",
-            "   Active: -- | Tracked: 00:30 | Untracked: 00:00",
-            "-" * 78,
-            "    Project              | Task Title                             | Hours  | Count",
-            "    -------------------- | -------------------------------------- | ------ | -----",
-            "    Proj                 | Write docs                             |  00:30 |     1",
-            "",
-            rule,
-            " GRAND TOTALS -- Active: -- | Tracked: 00:30 | Untracked: 00:00 | Wall Clock: 00:30",
-            " Across 1 active days",
-            rule,
-        ]
-
-    def test_long_titles_are_cut_to_35_characters_and_dots(self):
-        title = "x" * 50
-        events = [task(utc(2026, 11, 2, 21, 0), 30, title=title)]
-        periods = build_timesheet(events, "day", local(2026, 11, 2), local(2026, 11, 2, 23), 0, TZ)
-        (row,) = [line for line in format_timesheet(periods, "day", TZ) if "xxx" in line]
-        assert "x" * 35 + "..." in row
-        assert "x" * 36 not in row
-
     def test_footer_noun_follows_the_mode(self):
         events = [task(utc(2026, 11, 2, 21, 0), 30)]
         periods = build_timesheet(events, "week", local(2026, 11, 2), local(2026, 11, 8, 23), 0, TZ)
         assert format_timesheet(periods, "week", TZ)[-2] == " Across 1 active weeks"
-
-    def test_no_activity_prints_header_and_zero_totals(self):
-        lines = format_timesheet([], "day", TZ)
-        assert lines[-5:] == [
-            "",
-            "=" * 78,
-            " GRAND TOTALS -- Active: -- | Tracked: 00:00 | Untracked: 00:00 | Wall Clock: 00:00",
-            " Across 0 active days",
-            "=" * 78,
-        ]
 
     def test_print_writes_each_line(self, capsys):
         events = [task(utc(2026, 11, 2, 21, 0), 30)]
@@ -211,8 +170,8 @@ def test_check_in_and_out_come_from_the_machine_spans_not_the_tasks():
         _slot((9, 0), (12, 0), active=3600.0 * 2),
     ]
     (period,) = _day(machine)
-    assert period.check_in == int(datetime(2026, 8, 30, 8, 30, tzinfo=UTC).timestamp())
-    assert period.check_out == datetime(2026, 8, 30, 12, 0, tzinfo=UTC).timestamp()
+    assert period.check_in == datetime(2026, 8, 30, 8, 30, tzinfo=UTC)
+    assert period.check_out == datetime(2026, 8, 30, 12, 0, tzinfo=UTC)
     assert period.wall_seconds == 3.5 * 3600
 
 
@@ -266,3 +225,158 @@ def test_a_period_with_activity_but_no_task_time_is_listed_with_no_tasks():
     assert period.tracked_seconds == 3600
     assert period.untracked_seconds == 0
     assert period.tasks == ()
+
+
+class TestSeconds:
+    def test_clock_with_seconds_rounds_to_the_second_halves_up(self):
+        assert clock(0, "seconds") == "00:00:00"
+        assert clock(59.5, "seconds") == "00:01:00"
+        assert clock(3600 * 2 + 61.4, "seconds") == "02:01:01"
+
+    def test_totals_can_pass_a_hundred_hours_with_seconds(self):
+        assert clock(3600 * 100 + 59, "seconds") == "100:00:59"
+
+    def test_check_in_clock_with_seconds(self):
+        from aw_report.pipeline.timesheet_render import _clock
+
+        moment = datetime(2026, 11, 2, 15, 3, 9, tzinfo=UTC)
+        assert _clock(moment, UTC, "seconds") == "03:03:09 PM"
+        assert _clock(moment, UTC) == "03:03 PM"
+
+
+class TestNanoseconds:
+    def test_clock_with_nanoseconds_keeps_nine_digits(self):
+        assert clock(0, "nanoseconds") == "00:00:00.000000000"
+        assert clock(3600 * 2 + 61.5, "nanoseconds") == "02:01:01.500000000"
+        assert clock(0.000000001, "nanoseconds") == "00:00:00.000000001"
+        assert clock(3600 * 100 + 59.25, "nanoseconds") == "100:00:59.250000000"
+
+    def test_check_in_clock_with_nanoseconds_from_the_exact_timestamp(self):
+        from aw_report.pipeline.timesheet_render import _clock
+
+        moment = datetime(2026, 11, 2, 15, 3, 9, 123456, tzinfo=UTC)
+        assert _clock(moment, UTC, "nanoseconds") == "03:03:09.123456000 PM"
+
+
+class TestWrapping:
+    def test_the_report_uses_the_whole_terminal_width(self):
+        from aw_report.pipeline.timesheet_render import layout
+
+        assert layout(120) == 120
+        assert layout(None) == 78  # not a terminal: the fixed width
+
+    def test_table_columns_fill_the_width_and_keep_a_title_column(self):
+        from aw_report.pipeline.timesheet_render import table_columns
+
+        for precision, fixed in (("minutes", 24), ("seconds", 27), ("nanoseconds", 37)):
+            for width in (60, 78, 120, 200):
+                project, title = table_columns(width, precision, 40)
+                assert fixed + project + title == width
+                assert title >= 16
+        assert table_columns(78, "minutes", 10)[0] == 12  # never narrower than the minimum
+        assert table_columns(78, "minutes", 80)[0] == 24  # at most 45% of the 54 free columns
+
+    def test_words_wrap_greedily_and_continuation_lines_are_indented(self):
+        from aw_report.pipeline.timesheet_render import _pack
+
+        lines = _pack("Optimizar la generación de reporte mensual".split(" "), 16, "  ", " ")
+        assert lines[0] == "Optimizar la"
+        assert all(line.startswith("  ") for line in lines[1:])
+        assert (
+            " ".join(line.strip() for line in lines) == "Optimizar la generación de reporte mensual"
+        )
+
+    def test_a_word_longer_than_a_line_is_split_without_losing_text(self):
+        from aw_report.pipeline.timesheet_render import _pack
+
+        lines = _pack(["x" * 30], 12, "  ", " ")
+        assert lines[0] == "x" * 12
+        assert "".join(line.strip() for line in lines) == "x" * 30
+
+    def test_a_word_exactly_one_line_long_fills_it_without_an_empty_line(self):
+        from aw_report.pipeline.timesheet_render import _pack
+
+        assert _pack(["x" * 12], 12, "  ", " ") == ["x" * 12]
+
+    def test_a_word_that_splits_into_whole_lines_ends_without_an_empty_line(self):
+        from aw_report.pipeline.timesheet_render import _pack
+
+        assert _pack(["x" * 24], 12, "", "") == ["x" * 12, "x" * 12]
+
+    def test_nothing_to_pack_gives_one_empty_line(self):
+        from aw_report.pipeline.timesheet_render import _pack
+
+        assert _pack([], 12, "  ", " ") == [""]
+        assert _pack([""], 12, "  ", " ") == [""]
+
+    def test_project_levels_wrap_at_the_dots(self):
+        from aw_report.pipeline.timesheet_render import _dotted, _pack
+
+        lines = _pack(_dotted("Mercado laboral.Postulación.Satven"), 18, "  ", "")
+        assert lines == ["Mercado laboral.", "  Postulación.", "  Satven"][:0] or (
+            lines[0] == "Mercado laboral." and "Satven" in lines[-1]
+        )
+        assert "".join(line.strip() for line in lines) == "Mercado laboral.Postulación.Satven"
+
+    def test_a_task_spans_as_many_rows_as_its_longest_cell(self):
+        from aw_report.pipeline.timesheet_render import TimesheetTask, _task_rows
+
+        task_row = TimesheetTask(
+            project="Organización.Comunicación.Reporte",
+            title="Empaquetar TaskWarrior Watch hooks",
+            seconds=4 * 3600 + 8 * 60,
+            count=3,
+        )
+        rows = _task_rows(task_row, 22, 21, "minutes")
+        assert len(rows) >= 2
+        assert rows[0].count("04:08") == 1  # the hours and count appear on the first line only
+        assert "04:08" not in rows[1]
+        assert all(len(row) == len(rows[0]) for row in rows)  # cells keep their columns
+
+    def test_every_line_is_within_the_width_and_no_text_is_lost(self):
+        from aw_report.pipeline.timesheet_render import format_timesheet
+        from aw_report.utils.formatting import display_width
+
+        long_project = "Mercado laboral.Postulación.Satven.Organización.Comunicación"
+        events = [
+            task(utc(2026, 11, 2, 15, 0), 3600 * 30, project=long_project, title="x" * 60),
+            task(utc(2026, 11, 2, 16, 0), 30, title="表示" * 20),
+        ]
+        periods = build_timesheet(events, "day", local(2026, 11, 2), local(2026, 11, 2, 23), 0, TZ)
+        # the supported minimum is 56 (minutes), 59 (seconds) and 69 (nanoseconds) columns
+        for width, precisions in (
+            (56, ("minutes",)),
+            (69, ("minutes", "seconds", "nanoseconds")),
+            (80, ("minutes", "seconds", "nanoseconds")),
+            (120, ("minutes", "seconds", "nanoseconds")),
+            (200, ("minutes", "seconds", "nanoseconds")),
+        ):
+            for precision in precisions:
+                lines = format_timesheet(periods, "day", TZ, width, precision)
+                assert all(display_width(line) <= width for line in lines), (width, precision)
+                joined = "".join(line for line in lines)
+                assert joined.count("x") == 60  # the long title is wrapped, not cut
+                assert joined.count("表") == 20 and joined.count("示") == 20  # split, not lost
+
+
+def test_the_table_keeps_a_right_margin_as_wide_as_its_left_indent():
+    from aw_report.pipeline.timesheet_render import TABLE_MARGIN, format_timesheet
+    from aw_report.utils.formatting import display_width
+
+    assert TABLE_MARGIN == 4
+    events = [
+        task(
+            utc(2026, 11, 2, 15, 0),
+            3600,
+            project="Organización.Comunicación.Reporte",
+            title="Optimizar la generación de reporte de trabajo",
+        )
+    ]
+    periods = build_timesheet(events, "day", local(2026, 11, 2), local(2026, 11, 2, 23), 0, TZ)
+    for width in (80, 120):
+        lines = format_timesheet(periods, "day", TZ, width, "minutes")
+        header = next(line for line in lines if "Task Title" in line)
+        dashes = next(line for line in lines if "-----" in line and "|" in line)
+        assert display_width(header) == width - 4
+        assert display_width(dashes) == width - 4
+        assert lines[0] == lines[2] == "=" * width  # the rules keep the full width

@@ -4,7 +4,13 @@ import platform
 
 import pytest
 
-from aw_report.core.buckets import parse_sources, ROLES, BucketIds, default_bucket_id, resolve_buckets
+from aw_report.core.buckets import (
+    parse_sources,
+    ROLES,
+    BucketIds,
+    default_bucket_id,
+    resolve_buckets,
+)
 from aw_report.core.events import get_bucket_id
 from aw_report.exceptions import ConfigParsingError
 

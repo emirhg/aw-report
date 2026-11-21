@@ -154,7 +154,7 @@ class TestFetchCommand:
         return tmp_path
 
     def test_outputs_three_bucket_arrays_in_role_order(self, tmp_path, capsys, monkeypatch):
-        xdg = self._config(tmp_path, "[buckets]\nhostname = \"h\"\n")
+        xdg = self._config(tmp_path, '[buckets]\nhostname = "h"\n')
         monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
         client = MagicMock()
         ids_seen = []
@@ -256,8 +256,6 @@ class TestIsoPeriodZones:
         from aw_report.core.period import parse_period
 
         mexico = ZoneInfo("America/Mexico_City")
-        start, end = parse_period(
-            "2026-06-15T16:30:00+00:00 2026-06-16T14:00:00+00:00", tz=mexico
-        )
+        start, end = parse_period("2026-06-15T16:30:00+00:00 2026-06-16T14:00:00+00:00", tz=mexico)
         assert start == datetime(2026, 6, 15, 10, 30, tzinfo=mexico)
         assert end == datetime(2026, 6, 16, 8, 0, tzinfo=mexico)

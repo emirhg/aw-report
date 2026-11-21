@@ -11,8 +11,12 @@ T0 = datetime(2026, 11, 12, 6, 0, tzinfo=timezone.utc)
 
 
 def _ev(eid, offset_s, dur_s):
-    return Event(id=eid, timestamp=T0 + timedelta(seconds=offset_s),
-                 duration=timedelta(seconds=dur_s), data={})
+    return Event(
+        id=eid,
+        timestamp=T0 + timedelta(seconds=offset_s),
+        duration=timedelta(seconds=dur_s),
+        data={},
+    )
 
 
 def _brute_active(events, t):

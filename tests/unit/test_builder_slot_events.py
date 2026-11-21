@@ -42,10 +42,10 @@ def _scenario():
     """A task 10:00-11:00 with AFK, windows crossing slot boundaries, newest-first input."""
     afk = [_afk(0, 30, "not-afk"), _afk(30, 10, "afk"), _afk(40, 20, "not-afk")]
     windows = [
-        _window(45, 20, "Editor", "Development"),   # crosses the AFK->active boundary
+        _window(45, 20, "Editor", "Development"),  # crosses the AFK->active boundary
         _window(10, 15, "Chat", "Social"),
         _window(0, 10, "Editor", "Development"),
-        _window(25, 10, "Browser", "Social"),       # crosses into the AFK period
+        _window(25, 10, "Browser", "Social"),  # crosses into the AFK period
     ]
     windows.reverse()  # AW returns newest first
     tasks = [_task(0, 60)]
@@ -66,10 +66,12 @@ class TestSlotEventsMatchBruteForce:
         slots = build_timeslot_timeline(afk_events=afk, window_events=windows, task_events=tasks)
         assert slots
         for slot in slots:
-            assert _ids(slot.events.get(BUCKET_WINDOW, [])) == \
-                _ids(_brute_overlap(windows, slot.start, slot.end))
-            assert _ids(slot.events.get(BUCKET_AFK, [])) == \
-                _ids(_brute_overlap(afk, slot.start, slot.end))
+            assert _ids(slot.events.get(BUCKET_WINDOW, [])) == _ids(
+                _brute_overlap(windows, slot.start, slot.end)
+            )
+            assert _ids(slot.events.get(BUCKET_AFK, [])) == _ids(
+                _brute_overlap(afk, slot.start, slot.end)
+            )
 
     def test_task_slot_categories_equal_full_scan(self):
         afk, windows, tasks = _scenario()
@@ -89,17 +91,25 @@ class TestSlotEventsMatchBruteForce:
 class TestEventsSurviveDictRoundTrip:
     def test_to_dict_and_from_dict_keep_events(self):
         afk, windows, tasks = _scenario()
-        slot = next(s for s in build_timeslot_timeline(afk_events=afk, window_events=windows,
-                                                       task_events=tasks)
-                    if s.events.get(BUCKET_WINDOW))
+        slot = next(
+            s
+            for s in build_timeslot_timeline(
+                afk_events=afk, window_events=windows, task_events=tasks
+            )
+            if s.events.get(BUCKET_WINDOW)
+        )
         as_dict = slot.to_dict()
         assert as_dict["events"] is slot.events or as_dict["events"] == slot.events
         restored = ReportTimelineSlot.from_dict(as_dict)
         assert _ids(restored.events[BUCKET_WINDOW]) == _ids(slot.events[BUCKET_WINDOW])
 
     def test_slots_without_events_keep_the_old_dict_shape(self):
-        slot = ReportTimelineSlot(start=T0, end=T0 + timedelta(minutes=5),
-                                  duration=timedelta(minutes=5), actual_duration=timedelta(minutes=5))
+        slot = ReportTimelineSlot(
+            start=T0,
+            end=T0 + timedelta(minutes=5),
+            duration=timedelta(minutes=5),
+            actual_duration=timedelta(minutes=5),
+        )
         assert "events" not in slot.to_dict()
 
 
@@ -123,9 +133,13 @@ class TestTimelineSlotEvents:
         from aw_report.core.timeline import TimelineSlot
 
         afk, windows, tasks = _scenario()
-        slot = next(s for s in build_timeslot_timeline(afk_events=afk, window_events=windows,
-                                                       task_events=tasks)
-                    if s.events.get(BUCKET_WINDOW))
+        slot = next(
+            s
+            for s in build_timeslot_timeline(
+                afk_events=afk, window_events=windows, task_events=tasks
+            )
+            if s.events.get(BUCKET_WINDOW)
+        )
         timeline_slot = TimelineSlot(
             type="regular",
             start=slot.start,
@@ -144,7 +158,13 @@ class TestTimelineSlotEvents:
     def test_timeline_slot_without_events_omits_the_key(self):
         from aw_report.core.timeline import TimelineSlot
 
-        slot = TimelineSlot(type="afk", start=T0, end=T0 + timedelta(minutes=5), project="",
-                            task="", duration=timedelta(minutes=5),
-                            actual_duration=timedelta(0))
+        slot = TimelineSlot(
+            type="afk",
+            start=T0,
+            end=T0 + timedelta(minutes=5),
+            project="",
+            task="",
+            duration=timedelta(minutes=5),
+            actual_duration=timedelta(0),
+        )
         assert "events" not in slot.to_dict()

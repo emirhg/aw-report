@@ -79,7 +79,7 @@ Layers depend only downward: `cli` -> `pipeline` -> `core` -> `utils`. Keep it t
 | metrics | `pipeline/models.py` | `TimeslotDuration`, `PeriodMetrics`, `ReportTotals`, `ReportContext` |
 | render | `pipeline/timeline_render.py` | timeline view (`print_timeline_report`) |
 | render | `pipeline/report_render.py` | hierarchical view (`print_report`, summary and totals printers) |
-| render | `pipeline/timesheet_render.py` | text timesheet (`--format timesheet`): per-period task rows from raw taskwarrior events clipped to each period; check-in/out and wall clock from the machine spans (timeslots of the selected sources, default tasks); Active (not-AFK), Tracked (time of the slots that carry events) and Untracked (empty time with no event, so Tracked + Untracked = wall clock) from the slots; layout as `samples/timesheet_report.py` |
+| render | `pipeline/timesheet_render.py` | text timesheet (`--format timesheet`; uses the whole terminal width; long names wrap onto indented lines; `--seconds` for HH:MM:SS, `--nanoseconds` for nine digits): per-period task rows from raw taskwarrior events clipped to each period; check-in/out and wall clock from the machine spans (timeslots of the selected sources, default tasks); Active (not-AFK), Tracked (time of the slots that carry events) and Untracked (empty time with no event, so Tracked + Untracked = wall clock) from the slots; layout as `samples/timesheet_report.py` |
 | render | `pipeline/presenters.py` | thin wrappers around the two renderers (candidate for removal) |
 | utils | `utils/formatting.py` | durations, titles, column layout, `to_local_time` |
 | utils | `utils/profiling.py` | `TW_REPORT_PROFILE` stage timing (opt-in) |

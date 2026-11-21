@@ -89,3 +89,62 @@ def test_timesheet_tracked_and_untracked_cover_the_wall_clock(monkeypatch, capsy
     assert code == 0
     assert "Wall Clock: 03:10" in out
     assert "Tracked: 03:10 | Untracked: 00:00" in out
+
+
+def test_piped_timesheet_is_78_columns_with_no_margin(monkeypatch, capsys):
+    client = FakeActivityWatchClient(scenario_buckets())
+    out, code, _err = run_cli(monkeypatch, capsys, ["--format", "timesheet", DAY], client)
+    assert code == 0
+    content = [line for line in out.splitlines() if line]
+    assert max(len(line) for line in content) <= 78
+    assert content[0] == "=" * 78  # not indented: no terminal, no margin
+
+
+def test_a_terminal_gets_the_whole_width_with_no_margin(monkeypatch, capsys):
+    import sys
+
+    from aw_report.cli import main as cli_main
+
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    monkeypatch.setattr(cli_main, "get_terminal_width", lambda: 120)
+    client = FakeActivityWatchClient(scenario_buckets())
+    out, code, _err = run_cli(monkeypatch, capsys, ["--format", "timesheet", DAY], client)
+    assert code == 0
+    rule = next(line for line in out.splitlines() if line and set(line) == {"="})
+    assert rule == "=" * 120  # the whole terminal, no margin
+
+
+def test_timesheet_seconds_shows_hh_mm_ss(monkeypatch, capsys):
+    client = FakeActivityWatchClient(scenario_buckets())
+    out, code, _err = run_cli(
+        monkeypatch,
+        capsys,
+        ["--format", "timesheet", "--source", "tasks,afk", "--seconds", DAY],
+        client,
+    )
+    assert code == 0
+    assert "Wall Clock: 03:10:00" in out
+    assert "Tracked: 03:10:00 | Untracked: 00:00:00" in out
+    assert "Hours" in out
+    assert "00:30:00" in out  # the Writing task row
+
+
+def test_seconds_without_the_timesheet_format_is_rejected(monkeypatch, capsys):
+    client = FakeActivityWatchClient(scenario_buckets())
+    _out, code, err = run_cli(monkeypatch, capsys, ["--seconds", DAY], client)
+    assert code == 1
+    assert "apply to --format timesheet only" in err
+
+
+def test_timesheet_nanoseconds_shows_nine_digits(monkeypatch, capsys):
+    client = FakeActivityWatchClient(scenario_buckets())
+    out, code, _err = run_cli(
+        monkeypatch,
+        capsys,
+        ["--format", "timesheet", "--source", "tasks,afk", "--nanoseconds", DAY],
+        client,
+    )
+    assert code == 0
+    assert "   Wall Clock: 03:10:00.000000000" in out
+    assert "   Untracked: 00:00:00.000000000" in out
+    assert "Check-in:" in out and "Check-out:" in out

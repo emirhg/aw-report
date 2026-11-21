@@ -12,6 +12,7 @@ import math
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, tzinfo
+from itertools import accumulate
 from typing import Literal
 
 from aw_core.models import Event
@@ -19,12 +20,19 @@ from aw_core.models import Event
 from aw_report.core.filtering import NO_PROJECT, NO_TASK
 from aw_report.core.period import day_boundary, next_bucket_start
 from aw_report.core.report_slot import ReportTimelineSlot
+from aw_report.utils.formatting import display_width, ljust_display
 
 Mode = Literal["day", "week", "month", "year"]
+# minutes (default), seconds (--seconds) or nanoseconds (--nanoseconds, one value per line)
+Precision = Literal["minutes", "seconds", "nanoseconds"]
 
-RULE_WIDTH = 78
-TITLE_WIDTH = 38
-PROJECT_WIDTH = 20
+DEFAULT_WIDTH = 78  # the width used when the output is not a terminal (pipes, files)
+MIN_PROJECT = 12  # narrowest project column before a name wraps
+MIN_TITLE = 16  # narrowest title column before a task name wraps
+CONTINUATION = "  "  # indent of a wrapped line, under the line it continues
+TABLE_MARGIN = 4  # the table keeps a right margin as wide as its left indent
+# Hours column: HH:MM (6), HH:MM:SS (9), HH:MM:SS.nnnnnnnnn (19)
+HOURS_WIDTH = {"minutes": 6, "seconds": 9, "nanoseconds": 19}
 HEADER = "TIMESHEET DAILY ACTIVITY REPORT"
 UNITS = {"day": "days", "week": "weeks", "month": "months", "year": "years"}
 DAY_MARKER = "\U0001f4c5"  # calendar emoji, as in the shell tool's output
@@ -59,8 +67,8 @@ class MachineSlot:
 @dataclass(frozen=True)
 class TimesheetPeriod:
     label: str
-    check_in: int  # epoch seconds, whole (fraction dropped, as the shell tool does)
-    check_out: float  # epoch seconds of the last machine span's clipped end
+    check_in: datetime  # exact start of the first machine span in the period
+    check_out: datetime  # exact end of the last machine span in the period
     active_seconds: float | None  # None when the afk source is not selected
     tracked_seconds: float
     untracked_seconds: float
@@ -68,8 +76,19 @@ class TimesheetPeriod:
     tasks: tuple[TimesheetTask, ...]
 
 
-def clock(seconds: float) -> str:
-    """A duration as HH:MM, rounded to the minute (halves up)."""
+def clock(seconds: float, precision: Precision = "minutes") -> str:
+    """A duration as HH:MM, HH:MM:SS or HH:MM:SS.nnnnnnnnn, rounded (halves up) to the unit."""
+    if precision == "nanoseconds":
+        total = round(seconds * 1_000_000_000)
+        hours, rest = divmod(total, 3600 * 1_000_000_000)
+        minutes, rest = divmod(rest, 60 * 1_000_000_000)
+        secs, nanos = divmod(rest, 1_000_000_000)
+        return f"{hours:02d}:{minutes:02d}:{secs:02d}.{nanos:09d}"
+    if precision == "seconds":
+        total = math.floor(seconds + 0.5)
+        hours, rest = divmod(total, 3600)
+        minutes, secs = divmod(rest, 60)
+        return f"{hours:02d}:{minutes:02d}:{secs:02d}"
     minutes = math.floor(seconds / 60 + 0.5)
     hours, rest = divmod(minutes, 60)
     return f"{hours:02d}:{rest:02d}"
@@ -157,17 +176,16 @@ def _summarise(
                 count=group.count,
             )
         )
-    # Whole-second start, as the shell tool does, so the clock times match it exactly.
-    check_in = int(min(begin for begin, _ in clipped).timestamp())
-    check_out = max(end for _, end in clipped).timestamp()
+    check_in = min(begin for begin, _ in clipped)
+    check_out = max(end for _, end in clipped)
     return TimesheetPeriod(
         label=_label(key, mode),
         check_in=check_in,
         check_out=check_out,
         active_seconds=active if known else None,
         tracked_seconds=tracked,
-        untracked_seconds=max(check_out - check_in - tracked, 0.0),
-        wall_seconds=check_out - check_in,
+        untracked_seconds=max((check_out - check_in).total_seconds() - tracked, 0.0),
+        wall_seconds=(check_out - check_in).total_seconds(),
         tasks=tuple(tasks),
     )
 
@@ -230,70 +248,180 @@ def build_timesheet(
     return periods
 
 
-def _clock(epoch: float, tz: tzinfo) -> str:
-    return datetime.fromtimestamp(epoch, tz).strftime("%I:%M %p")
+def _clock(moment: datetime, tz: tzinfo, precision: Precision = "minutes") -> str:
+    """A clock time in the report zone: 09:00 AM, 09:00:12 AM, or 09:00:12.000000000 AM.
+
+    Event timestamps have microsecond precision, so the nanosecond digits end in 000.
+    """
+    local = moment.astimezone(tz)
+    if precision == "nanoseconds":
+        return f"{local:%I:%M:%S}.{local.microsecond * 1000:09d} {local:%p}"
+    if precision == "seconds":
+        return local.strftime("%I:%M:%S %p")
+    return local.strftime("%I:%M %p")
 
 
-def _amount(seconds: float | None) -> str:
-    """HH:MM, or "--" when the value is unknown (the afk source is not selected)."""
-    return "--" if seconds is None else clock(seconds)
+def layout(columns: int | None) -> int:
+    """The report width: the whole terminal, or DEFAULT_WIDTH when there is no terminal."""
+    return DEFAULT_WIDTH if columns is None else columns
 
 
-def format_timesheet(periods: list[TimesheetPeriod], mode: Mode, tz: tzinfo) -> list[str]:
-    """The report as lines."""
-    rule = "=" * RULE_WIDTH
-    lines = [rule, f"{HEADER:^{RULE_WIDTH}}", rule]
-    for period in periods:
-        lines.append("")
-        lines.append(f"{DAY_MARKER} {period.label}")
-        lines.append(
-            f"   Check-in: {_clock(period.check_in, tz):<8} | "
-            f"Check-out: {_clock(period.check_out, tz):<8} | "
-            f"Wall Clock: {clock(period.wall_seconds)}"
-        )
-        lines.append(
-            f"   Active: {_amount(period.active_seconds)} | "
-            f"Tracked: {clock(period.tracked_seconds)} | "
-            f"Untracked: {clock(period.untracked_seconds)}"
-        )
-        lines.append("-" * RULE_WIDTH)
-        lines.append(
-            f"    {'Project':<{PROJECT_WIDTH}} | {'Task Title':<{TITLE_WIDTH}} | "
-            f"{'Hours':<6} | Count"
-        )
-        lines.append(f"    {'-' * PROJECT_WIDTH} | {'-' * TITLE_WIDTH} | {'-' * 6} | {'-' * 5}")
-        for task in period.tasks:
-            title = task.title
-            if len(title) > TITLE_WIDTH:
-                title = title[:35] + "..."
-            lines.append(
-                f"    {task.project:<{PROJECT_WIDTH}} | {title:<{TITLE_WIDTH}} | "
-                f"{clock(task.seconds):>6} | {task.count:>5}"
-            )
-    lines.append("")
-    lines.append(rule)
-    lines.append(_grand_totals(periods))
-    lines.append(f" Across {len(periods)} active {UNITS[mode]}")
-    lines.append(rule)
-    return lines
+def _pack(tokens: list[str], width: int, indent: str, joiner: str) -> list[str]:
+    """Join ``tokens`` with ``joiner`` into lines of at most ``width`` columns.
+
+    A token that does not fit on a line starts the next one. A token longer than a whole line is
+    cut, so no text is lost: the continuation lines begin with ``indent``. Widths are display
+    columns, so wide characters are counted correctly.
+    """
+    lines: list[str] = []
+    current = ""
+    pending = list(tokens)
+    while pending:
+        token = pending.pop(0)
+        budget = width if not lines else width - display_width(indent)
+        trial = f"{current}{joiner}{token}" if current else token
+        if display_width(trial) <= budget:
+            current = trial
+        elif current:
+            lines.append(current)
+            current = ""
+            pending.insert(0, token)
+        else:
+            head = _take(token, budget)
+            lines.append(head)
+            pending.insert(0, token[len(head) :])  # an empty rest is a no-op
+    if current:
+        lines.append(current)
+    if not lines:
+        return [""]
+    return [lines[0]] + [indent + line for line in lines[1:]]
 
 
-def _grand_totals(periods: list[TimesheetPeriod]) -> str:
-    """Totals; Active is unknown ("--") unless every period knows it."""
+def table_columns(width: int, precision: Precision, longest_project: int) -> tuple[int, int]:
+    """Project and title column widths; with the fixed columns they add up to ``width``.
 
+    The project column is as wide as its longest name when there is room (at most 45% of the
+    free space); the title takes the rest, at least MIN_TITLE columns.
+    """
+    free = width - (18 + HOURS_WIDTH[precision])  # 4 indent, 3 separators, Count 5
+    project = max(MIN_PROJECT, min(max(longest_project, MIN_PROJECT), round(0.45 * free)))
+    # Below the supported minimum (see the README) the columns shrink to 1 and lines overflow
+    project = max(1, min(project, free - MIN_TITLE))
+    return project, max(1, free - project)
+
+
+def _take(text: str, width: int, from_end: bool = False) -> str:
+    """The longest start (or end) of ``text`` that fits ``width`` display columns."""
+    chars = list(reversed(text)) if from_end else list(text)
+    # Widths only grow along the prefix, so the characters that fit are a prefix of ``chars``
+    fits = sum(1 for used in accumulate(display_width(c) for c in chars) if used <= width)
+    kept = chars[:fits]
+    return "".join(reversed(kept)) if from_end else "".join(kept)
+
+
+def _amount(seconds: float | None, precision: Precision = "minutes") -> str:
+    """The clock value, or "--" when the value is unknown (the afk source is not selected)."""
+    return "--" if seconds is None else clock(seconds, precision)
+
+
+def _flow(parts: list[str], width: int) -> list[str]:
+    """Labelled values on lines of ``width`` columns, joined by " | ", wrapped with indentation."""
+    lines = _pack(parts, width - 3, " " * 5, " | ")
+    return ["   " + lines[0], *lines[1:]]
+
+
+def _period_parts(period: TimesheetPeriod, tz: tzinfo, precision: Precision) -> list[str]:
+    return [
+        f"Check-in: {_clock(period.check_in, tz, precision)}",
+        f"Check-out: {_clock(period.check_out, tz, precision)}",
+        f"Wall Clock: {clock(period.wall_seconds, precision)}",
+        f"Active: {_amount(period.active_seconds, precision)}",
+        f"Tracked: {clock(period.tracked_seconds, precision)}",
+        f"Untracked: {clock(period.untracked_seconds, precision)}",
+    ]
+
+
+def _total_parts(periods: list[TimesheetPeriod], precision: Precision) -> list[str]:
     def total(values: list[float | None]) -> float | None:
         if not values or any(v is None for v in values):
             return None
         return sum(v for v in values if v is not None)
 
     active = total([p.active_seconds for p in periods])
-    untracked = sum(p.untracked_seconds for p in periods)
     tracked = sum(p.tracked_seconds for p in periods)
+    untracked = sum(p.untracked_seconds for p in periods)
     wall = sum(p.wall_seconds for p in periods)
-    return (
-        f" GRAND TOTALS -- Active: {_amount(active)} | Tracked: {clock(tracked)} | "
-        f"Untracked: {clock(untracked)} | Wall Clock: {clock(wall)}"
-    )
+    return [
+        f"Active: {_amount(active, precision)}",
+        f"Tracked: {clock(tracked, precision)}",
+        f"Untracked: {clock(untracked, precision)}",
+        f"Wall Clock: {clock(wall, precision)}",
+    ]
+
+
+def _task_rows(
+    task: TimesheetTask, project_width: int, title_width: int, precision: Precision
+) -> list[str]:
+    """One task as one or more lines: the first carries the hours and count, the rest continue."""
+    hours_width = HOURS_WIDTH[precision]
+    projects = _pack(_dotted(task.project), project_width, CONTINUATION, "")
+    titles = _pack(task.title.split(" "), title_width, CONTINUATION, " ")
+    rows = []
+    for index in range(max(len(projects), len(titles))):
+        project = projects[index] if index < len(projects) else ""
+        title = titles[index] if index < len(titles) else ""
+        if index == 0:
+            hours = f"{clock(task.seconds, precision):>{hours_width}}"
+            count = f"{task.count:>5}"
+        else:
+            hours, count = " " * hours_width, " " * 5
+        rows.append(
+            f"    {ljust_display(project, project_width)} | "
+            f"{ljust_display(title, title_width)} | {hours} | {count}"
+        )
+    return rows
+
+
+def _dotted(project: str) -> list[str]:
+    """Project levels as tokens that keep their dots (so wrapping happens at a dot)."""
+    levels = project.split(".")
+    return [f"{level}." for level in levels[:-1]] + [levels[-1]]
+
+
+def format_timesheet(
+    periods: list[TimesheetPeriod],
+    mode: Mode,
+    tz: tzinfo,
+    width: int = DEFAULT_WIDTH,
+    precision: Precision = "minutes",
+) -> list[str]:
+    """The report as lines, at most ``width`` columns wide: names and times wrap, never cut."""
+    longest = max((len(t.project) for p in periods for t in p.tasks), default=0)
+    project_width, title_width = table_columns(width - TABLE_MARGIN, precision, longest)
+    hours_width = HOURS_WIDTH[precision]
+    rule = "=" * width
+    lines = [rule, f"{HEADER:^{width}}", rule]
+    for period in periods:
+        lines.append("")
+        lines.append(f"{DAY_MARKER} {period.label}")
+        lines.extend(_flow(_period_parts(period, tz, precision), width))
+        lines.append("-" * width)
+        lines.append(
+            f"    {'Project':<{project_width}} | {'Task Title':<{title_width}} | "
+            f"{'Hours':<{hours_width}} | Count"
+        )
+        lines.append(
+            f"    {'-' * project_width} | {'-' * title_width} | {'-' * hours_width} | {'-' * 5}"
+        )
+        for task in period.tasks:
+            lines.extend(_task_rows(task, project_width, title_width, precision))
+    lines.append("")
+    lines.append(rule)
+    lines.append(" GRAND TOTALS")
+    lines.extend(_flow(_total_parts(periods, precision), width))
+    lines.append(f" Across {len(periods)} active {UNITS[mode]}")
+    lines.append(rule)
+    return lines
 
 
 def print_timesheet_report(
@@ -304,7 +432,10 @@ def print_timesheet_report(
     day_start_hour: int,
     tz: tzinfo,
     machine: Iterable[MachineSlot] | None = None,
+    columns: int | None = None,
+    precision: Precision = "minutes",
 ) -> None:
+    """Print the report for a terminal of ``columns`` (None: not a terminal, 78 wide)."""
     periods = build_timesheet(events, mode, start, end, day_start_hour, tz, machine)
-    for line in format_timesheet(periods, mode, tz):
+    for line in format_timesheet(periods, mode, tz, layout(columns), precision):
         print(line)

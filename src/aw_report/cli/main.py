@@ -69,7 +69,7 @@ from aw_report.pipeline.timesheet_render import (
     print_timesheet_report,
 )
 from aw_report.utils.deprecation import deprecated
-from aw_report.utils.formatting import normalize_title
+from aw_report.utils.formatting import get_terminal_width, normalize_title
 from aw_report.utils.profiling import StageProfiler, enable_unbuffered_output
 
 logger = logging.getLogger(__name__)
@@ -233,6 +233,11 @@ def _run(profiler: StageProfiler):
         # Default to by-day if no grouping mode specified
         grouping_mode = "day"
 
+    if (args.seconds or args.nanoseconds) and args.format != "timesheet":
+        print(
+            "Error: --seconds and --nanoseconds apply to --format timesheet only", file=sys.stderr
+        )
+        return 1
     if args.format == "timesheet":
         # The timesheet is a task-only report: it needs taskwarrior and nothing else.
         for conflict, flag in (
@@ -657,6 +662,11 @@ def _run(profiler: StageProfiler):
                 tz=local_zoneinfo(resolved_settings.timezone),
             )
         )
+        # Width: the configured terminal_width, else the real terminal when stdout is one, else None
+        # (pipes and files get the fixed 78-column layout without a margin)
+        columns = resolved_settings.terminal_width
+        if columns is None and sys.stdout.isatty():
+            columns = get_terminal_width()
         print_timesheet_report(
             [
                 event
@@ -676,6 +686,10 @@ def _run(profiler: StageProfiler):
             day_start_hour=day_start_hour,
             tz=local_zoneinfo(resolved_settings.timezone),
             machine=machine_spans,
+            columns=columns,
+            precision=(
+                "nanoseconds" if args.nanoseconds else "seconds" if args.seconds else "minutes"
+            ),
         )
         return 0
 

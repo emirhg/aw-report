@@ -128,6 +128,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Skip the productive/unproductive/undefined split of Active and AFK time in TOTALS.",
     )
     parser.add_argument(
+        "--seconds",
+        action="store_true",
+        help="Timesheet only: show every time with seconds (HH:MM:SS) instead of minutes.",
+    )
+    parser.add_argument(
+        "--nanoseconds",
+        action="store_true",
+        help="Timesheet only: show every time with nanoseconds (HH:MM:SS.nnnnnnnnn), "
+        "one value per line.",
+    )
+    parser.add_argument(
         "--exclude-afk",
         action="store_true",
         help="Exclude AFK periods from the timeline report (default: shown as AFK slots).",
