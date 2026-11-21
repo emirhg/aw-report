@@ -11,12 +11,12 @@ from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import TypeVar, cast
 
-from aw_client import ActivityWatchClient
 from aw_core.models import Event
 
 from aw_report.cli.args import parse_args, parse_positional_args
 from aw_report.config import load_user_config, resolve_settings
 from aw_report.core.aw_events import AFKEvent
+from aw_report.core.aw_http import ActivityWatchClient
 from aw_report.core.buckets import parse_sources, resolve_buckets
 from aw_report.core.categories import (
     categorize_event,

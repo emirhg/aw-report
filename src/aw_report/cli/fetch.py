@@ -22,9 +22,8 @@ import argparse
 import json
 import sys
 
-from aw_client import ActivityWatchClient
-
 from aw_report.config import load_user_config, resolve_settings
+from aw_report.core.aw_http import ActivityWatchClient
 from aw_report.core.buckets import resolve_buckets
 from aw_report.core.events import fetch_events
 from aw_report.core.period import local_zoneinfo, period_to_utc

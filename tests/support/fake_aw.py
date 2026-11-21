@@ -1,7 +1,7 @@
 """Deterministic stand-ins for the ActivityWatch client, used by characterization tests.
 
 ``FakeActivityWatchClient`` mirrors the one method tw-report calls on the real
-``aw_client.ActivityWatchClient``: ``get_events(bucket_id, start=, end=, limit=)``.
+``aw_report.core.aw_http.ActivityWatchClient``: ``get_events(bucket_id, start=, end=, limit=)``.
 Buckets are plain lists of events keyed by full bucket id, so tests control the
 exact input without a running ActivityWatch server.
 """
@@ -13,7 +13,7 @@ from aw_core.models import Event
 
 
 class FakeActivityWatchClient:
-    """In-memory replacement for ``aw_client.ActivityWatchClient``."""
+    """In-memory replacement for ``aw_report.core.aw_http.ActivityWatchClient``."""
 
     def __init__(self, buckets: Optional[Dict[str, List[Event]]] = None, fail: bool = False):
         self.buckets: Dict[str, List[Event]] = dict(buckets or {})

@@ -265,6 +265,11 @@ stale analysis. Do not leave a finished item described as open.**
 - Output change, by design: window events cut the slots, so the default run without window has
   fewer zero-length fragments; totals move by seconds. The goldens did not change.
 - Not a cache: categories are still computed per event (`categorize_event`), as before.
+- `aw_client` is replaced by `core/aw_http.py` (standard library, same `get_events` contract).
+  Its import cost (about 0.6 s) is gone: `--format timesheet --source tasks :lastweek` went from
+  about 0.82 s to about 0.53 s (10 interleaved runs). `fetch` JSON and the reports with explicit
+  sources are byte-identical to `main`. `aw_client` also used to refuse a second concurrent run
+  (singleinstance); that guard is gone with it.
 
 ### 13.3 Detail levels versus data sources (decided direction, not implemented)
 

@@ -3,7 +3,6 @@
 import sys
 from datetime import datetime, timedelta, timezone
 
-import aw_client  # noqa: F401  (import the real client chain before tests poison aw_transform)
 import pytest
 from aw_core.models import Event
 

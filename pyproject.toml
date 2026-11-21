@@ -12,7 +12,6 @@ requires-python = ">=3.14"
 license = "LicenseRef-Proprietary"
 classifiers = ["Programming Language :: Python :: 3.14"]
 dependencies = [
-    "aw-client>=0.5.15",
     "aw-core>=0.5.17",
 ]
 

@@ -158,9 +158,10 @@ def test_app_filter_matching_nothing_still_renders(monkeypatch, capsys):
 
 def test_module_entry_point_runs_main_when_executed_as_script(monkeypatch, capsys):
     client = FakeActivityWatchClient(scenario_buckets())
-    import aw_client
+    # runpy re-executes the module, so patch the class at its definition, not the import name
+    import aw_report.core.aw_http as aw_http
 
-    monkeypatch.setattr(aw_client, "ActivityWatchClient", lambda *a, **k: client)
+    monkeypatch.setattr(aw_http, "ActivityWatchClient", lambda *a, **k: client)
     monkeypatch.setattr(sys, "argv", ["aw-report", DAY])
     # The module is already imported by this test session, so runpy warns about re-executing it.
     with warnings.catch_warnings():
