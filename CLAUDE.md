@@ -364,117 +364,16 @@ Open:
 2. Whether window stays a classifier input for AFK false positives (recommended) or moves elsewhere.
 3. Whether the performance changes in 13.2 ship before or after the role-kind change in 13.4.
 
-### 13.6 Implementation progress: intersection slots (resume here)
+### 13.6 Implementation progress: done
 
-Plan file: `/home/emirhg/.claude/plans/what-i-need-now-zany-dewdrop.md` (approved). Branch: `main`.
-Rule: commit only when asked; each commit leaves the gates green (pytest with coverage 100%, ruff check and
-format on `src`, mypy `src`, and the suite under TZ=UTC, America/New_York, Asia/Tokyo).
+The intersection-slot redesign is in place on `main`: slots are intersections of the buckets
+(`core/timeslot_builder.py`), each carries one AFK state and tagged data, totals come from the
+breakdown (`core/time_breakdown.py`), untracked time is the gap between AFK events of a day
+(`core/afk_gaps.py`), the renderers and consolidation work on slot objects, and the old stored fields
+are read-only views kept for deprecated callers. The golden snapshots were reviewed by change class.
+The history of the work was squashed into logical commits; the pre-squash history is on the local
+branch `development`.
 
-Done and committed:
-- `b7435ce` `core/time_breakdown.py` (TimeBreakdown, sum_breakdowns), `core/afk_gaps.py` (untracked_gaps, logical_day),
-  `core/event_slot.py::DataValue`. Unused until stage 3.
-- `62d0c70` CLAUDE.md section 13 decisions.
-
-Done and committed (stage 2, additive, old fields still in place):
-- `21bd56e` `core/report_slot.py` fields `afk_state`, `data` (DataValue lists), `stored_breakdown`; properties `breakdown`,
-  `offline_tagged`, `entry_type`; `to_dict`/`from_dict` carry `afk_state` and `breakdown`; `core/filtering.py::accepts_slot`;
-  `tests/unit/test_report_slot_model.py`.
-- `0403529` (piece 3A, additive): `core/categories.py::merge_category_trees` (the deprecated `_merge_categories_full` now
-  delegates, same output); `pipeline/row_merge.py::merge_display_rows` (display-only merge of touching slots sharing project, task,
-  afk_state and logical day; sums breakdowns); `pipeline/metrics.py::state_totals`; `tests/support/slots.py` (slot builder by state);
-  `tests/unit/test_row_merge.py`. Gates green: 1206 passed, 8 xfailed, 100% line and branch, TZ variants.
-
-WIP branch `wip/intersection-slots` (not green; do not merge as is):
-- `3d4afef` piece 3B: `core/timeslot_builder.py` rewritten to the intersection sweep (cuts from every bucket,
-  untracked gaps from `untracked_gaps`, one AFK state, tagged `data`, primary task, legacy fields kept as a shim).
-  Run-length, micro-merge, tie-break and REVIEW(window-afk) code deleted. Builder tests migrated (state-continuity
-  and window-coverage tests removed). `cli/main.py` passes `day_start_hour` and `tz`.
-- `07491f5` piece 3C (partial): metrics via breakdown in `cli/main.py` (active, untracked), `pipeline/processors.py`
-  (hierarchy active, productivity active/afk), `timeline_render.compute_afk_offline_totals` and per-slot metrics.
-  Known: the hierarchy now uses `breakdown.active` (old `actual or duration` counted AFK slots as work); check in goldens.
-
-- `(next)` object-based pipeline in `cli/main.py`: one filter pass on objects (`accepts_slot`, `--exclude-afk` on
-  `entry_type`), Timeline bridge removed, timeline TOTALS now match the committed day golden (Active 2:15, AFK 0:25,
-  Offline 0:30). Still open for 3D: the rows use the legacy column logic (`DisplayColumns.from_slot_dict` and the
-  `timeline_render` loop read legacy fields), the column widths are inconsistent (62 / 46 / 32 / 48 in several places),
-  the UNTRACKED and NO AFK columns are not drawn yet, and the golden snapshots are not updated.
-  Next step: make the right-hand width one constant with an optional NO AFK column, then move the row, header and
-  day-total code onto the breakdown.
-
-- `(next)` piece 3D (timeline columns): `DURATION_COLUMN_WIDTH`/`right_section_width(show_no_afk)`/`dash_width` in
-  `core/report_slot.py` are the single layout source; `DisplayColumns.from_slot_dict` reads the breakdown
-  (UNTRACKED, OFFLINE, AFK, ACTIVE, NO AFK when present); header, day totals and separators use the same widths;
-  gap-based BREAK rows removed; `merge_display_rows` applied in `print_timeline_report` (new `tz` argument).
-  The day scenario rows and day totals match the committed golden. Golden diff is broad (29 files) and NOT reviewed:
-  BREAK -> UNTRACKED label (intended); "No activity found" becoming rows (the --app fix, intended); but also
-  Current Session/Last Break/Project Tracking percentages and Offline/Total lines changed in some scenarios, which
-  must be checked one by one before updating goldens.
-  Pre-existing, not from this change: at the 80-column test width the row is appended after its left section
-  while the header uses an 87-column left section, so the columns are misaligned in the golden.
-
-- `(green)` the WIP tip passes every gate: 1196 tests, 100% line and branch, ruff, format, mypy, and TZ variants.
-  Golden snapshots regenerated and reviewed by change class (header label and separator width; --app rows; filter
-  exclusions leave Total and Break; AFK fetched for the whole period; span follows the reported slots; hierarchy
-  counts worked time; consolidate keeps offline). See the commit message of the golden commit.
-  Done since: 3E (consolidation on objects, `pipeline/consolidation.py`; the day split now keeps the stored breakdown).
-  3H done: the stored fields actual_duration, afk_duration, offline_extension_duration and event_duration are
-  gone from the model. They are read-only views of the breakdown (`ReportTimelineSlot` properties), and the
-  constructor still takes the old names for deprecated callers (they map onto the breakdown when the slot has
-  no AFK state). The builder shim is removed. The offline-overlap filter in the renderer is removed (no-op
-  with intersection slots). `TimelineSlot` and `Timeline` are `@deprecated` (with CASES); the deprecated
-  `ReportEntries` methods keep working (policy: deprecated, not deleted).
-  Still open: the dead formatting helpers in `utils/formatting.py` (test-only) are not yet deprecated; the
-  squash into logical commits and the fast-forward of `main` wait for the user's decision.
-
-Failing now (30): 25 golden snapshots (expected output change; NOT updated) and 5 legacy typed fixtures
-(test_totals_output x3, test_timeline_render_coverage, test_processors_coverage) that need afk_state.
-Visible regression to fix first: the timeline TOTALS block reads zero (Total Time, Worked, Online, Active),
-because `report_render`/`print_timeline_report` still take totals from the old path. AFK rows still show in the
-BREAK column (timeline_render reads legacy fields for the columns).
-
-Remaining, in order: 3D renderers (UNTRACKED column, NO AFK column when present, columns from breakdown,
-row merge `merge_display_rows` after the filters, totals from `state_totals`); 3E consolidation on objects;
-3F `cli/main.py` one filter pass with `accepts_slot`, delete dict round trips and the Timeline bridge;
-3G migrate the legacy typed fixtures and the rest of the ~30 test files; 3H remove old fields and shim;
-then golden review, the plan's verification, squash WIP into logical commits, fast-forward main.
-
-Pending, stage 3 (one logical change; pieces 3B-3H follow the plan file; the list below is the original outline):
-1. Builder `core/timeslot_builder.py`: intersection slots (cuts from all buckets, gaps from `untracked_gaps`,
-   `afk_state`, tagged `data`, one slot per atomic interval); delete `_RunAccumulator`, run-length and micro-slot merge,
-   tie-break, `REVIEW(window-afk)` markers (also in `cli/main.py`). Takes `day_start_hour` and `tz`.
-2. Totals: `state_totals` via `sum_breakdowns`; replace `compute_afk_offline_totals`, `slot_active_time`,
-   `compute_total_break_time`, `compute_daily_break_totals`, `_break_gap_within_day`, `PeriodMetrics`,
-   `TimeslotDuration`, `ReportTotals`.
-3. Row merge for display (new `pipeline/row_merge.py`) with `core/categories.py::merge_category_trees` (promote from the
-   deprecated `_merge_categories_full`).
-4. Timeline renderer `pipeline/timeline_render.py`: BREAK -> UNTRACKED; NO AFK column only when present; columns from
-   `breakdown`; no gap break rows; objects only.
-5. Report renderer `pipeline/report_render.py`: TOTALS lines Untracked and No AFK data; no Break Time; no Last Break
-   offline heuristic.
-6. Processors `pipeline/processors.py`: `breakdown.active`/`afk`; no `has_consolidated_afk`; keep categories and
-   productivity output identical.
-7. Consolidation `pipeline/consolidation.py`: objects in and out; sum `breakdown`; fixes the offline-lookalike bug
-   (`event_duration` defaulted to duration).
-8. `cli/main.py`: one filter pass with `accepts_slot` (fixes `--app`), `--exclude-afk` on `entry_type == "afk"`; remove
-   the Timeline bridge, the dict round trips, `_infer_slot_type`, `_slot_entry_type`, `consolidated_dicts`.
-9. Removals: `actual_duration`, `afk_duration`, `offline_extension_duration`, `event_duration`, `is_afk_only`,
-   `is_offline_task`, `is_offline_gap`; dead formatting helpers; deprecated methods that read removed fields (with
-   `test_deprecations.py` CASES); `core/timeline.py` classes marked deprecated; prose-only tests
-   `test_afk_window_split_false_positives.py` and `test_afk_window_bucket_validation.py`.
-10. Tests: `tests/support/slots.py` helper; migrate ~30 test files off dicts and removed fields; new builder tests
-    (one slot per event; two-bucket intersection 5 slots; tagged-list conflict; untracked rules incl. the 23:00-00:00 /
-    00:30-01:00 / 04:00 example; `--source tasks` NO AFK total; row merge; entry types; `--app`).
-11. Goldens: `pytest tests/characterization --update-golden`, review each changed line against its rule. Expected:
-    BREAK -> UNTRACKED in 24 timeline goldens; consolidate_flag and --app goldens change. Offline scenario must still show
-    Offline 00:30. Reject unexplained diffs.
-Then: stage 4 cleanup, stage 5 docs (sections 4, 5, 6, 13, README, ARCHITECTURE, OPTIMIZATION_OPPORTUNITIES,
-PERIOD_CONSOLIDATION, index.txt).
-
-Decisions made during implementation:
-- Offline scenario: the offline-tagged task 11:30-12:00 sits inside an untracked gap, so Offline stays 00:30.
-- `--source tasks` slots have no AFK state and show under "No AFK data".
-- Consolidated slots keep the first slot's categories (known quirk, follow-up, not fixed here).
-- Timeline shows a NO AFK column only when such time exists.
-- `--app` is fixed by one filter pass; app goldens change from empty output to rows.
-- Known risk: the builder change alters slot boundaries; the timeline needs the row merge for display, or it gets
-  thousands of rows per week.
+Open follow-ups (from the plan): the grand totals of the timesheet are one flowed line (not aligned);
+the timesheet CSV output is not implemented; the test-only formatting helpers in `utils/formatting.py`
+are not yet deprecated.
