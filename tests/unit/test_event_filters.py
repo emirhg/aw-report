@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 from aw_report.core.event_filters import filter_by_value
 

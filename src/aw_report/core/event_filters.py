@@ -8,7 +8,7 @@
 from collections.abc import Collection, Iterable
 from typing import Any
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 
 def filter_by_value[E: Event](

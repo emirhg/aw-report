@@ -12,7 +12,7 @@ from io import StringIO
 
 import pytest
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 
 class TestPipelineTotalsAccuracy:

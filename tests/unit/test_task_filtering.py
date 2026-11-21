@@ -13,7 +13,7 @@ import json
 import subprocess
 
 import pytest
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 from aw_report.core.task_filtering import (
     get_events_by_task,

@@ -61,7 +61,7 @@ import contextlib
 from datetime import datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING, Any, overload
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 from aw_report.core.filtering import NO_PROJECT
 from aw_report.core.period import local_zoneinfo, logical_date

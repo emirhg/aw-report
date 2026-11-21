@@ -3,7 +3,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 from aw_report.core.aw_events import AFKEvent, TaskWarriorEvent, WindowEvent
 from aw_report.core.filtering import NO_PROJECT, NO_TASK, EventFilter

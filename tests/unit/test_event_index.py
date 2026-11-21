@@ -3,7 +3,7 @@
 import random
 from datetime import datetime, timedelta, timezone
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 from aw_report.core.event_index import EventIndex
 

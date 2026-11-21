@@ -15,7 +15,7 @@ from datetime import date, datetime, timedelta, tzinfo
 from itertools import accumulate
 from typing import Literal
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 from aw_report.core.filtering import NO_PROJECT, NO_TASK
 from aw_report.core.period import day_boundary, next_bucket_start

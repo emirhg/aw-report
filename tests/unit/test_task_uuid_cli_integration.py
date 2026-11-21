@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch, MagicMock
 import json
 
 import pytest
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 
 class TestTaskUuidCliIntegration:

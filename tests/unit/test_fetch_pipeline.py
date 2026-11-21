@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
 
 import pytest
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 from aw_report.cli.fetch import run_fetch
 from aw_report.config import (

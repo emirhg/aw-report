@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import TYPE_CHECKING, TypeVar
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 from aw_report.core.categories import build_categories_from_window_events, get_category_score
 from aw_report.core.event_slot import BUCKET_WINDOW

@@ -11,7 +11,7 @@ from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import TypeVar, cast
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 from aw_report.cli.args import parse_args, parse_positional_args
 from aw_report.config import load_user_config, resolve_settings

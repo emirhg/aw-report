@@ -11,9 +11,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 license = "LicenseRef-Proprietary"
 classifiers = ["Programming Language :: Python :: 3.14"]
-dependencies = [
-    "aw-core>=0.5.17",
-]
+dependencies = []
 
 [project.optional-dependencies]
 dev = [

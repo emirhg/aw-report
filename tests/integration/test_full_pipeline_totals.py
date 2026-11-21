@@ -13,7 +13,7 @@ from typing import Dict, List, Optional
 
 import pytest
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 
 class RealisticEventFixture:

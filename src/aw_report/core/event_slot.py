@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 from aw_report.core.event_index import EventIndex
 

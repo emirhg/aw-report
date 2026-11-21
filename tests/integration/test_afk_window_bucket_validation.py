@@ -14,7 +14,7 @@ from typing import List, Tuple
 
 import pytest
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 
 class TestAFKWindowBucketCrossValidation:

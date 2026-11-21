@@ -9,7 +9,7 @@ import re
 from datetime import datetime, timezone
 
 import pytest
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 from aw_report.core.categories import (
     categorize_event,

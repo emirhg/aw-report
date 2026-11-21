@@ -10,7 +10,7 @@ import re
 
 import pytest
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 from aw_report.pipeline.timeline_render import print_timeline_report
 
 

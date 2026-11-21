@@ -255,7 +255,7 @@ stale analysis. Do not leave a finished item described as open.**
 ### 13.2 Full-pipeline performance: done (branch `perf/index-and-categories`)
 
 - `EventIndex` precomputes each event's end time once (`_ends`), so lookups no longer read
-  `timestamp + duration` through aw_core on every query. Output is unchanged.
+  `timestamp + duration` on every query. Output is unchanged.
 - Measured on `:lastweek`: `--by-day` about 5.9 s on `main`, about 4.3 s with this change.
 - Window is no longer read by default. The default sources are `tasks,afk` (`DEFAULT_SOURCES` in
   `core/buckets.py`). Window is read with `--source window`, `--app`, `--exclude-app` or
@@ -265,7 +265,9 @@ stale analysis. Do not leave a finished item described as open.**
 - Output change, by design: window events cut the slots, so the default run without window has
   fewer zero-length fragments; totals move by seconds. The goldens did not change.
 - Not a cache: categories are still computed per event (`categorize_event`), as before.
-- `aw_client` is replaced by `core/aw_http.py` (standard library, same `get_events` contract).
+- `aw_client` is replaced by `core/aw_http.py` (standard library, same `get_events` contract), and
+  `aw_core` is replaced by `core/event.py` (the `Event` class only). The package no longer depends on
+  either: imports of `aw_report.cli.main` dropped from about 0.64 s to about 0.25 s.
   Its import cost (about 0.6 s) is gone: `--format timesheet --source tasks :lastweek` went from
   about 0.82 s to about 0.53 s (10 interleaved runs). `fetch` JSON and the reports with explicit
   sources are byte-identical to `main`. The single-instance guard that `aw_client` provided is

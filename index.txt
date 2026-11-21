@@ -13,7 +13,8 @@ Read CLAUDE.md first (goal, rules, gates) and docs/ARCHITECTURE.md (design).
   core/buckets.py                             75  [buckets] table -> afk / window / tasks bucket IDs
   core/categories.py                         468  category rules (regex), scores, window categorization
   core/event_index.py                          66  EventIndex: sorted interval lookups over raw events
-  core/aw_http.py                       59  ActivityWatch REST read (get_events) on the standard library
+  core/aw_http.py                       75  ActivityWatch REST read (get_events) over http.client
+  core/event.py                         121  ActivityWatch event model (dict subclass, UTC timestamps, ms truncation)
   core/single_instance.py                44  one running aw-report at a time (non-blocking lock file)
   core/event_slot.py                          58  event maps keyed by bucket role; merge and span collection
   core/events.py                             111  get_bucket_id and get_events (only ActivityWatch read path)

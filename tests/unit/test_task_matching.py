@@ -8,7 +8,7 @@ and offline category structure building.
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 from aw_report.core.filtering import NO_PROJECT, NO_TASK
 from aw_report.core.task_matching import (

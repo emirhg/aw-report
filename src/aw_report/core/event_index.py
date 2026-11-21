@@ -20,7 +20,7 @@ from bisect import bisect_left, bisect_right
 from collections.abc import Iterable
 from datetime import datetime, timedelta
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 
 class EventIndex[E: Event]:

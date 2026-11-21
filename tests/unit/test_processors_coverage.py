@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta, timezone
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 from aw_report.core.filtering import EventFilter
 from aw_report.core.timeline import TimelineSlot

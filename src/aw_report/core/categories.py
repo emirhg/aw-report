@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 from aw_report.exceptions import CategoryValidationError, ConfigParsingError
 
 if TYPE_CHECKING:
-    from aw_core.models import Event
+    from aw_report.core.event import Event
 
     from aw_report.core.aw_events import WindowEvent
 

@@ -12,7 +12,7 @@ import argparse
 import json
 
 import pytest
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 from aw_report.core.project_filtering import (
     get_events_by_project,

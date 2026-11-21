@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 
 @dataclass

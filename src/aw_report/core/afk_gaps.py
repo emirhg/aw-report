@@ -8,7 +8,7 @@ AFK state at all. Logical days start at ``day_start_hour`` in the report timezon
 from collections.abc import Iterable
 from datetime import date, datetime, timedelta, tzinfo
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 ONE_MICROSECOND = timedelta(microseconds=1)
 

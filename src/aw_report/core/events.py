@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import TypeVar, overload
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 from aw_report.core.aw_http import ActivityWatchClient
 from aw_report.exceptions import ActivityWatchConnectionError

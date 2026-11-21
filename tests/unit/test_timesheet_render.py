@@ -8,7 +8,7 @@ from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 from aw_report.core.filtering import NO_TASK
 from aw_report.pipeline.timesheet_render import (

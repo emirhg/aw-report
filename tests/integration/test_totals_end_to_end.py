@@ -13,7 +13,7 @@ import sys
 
 import pytest
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 from aw_report.pipeline.processors import compute_metrics, build_context
 from aw_report.pipeline.models import ReportContext, ReportMetrics
 

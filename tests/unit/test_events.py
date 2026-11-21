@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch
 
 import pytest
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 from aw_report.core.events import get_bucket_id, get_events
 

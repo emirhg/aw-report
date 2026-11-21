@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 from aw_report.core.afk_gaps import logical_day, untracked_gaps
 

@@ -9,7 +9,7 @@ exact input without a running ActivityWatch server.
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
-from aw_core.models import Event
+from aw_report.core.event import Event
 
 
 class FakeActivityWatchClient:
