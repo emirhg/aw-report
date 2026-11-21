@@ -63,7 +63,11 @@ from aw_report.pipeline.processors import (
 )
 from aw_report.pipeline.report_render import print_report
 from aw_report.pipeline.timeline_render import print_timeline_report
-from aw_report.pipeline.timesheet_render import Mode, print_timesheet_report
+from aw_report.pipeline.timesheet_render import (
+    Mode,
+    machine_slots_from_timeslots,
+    print_timesheet_report,
+)
 from aw_report.utils.deprecation import deprecated
 from aw_report.utils.formatting import normalize_title
 from aw_report.utils.profiling import StageProfiler, enable_unbuffered_output
@@ -644,16 +648,15 @@ def _run(profiler: StageProfiler):
         # Taskwarrior events are the timesheet's data: clipped per period, grouped by title,
         # with the same filters the timeline applies to its slots. Check-in and check-out come
         # from the timeslots of the selected sources (unfiltered: the machine's activity).
-        machine_spans = [
-            (slot.start, slot.end)
-            for slot in build_timeslot_timeline(
+        machine_spans = machine_slots_from_timeslots(
+            build_timeslot_timeline(
                 afk_events=afk_events or [],
                 window_events=window_events or [],
                 task_events=task_events_deduped or [],
                 day_start_hour=day_start_hour,
                 tz=local_zoneinfo(resolved_settings.timezone),
             )
-        ]
+        )
         print_timesheet_report(
             [
                 event
@@ -672,7 +675,7 @@ def _run(profiler: StageProfiler):
             end=end_time,
             day_start_hour=day_start_hour,
             tz=local_zoneinfo(resolved_settings.timezone),
-            spans=machine_spans,
+            machine=machine_spans,
         )
         return 0
 

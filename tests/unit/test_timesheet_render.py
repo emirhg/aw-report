@@ -76,7 +76,7 @@ class TestBuildTimesheet:
         periods = build_timesheet(
             events, "day", local(2026, 11, 2), local(2026, 11, 3, 23, 59), 0, TZ
         )
-        assert [p.active_seconds for p in periods] == [3600.0, 3600.0]
+        assert [p.tracked_seconds for p in periods] == [3600.0, 3600.0]
         assert [p.tasks[0].count for p in periods] == [1, 1]
 
     def test_tasks_grouped_by_title_with_first_project_and_none_first(self):
@@ -127,14 +127,15 @@ class TestFormat:
             rule,
             "",
             "\U0001f4c5 Monday, Nov 02, 2026",
-            "   Check-in: 03:00 PM | Check-out: 03:30 PM | Active: 00:30 | Wall Clock: 00:30",
+            "   Check-in: 03:00 PM | Check-out: 03:30 PM | Wall Clock: 00:30",
+            "   Active: -- | Tracked: 00:30 | Untracked: 00:00",
             "-" * 78,
             "    Project              | Task Title                             | Hours  | Count",
             "    -------------------- | -------------------------------------- | ------ | -----",
             "    Proj                 | Write docs                             |  00:30 |     1",
             "",
             rule,
-            " GRAND TOTALS -- Active: 00:30 | Wall Clock: 00:30",
+            " GRAND TOTALS -- Active: -- | Tracked: 00:30 | Untracked: 00:00 | Wall Clock: 00:30",
             " Across 1 active days",
             rule,
         ]
@@ -157,7 +158,7 @@ class TestFormat:
         assert lines[-5:] == [
             "",
             "=" * 78,
-            " GRAND TOTALS -- Active: 00:00 | Wall Clock: 00:00",
+            " GRAND TOTALS -- Active: -- | Tracked: 00:00 | Untracked: 00:00 | Wall Clock: 00:00",
             " Across 0 active days",
             "=" * 78,
         ]
@@ -177,50 +178,91 @@ def test_every_mode_builds_without_error(mode):
     assert len(periods) == 1
 
 
-def test_check_in_and_out_come_from_the_machine_spans_not_the_tasks():
-    """A period with machine activity and no task time still appears, with the span's clock."""
+def _slot(begin, end, active=0.0, events=True, afk=True):
+    """A machine span: an event-bearing slot unless ``events`` is False (an empty gap slot)."""
+    from aw_report.pipeline.timesheet_render import MachineSlot
+
+    return MachineSlot(
+        start=datetime(2026, 8, 30, *begin, tzinfo=UTC),
+        end=datetime(2026, 8, 30, *end, tzinfo=UTC),
+        active_seconds=active,
+        has_events=events,
+        has_afk_state=afk,
+    )
+
+
+def _day(machine=None, events=None):
     from aw_report.pipeline.timesheet_render import build_timesheet
 
-    spans = [
-        (datetime(2026, 8, 30, 8, 30, tzinfo=UTC), datetime(2026, 8, 30, 8, 50, tzinfo=UTC)),
-        (datetime(2026, 8, 30, 9, 0, tzinfo=UTC), datetime(2026, 8, 30, 12, 0, tzinfo=UTC)),
-    ]
-    tasks = [
-        Event(
-            timestamp=datetime(2026, 8, 30, 9, 0, tzinfo=UTC),
-            duration=timedelta(hours=3),
-            data={"project": "Proj", "title": "Work"},
-        )
-    ]
-    periods = build_timesheet(
-        tasks,
+    return build_timesheet(
+        events or [],
         "day",
         datetime(2026, 8, 30, 0, 0, tzinfo=UTC),
         datetime(2026, 8, 30, 23, 59, tzinfo=UTC),
         0,
         UTC,
-        spans,
+        machine,
     )
-    assert len(periods) == 1
-    assert periods[0].check_in == int(datetime(2026, 8, 30, 8, 30, tzinfo=UTC).timestamp())
-    assert periods[0].check_out == datetime(2026, 8, 30, 12, 0, tzinfo=UTC).timestamp()
-    assert periods[0].wall_seconds == 3.5 * 3600
+
+
+def test_check_in_and_out_come_from_the_machine_spans_not_the_tasks():
+    machine = [
+        _slot((8, 30), (8, 50), active=1200.0),
+        _slot((9, 0), (12, 0), active=3600.0 * 2),
+    ]
+    (period,) = _day(machine)
+    assert period.check_in == int(datetime(2026, 8, 30, 8, 30, tzinfo=UTC).timestamp())
+    assert period.check_out == datetime(2026, 8, 30, 12, 0, tzinfo=UTC).timestamp()
+    assert period.wall_seconds == 3.5 * 3600
+
+
+def test_tracked_is_the_event_bearing_time_and_untracked_the_empty_time():
+    machine = [
+        _slot((9, 0), (10, 0), active=3600.0),  # events, active
+        _slot((10, 0), (10, 30), active=1800.0),  # events, active
+        _slot((10, 30), (11, 30), active=0.0),  # events, AFK (no active time)
+        _slot((11, 30), (12, 0), events=False),  # empty gap: no event at all
+        _slot((12, 0), (12, 10), active=0.0),  # events, AFK
+    ]
+    (period,) = _day(machine)
+    assert period.active_seconds == 3600 + 1800
+    assert period.tracked_seconds == 150 * 60 + 10 * 60  # every slot with events
+    assert period.untracked_seconds == 30 * 60  # the empty gap only
+    assert period.wall_seconds == 190 * 60  # 09:00 to 12:10
+
+
+def test_tracked_plus_untracked_is_always_the_wall_clock():
+    machine = [
+        _slot((9, 0), (9, 40), active=900.0),
+        _slot((9, 40), (10, 0), events=False),
+        _slot((10, 0), (10, 15), active=0.0, afk=False),
+    ]
+    for period in _day(machine):
+        assert abs(period.tracked_seconds + period.untracked_seconds - period.wall_seconds) < 1
+
+
+def test_tasks_only_tracked_is_the_task_time_and_untracked_the_gap_between_tasks():
+    events = [task(utc(2026, 11, 2, 15, 0), 30), task(utc(2026, 11, 2, 16, 0), 30)]
+    (period,) = build_timesheet(events, "day", local(2026, 11, 2), local(2026, 11, 2, 23), 0, TZ)
+    assert period.active_seconds is None
+    assert period.tracked_seconds == 3600
+    assert period.untracked_seconds == 1800  # 15:30 to 16:00, no task
+    assert period.wall_seconds == 90 * 60
+
+
+def test_without_the_afk_source_active_is_unknown_but_untracked_is_not():
+    machine = [
+        _slot((9, 0), (9, 30), afk=False, events=True),
+        _slot((9, 30), (10, 0), afk=False, events=False),
+    ]
+    (period,) = _day(machine)
+    assert period.active_seconds is None
+    assert period.untracked_seconds == 1800
 
 
 def test_a_period_with_activity_but_no_task_time_is_listed_with_no_tasks():
-    from aw_report.pipeline.timesheet_render import build_timesheet
-
-    spans = [(datetime(2026, 8, 30, 9, 0, tzinfo=UTC), datetime(2026, 8, 30, 10, 0, tzinfo=UTC))]
-    periods = build_timesheet(
-        [],
-        "day",
-        datetime(2026, 8, 30, 0, 0, tzinfo=UTC),
-        datetime(2026, 8, 30, 23, 59, tzinfo=UTC),
-        0,
-        UTC,
-        spans,
-    )
-    assert len(periods) == 1
-    assert periods[0].active_seconds == 0
-    assert periods[0].tasks == ()
-    assert periods[0].wall_seconds == 3600
+    (period,) = _day([_slot((9, 0), (10, 0), active=3600.0)])
+    assert period.active_seconds == 3600
+    assert period.tracked_seconds == 3600
+    assert period.untracked_seconds == 0
+    assert period.tasks == ()

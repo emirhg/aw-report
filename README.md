@@ -259,18 +259,25 @@ aw-report :today --detail-level 3
 ## Features in Detail
 
 #### Timesheet View (`--format timesheet`)
-A per-period text timesheet with the same layout as `samples/timesheet_report.py`: check-in and
-check-out, active hours, wall-clock span, then one row per task with project, hours and count. Active
-hours and the task rows come from taskwarrior events. Check-in and check-out come from the timeslots
+A per-period text timesheet: check-in and check-out, the wall-clock span, the active, tracked and
+untracked time, then one row per task with project, hours and count. The span comes from the timeslots
 of the selected sources: by default only tasks (so the span is the tracked tasks), and with
-`--source tasks,afk` (or `window`) the span is the machine's activity, whatever the task:
+`--source tasks,afk` (or `window`) it is the machine's activity, whatever the task:
 ```
 📅 Monday, Nov 09, 2026
-   Check-in: 06:31 AM | Check-out: 07:04 AM | Active: 00:34 | Wall Clock: 00:34
+   Check-in: 06:31 AM | Check-out: 07:04 AM | Wall Clock: 00:34
+   Active: -- | Tracked: 00:34 | Untracked: --
 ------------------------------------------------------------------------------
     Project              | Task Title                             | Hours  | Count
 ```
-Times are HH:MM (rounded to the minute): the period's Active and Wall Clock, and each task's Hours.
+Times are HH:MM (rounded to the minute). The period's times are:
+- **Active**: the not-AFK time of the machine (needs the `afk` source; `--` without it).
+- **Tracked**: the time covered by timeslots that carry events of the selected sources (tasks, AFK or
+  window), AFK included.
+- **Untracked**: the empty time: stretches between check-in and check-out where no event was reported,
+  whatever the source. This is not the timeline's UNTRACKED column, which is AFK-gap time.
+- **Wall Clock**: check-out minus check-in. Tracked plus Untracked always equals it.
+Each task's Hours is its taskwarrior time, clipped to the period.
 Use it with `--by-day` (default), `--by-week`, `--by-month` or `--by-year`. It cannot be combined
 with `--by-project`, `--no-taskwarrior` or `--app`. Use `--source tasks,afk` to take check-in and
 check-out from the system activity; the default `--source tasks` keeps the tracked-task span.

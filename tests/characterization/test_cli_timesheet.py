@@ -77,3 +77,15 @@ def test_timesheet_check_out_follows_the_machine_spans_of_the_selected_sources(m
     assert "Check-out: 12:10 PM" in both_out
     # The task hours are unchanged: the per-task table still comes from taskwarrior
     assert "Refactor" in both_out
+
+
+def test_timesheet_tracked_and_untracked_cover_the_wall_clock(monkeypatch, capsys):
+    """The golden day has no empty stretch (the Writing task covers 11:30-12:00), so Tracked is the
+    whole 09:00-12:10 span and Untracked is 00:00; Tracked plus Untracked is the Wall Clock."""
+    client = FakeActivityWatchClient(scenario_buckets())
+    out, code, _err = run_cli(
+        monkeypatch, capsys, ["--format", "timesheet", "--source", "tasks,afk", DAY], client
+    )
+    assert code == 0
+    assert "Wall Clock: 03:10" in out
+    assert "Tracked: 03:10 | Untracked: 00:00" in out
