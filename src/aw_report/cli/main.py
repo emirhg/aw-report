@@ -11,44 +11,10 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, TypeVar, cast
 
 from aw_report.cli.args import parse_args, parse_positional_args
-from aw_report.config import load_user_config, resolve_settings
-from aw_report.core.aw_events import AFKEvent
-from aw_report.core.aw_http import ActivityWatchClient
-from aw_report.core.buckets import parse_sources, resolve_buckets
-from aw_report.core.categories import (
-    categorize_event,
-    compile_category_rules,
-    get_category_score,
-    load_categories,
-)
 from aw_report.core.event import Event
-from aw_report.core.event_filters import filter_by_value
-from aw_report.core.events import (
-    fetch_events,
-    get_events,
-)
-from aw_report.core.filtering import NO_PROJECT, NO_TASK, EventFilter, _is_unassigned_project
-
-# OfflineTaskProcessor removed in Phase 2 refactor — builder handles offline classification
-from aw_report.core.period import PERIOD_TOKENS, local_zoneinfo, parse_period
-from aw_report.core.report_slot import ReportTimelineSlot
 from aw_report.core.single_instance import AlreadyRunningError, single_instance
-from aw_report.core.timeslot_builder import build_timeslot_timeline
-from aw_report.exceptions import ConfigParsingError
-from aw_report.pipeline.metrics import state_totals
-
-# generate_untracked_gap_events removed in Phase 2 refactor — builder handles gaps
-from aw_report.pipeline.presenters import HierarchicalReport, TimelineReport
-from aw_report.pipeline.processors import (
-    aggregate_hierarchy_from_slots,
-    build_context,
-    compute_metrics,
-    compute_productivity_breakdown,
-    merge_overlapping_afk_periods,
-)
 from aw_report.utils.deprecation import deprecated
 from aw_report.utils.diagnostics import warn
-from aw_report.utils.formatting import get_terminal_width, normalize_title
 from aw_report.utils.profiling import StageProfiler, enable_unbuffered_output
 
 if TYPE_CHECKING:
@@ -162,6 +128,39 @@ def main():
 def _run(profiler: StageProfiler):
     profiler.checkpoint("MAIN START")
     args = parse_args()
+
+    # Report modules load here, not at import time, so fetch, --help and argument errors skip them
+    from aw_report.config import load_user_config, resolve_settings
+    from aw_report.core.aw_events import AFKEvent
+    from aw_report.core.aw_http import ActivityWatchClient
+    from aw_report.core.buckets import parse_sources, resolve_buckets
+    from aw_report.core.categories import (
+        categorize_event,
+        compile_category_rules,
+        get_category_score,
+        load_categories,
+    )
+    from aw_report.core.event_filters import filter_by_value
+    from aw_report.core.events import (
+        fetch_events,
+        get_events,
+    )
+    from aw_report.core.filtering import NO_PROJECT, NO_TASK, EventFilter, _is_unassigned_project
+    from aw_report.core.period import PERIOD_TOKENS, local_zoneinfo, parse_period
+    from aw_report.core.report_slot import ReportTimelineSlot
+    from aw_report.core.timeslot_builder import build_timeslot_timeline
+    from aw_report.exceptions import ConfigParsingError
+    from aw_report.pipeline.metrics import state_totals
+    from aw_report.pipeline.presenters import HierarchicalReport, TimelineReport
+    from aw_report.pipeline.processors import (
+        aggregate_hierarchy_from_slots,
+        build_context,
+        compute_metrics,
+        compute_productivity_breakdown,
+        merge_overlapping_afk_periods,
+    )
+    from aw_report.utils.formatting import get_terminal_width, normalize_title
+
     profiler.checkpoint("parse_args() done")
 
     # Load config file and resolve settings (CLI args > config file > defaults)

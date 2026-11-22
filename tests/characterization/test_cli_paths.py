@@ -120,13 +120,16 @@ def test_grouping_without_explicit_period_defaults_to_matching_window(
     monkeypatch, capsys, flag, expected_period
 ):
     seen = []
-    original = cli_main.parse_period
+    import aw_report.core.period as period_module
+
+    original = period_module.parse_period
 
     def spy(period, *args, **kwargs):
         seen.append(period)
         return original(period, *args, **kwargs)
 
-    monkeypatch.setattr(cli_main, "parse_period", spy)
+    # _run imports parse_period when it runs, so the spy goes on the defining module
+    monkeypatch.setattr(period_module, "parse_period", spy)
     client = FakeActivityWatchClient(scenario_buckets())
     out, code, err = run_cli(monkeypatch, capsys, [flag], client)
     assert code == 0

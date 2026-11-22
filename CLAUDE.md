@@ -265,6 +265,9 @@ stale analysis. Do not leave a finished item described as open.**
 - Output change, by design: window events cut the slots, so the default run without window has
   fewer zero-length fragments; totals move by seconds. The goldens did not change.
 - Not a cache: categories are still computed per event (`categorize_event`), as before.
+- Start-up: `cli/main.py` imports the report stack inside `_run`, after argument parsing, so `fetch`,
+  `--help` and argument errors skip it; importing the module alone takes about 0.08-0.12 s (was about
+  0.25 s). Tests that patched names on `cli_main` patch the defining module now.
 - Lazy imports: `cli/main.py` loads the task and project filter modules only when those filters are
   given, and the timesheet renderer only for `--format timesheet`. The default run no longer loads
   them. `report_render` is still loaded by the default run (the timeline renderer needs it). On this

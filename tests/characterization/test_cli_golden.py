@@ -114,7 +114,9 @@ def run_cli(monkeypatch, capsys, argv, client):
 
     Returns (stdout, exit_code, stderr).
     """
-    monkeypatch.setattr(cli_main, "ActivityWatchClient", lambda *a, **k: client)
+    import aw_report.core.aw_http as aw_http
+
+    monkeypatch.setattr(aw_http, "ActivityWatchClient", lambda *a, **k: client)
     monkeypatch.setattr(sys, "argv", ["aw-report", *argv])
     # The console script is `sys.exit(main())`, so the return value is the exit status.
     exit_code = 0

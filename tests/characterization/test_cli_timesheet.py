@@ -106,7 +106,9 @@ def test_a_terminal_gets_the_whole_width_with_no_margin(monkeypatch, capsys):
     from aw_report.cli import main as cli_main
 
     monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
-    monkeypatch.setattr(cli_main, "get_terminal_width", lambda: 120)
+    import aw_report.utils.formatting as formatting
+
+    monkeypatch.setattr(formatting, "get_terminal_width", lambda: 120)
     client = FakeActivityWatchClient(scenario_buckets())
     out, code, _err = run_cli(monkeypatch, capsys, ["--format", "timesheet", DAY], client)
     assert code == 0
