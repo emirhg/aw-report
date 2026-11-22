@@ -8,7 +8,7 @@ import argparse
 import sys
 from collections.abc import Sequence
 from datetime import datetime, timedelta
-from typing import TypeVar, cast
+from typing import TYPE_CHECKING, TypeVar, cast
 
 from aw_report.cli.args import parse_args, parse_positional_args
 from aw_report.config import load_user_config, resolve_settings
@@ -31,23 +31,8 @@ from aw_report.core.filtering import NO_PROJECT, NO_TASK, EventFilter, _is_unass
 
 # OfflineTaskProcessor removed in Phase 2 refactor — builder handles offline classification
 from aw_report.core.period import PERIOD_TOKENS, local_zoneinfo, parse_period
-from aw_report.core.project_filtering import (
-    _is_uuid_like,
-    get_events_by_project,
-    get_events_by_projects,
-    resolve_project_filter_value,
-)
 from aw_report.core.report_slot import ReportTimelineSlot
 from aw_report.core.single_instance import AlreadyRunningError, single_instance
-from aw_report.core.task_filtering import (
-    get_events_by_task,
-    get_events_by_tasks,
-    resolve_task_filter_value,
-)
-from aw_report.core.task_uuid_filtering import (
-    get_events_by_uuid,
-    get_task_uuid,
-)
 from aw_report.core.timeslot_builder import build_timeslot_timeline
 from aw_report.exceptions import ConfigParsingError
 from aw_report.pipeline.metrics import state_totals
@@ -61,17 +46,13 @@ from aw_report.pipeline.processors import (
     compute_productivity_breakdown,
     merge_overlapping_afk_periods,
 )
-from aw_report.pipeline.report_render import print_report
-from aw_report.pipeline.timeline_render import print_timeline_report
-from aw_report.pipeline.timesheet_render import (
-    Mode,
-    machine_slots_from_timeslots,
-    print_timesheet_report,
-)
 from aw_report.utils.deprecation import deprecated
 from aw_report.utils.diagnostics import warn
 from aw_report.utils.formatting import get_terminal_width, normalize_title
 from aw_report.utils.profiling import StageProfiler, enable_unbuffered_output
+
+if TYPE_CHECKING:
+    from aw_report.pipeline.timesheet_render import Mode
 
 
 @deprecated("Not called by the CLI; scheduled for removal.")
@@ -282,6 +263,8 @@ def _run(profiler: StageProfiler):
     # Resolve task UUID if --task-id is provided
     task_uuid = None
     if args.task_id:
+        from aw_report.core.task_uuid_filtering import get_task_uuid
+
         task_uuid = get_task_uuid(args.task_id)
         if not task_uuid:
             print(f"Error: Task {args.task_id} not found", file=sys.stderr)
@@ -291,6 +274,9 @@ def _run(profiler: StageProfiler):
     # filtering (mirrors --task-id). Only applies when exactly one --task value
     # is given, since bucket-level fetch elsewhere only ever honors args.task[0].
     if not task_uuid and args.task and len(args.task) == 1:
+        from aw_report.core.project_filtering import _is_uuid_like
+        from aw_report.core.task_uuid_filtering import get_task_uuid
+
         value = args.task[0]
         if value.isdigit():
             task_uuid = get_task_uuid(int(value))
@@ -315,6 +301,8 @@ def _run(profiler: StageProfiler):
 
     # Resolve project filter values (may be task IDs, UUIDs, or literal patterns)
     if args.project:
+        from aw_report.core.project_filtering import resolve_project_filter_value
+
         resolved_projects = []
         for value in args.project:
             resolved, error = resolve_project_filter_value(value)
@@ -326,6 +314,8 @@ def _run(profiler: StageProfiler):
 
     # Resolve task filter values (may be task IDs, UUIDs, or literal patterns)
     if args.task:
+        from aw_report.core.task_filtering import resolve_task_filter_value
+
         resolved_tasks = []
         for value in args.task:
             resolved, error = resolve_task_filter_value(value)
@@ -370,11 +360,18 @@ def _run(profiler: StageProfiler):
         # Fetch TaskWarrior with ANY available filter (UUID, project, task)
         # This determines the actual time window we need to fetch AFK/window for
         if task_uuid:
+            from aw_report.core.task_uuid_filtering import get_events_by_uuid
+
             # Task UUID mode: fetch by UUID first
             task_events_early = get_events_by_uuid(
                 client, task_bucket, start_time, end_time, task_uuid
             )
         elif args.project:
+            from aw_report.core.project_filtering import (
+                get_events_by_project,
+                get_events_by_projects,
+            )
+
             # Project filter mode: fetch by project(s) first (PHASE 14 optimization)
             # Support multiple projects for compound filtering (e.g., --project Climb --project
             # Mercado)
@@ -389,6 +386,8 @@ def _run(profiler: StageProfiler):
                     client, task_bucket, start_time, end_time, args.project[0]
                 )
         elif args.task:
+            from aw_report.core.task_filtering import get_events_by_task, get_events_by_tasks
+
             # Task filter mode: fetch by task name(s) first (PHASE 14 optimization)
             # Support multiple tasks for compound filtering (e.g., --task "Documentar" --task "Code
             # review")
@@ -654,6 +653,11 @@ def _run(profiler: StageProfiler):
     task_events_deduped = _deduplicate_task_events(task_events) if task_events else None
 
     if args.format == "timesheet":
+        from aw_report.pipeline.timesheet_render import (
+            machine_slots_from_timeslots,
+            print_timesheet_report,
+        )
+
         # Taskwarrior events are the timesheet's data: clipped per period, grouped by title,
         # with the same filters the timeline applies to its slots. Check-in and check-out come
         # from the timeslots of the selected sources (unfiltered: the machine's activity).
@@ -799,6 +803,8 @@ def _run(profiler: StageProfiler):
     #    Fix needed: Performance audit of consolidate_by_period() for large datasets
     profiler.checkpoint(f"Starting rendering phase with {len(display_slots)} slots")
     if grouping_mode in ["day", "week", "month", "year"]:
+        from aw_report.pipeline.timeline_render import print_timeline_report
+
         profiler.checkpoint(f"Rendering timeline report (period: {period})")
         TimelineReport(print_timeline_report).present(
             slots=display_slots,
@@ -849,6 +855,8 @@ def _run(profiler: StageProfiler):
         total_time_calc = (
             slot_active_time + (afk_time_calc or timedelta(0)) if slot_active_time else None
         )
+
+        from aw_report.pipeline.report_render import print_report
 
         HierarchicalReport(print_report).present(
             report_data=report_data,

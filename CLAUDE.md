@@ -265,6 +265,10 @@ stale analysis. Do not leave a finished item described as open.**
 - Output change, by design: window events cut the slots, so the default run without window has
   fewer zero-length fragments; totals move by seconds. The goldens did not change.
 - Not a cache: categories are still computed per event (`categorize_event`), as before.
+- Lazy imports: `cli/main.py` loads the task and project filter modules only when those filters are
+  given, and the timesheet renderer only for `--format timesheet`. The default run no longer loads
+  them. `report_render` is still loaded by the default run (the timeline renderer needs it). On this
+  machine the gain is within the noise of 10-run benchmarks.
 - Logging is removed. The few messages that must reach the user (a failed bucket read that continues
   with partial data, a missing categories file, an unexpected task lookup error, duplicate task
   heartbeats) go to stderr through `utils/diagnostics.py::warn`. Nothing else is printed on a normal run.
