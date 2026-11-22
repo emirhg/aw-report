@@ -6,8 +6,6 @@ including time-range extraction and app-bounded envelope computation.
 """
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import Mock
-import pytest
 from aw_report.core.event import Event
 
 

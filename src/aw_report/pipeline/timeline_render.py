@@ -62,7 +62,6 @@ from datetime import datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING, Any, overload
 
 from aw_report.core.event import Event
-
 from aw_report.core.filtering import NO_PROJECT
 from aw_report.core.period import local_zoneinfo, logical_date
 from aw_report.core.report_slot import dash_width, right_section_width

@@ -1,6 +1,5 @@
 """Unit tests for PeriodMetrics data class and accumulation logic."""
 
-import pytest
 from datetime import timedelta
 from aw_report.pipeline.models import PeriodMetrics, TimeslotDuration
 

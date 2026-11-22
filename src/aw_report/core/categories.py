@@ -6,7 +6,6 @@ compiles them into reusable patterns, and provides scoring/lookup utilities.
 """
 
 import json
-import logging
 import os
 import re
 from collections.abc import Iterable, Mapping, Sequence
@@ -15,13 +14,11 @@ from re import Pattern
 from typing import TYPE_CHECKING, Any
 
 from aw_report.exceptions import CategoryValidationError, ConfigParsingError
+from aw_report.utils.diagnostics import warn
 
 if TYPE_CHECKING:
-    from aw_report.core.event import Event
-
     from aw_report.core.aw_events import WindowEvent
-
-logger = logging.getLogger(__name__)
+    from aw_report.core.event import Event
 
 
 def load_categories(filepath: str) -> list[dict]:
@@ -37,7 +34,7 @@ def load_categories(filepath: str) -> list[dict]:
         ConfigParsingError: If the file exists but is malformed JSON
     """
     if not os.path.exists(filepath):
-        logger.warning(f"Categories file not found at '{filepath}', using no rules")
+        warn(f"Categories file not found at '{filepath}', using no rules")
         return []
 
     try:
@@ -45,10 +42,8 @@ def load_categories(filepath: str) -> list[dict]:
             settings = json.load(f)
             return settings.get("classes", [])
     except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse categories JSON from '{filepath}': {e}")
         raise ConfigParsingError(f"Malformed JSON in categories file '{filepath}': {e}") from e
     except OSError as e:
-        logger.error(f"Failed to read categories file '{filepath}': {e}")
         raise ConfigParsingError(f"Cannot read categories file '{filepath}': {e}") from e
 
 
@@ -119,7 +114,6 @@ def compile_category_rules(
                         if parent_score is not None and parent_path not in cat_score_map:
                             cat_score_map[parent_path] = parent_score
             except re.error as e:
-                logger.error(f"Failed to compile regex for rule {rule_item}: {e}")
                 raise CategoryValidationError(
                     f"Invalid regex in category rule {rule_item}: {e}"
                 ) from e

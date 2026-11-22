@@ -6,15 +6,12 @@ when only task-level information is needed (project, task name, duration).
 Also provides task ID/UUID resolution to project names.
 """
 
-import logging
 import uuid as uuid_module
 from datetime import datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aw_report.core.aw_events import TaskWarriorEvent
-
-logger = logging.getLogger(__name__)
 
 
 def get_events_by_project(
@@ -60,11 +57,6 @@ def get_events_by_project(
 
     # Filter to events matching the project (case-insensitive substring match)
     filtered = [e for e in all_events if project.lower() in e.data.get("project", "").lower()]
-
-    if filtered:
-        logger.debug(f"Filtered to {len(filtered)} events for project: {project}")
-    else:
-        logger.debug(f"No events found matching project: {project}")
 
     return filtered
 
@@ -119,11 +111,6 @@ def get_events_by_projects(
         for e in all_events
         if any(p.lower() in e.data.get("project", "").lower() for p in projects)
     ]
-
-    if filtered:
-        logger.debug(f"Filtered to {len(filtered)} events for {len(projects)} projects: {projects}")
-    else:
-        logger.debug(f"No events found matching projects: {projects}")
 
     return filtered
 

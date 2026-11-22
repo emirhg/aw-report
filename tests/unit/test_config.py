@@ -12,7 +12,6 @@ from unittest.mock import patch
 import pytest
 
 from aw_report.config import (
-    ResolvedSettings,
     get_config_path,
     load_user_config,
     resolve_settings,

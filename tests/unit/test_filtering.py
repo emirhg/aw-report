@@ -12,7 +12,6 @@ with pytest.xfail() so they convert to pass when fixes are applied.
 """
 
 import pytest
-from datetime import timedelta
 
 
 class TestEventFilterBasics:

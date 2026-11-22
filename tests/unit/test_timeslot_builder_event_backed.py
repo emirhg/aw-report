@@ -7,9 +7,8 @@ These tests enforce the fundamental rule:
 - NO slot should exist without event coverage
 """
 
-import pytest
 from datetime import datetime, timedelta, timezone
-from aw_report.core.aw_events import AFKEvent, WindowEvent, TaskWarriorEvent
+from aw_report.core.aw_events import AFKEvent, WindowEvent
 from aw_report.core.timeslot_builder import build_timeslot_timeline
 
 

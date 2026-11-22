@@ -7,10 +7,8 @@ during metrics accumulation and day/period total calculation.
 
 import pytest
 from datetime import datetime, timedelta, timezone
-from unittest.mock import Mock, patch, MagicMock
 from aw_report.core.event import Event
 
-from aw_report.core.period import parse_period
 from aw_report.core.timeslot_builder import build_timeslot_timeline
 from aw_report.core.aw_events import AFKEvent, WindowEvent, TaskWarriorEvent
 

@@ -5,7 +5,6 @@ random events before this model replaced aw_core.
 """
 
 import json
-import logging
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
@@ -27,26 +26,20 @@ class TestTimestamp:
         local = datetime(2026, 11, 9, 1, 0, tzinfo=timezone(timedelta(hours=-6)))
         assert Event(timestamp=local).timestamp == datetime(2026, 11, 9, 7, 0, tzinfo=UTC)
 
-    def test_naive_string_is_taken_as_utc_without_a_warning(self, caplog):
-        with caplog.at_level(logging.WARNING):
-            event = Event(timestamp="2026-11-09T01:04:02")
+    def test_naive_string_is_taken_as_utc(self):
+        event = Event(timestamp="2026-11-09T01:04:02")
         assert event.timestamp == datetime(2026, 11, 9, 1, 4, 2, tzinfo=UTC)
-        assert caplog.records == []
 
-    def test_naive_datetime_is_taken_as_utc_with_a_warning(self, caplog):
-        with caplog.at_level(logging.WARNING):
-            event = Event(timestamp=datetime(2026, 11, 9, 1, 4, 2))
+    def test_naive_datetime_is_taken_as_utc(self):
+        event = Event(timestamp=datetime(2026, 11, 9, 1, 4, 2))
         assert event.timestamp == datetime(2026, 11, 9, 1, 4, 2, tzinfo=UTC)
-        assert any("without timezone" in r.getMessage() for r in caplog.records)
 
-    def test_missing_timestamp_uses_now_with_a_warning(self, caplog):
-        with caplog.at_level(logging.WARNING):
-            before = datetime.now(UTC)
-            event = Event()
+    def test_missing_timestamp_uses_now(self):
+        before = datetime.now(UTC)
+        event = Event()
         # truncated to milliseconds, so the lower bound is "before" truncated the same way
         floor = before.replace(microsecond=before.microsecond // 1000 * 1000)
         assert floor <= event.timestamp <= datetime.now(UTC)
-        assert any("did not receive a timestamp" in r.getMessage() for r in caplog.records)
 
 
 class TestDuration:

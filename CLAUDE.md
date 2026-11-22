@@ -265,6 +265,9 @@ stale analysis. Do not leave a finished item described as open.**
 - Output change, by design: window events cut the slots, so the default run without window has
   fewer zero-length fragments; totals move by seconds. The goldens did not change.
 - Not a cache: categories are still computed per event (`categorize_event`), as before.
+- Logging is removed. The few messages that must reach the user (a failed bucket read that continues
+  with partial data, a missing categories file, an unexpected task lookup error, duplicate task
+  heartbeats) go to stderr through `utils/diagnostics.py::warn`. Nothing else is printed on a normal run.
 - `aw_client` is replaced by `core/aw_http.py` (standard library, same `get_events` contract), and
   `aw_core` is replaced by `core/event.py` (the `Event` class only). The package no longer depends on
   either: imports of `aw_report.cli.main` dropped from about 0.64 s to about 0.25 s.

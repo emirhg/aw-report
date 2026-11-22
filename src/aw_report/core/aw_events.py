@@ -14,7 +14,6 @@ a single source of truth for how to extract each bucket's schema.
 from datetime import timedelta
 
 from aw_report.core.event import Event
-
 from aw_report.core.filtering import normalize_project, normalize_task
 
 

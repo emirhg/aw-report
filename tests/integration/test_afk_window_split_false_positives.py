@@ -12,7 +12,7 @@ Solution: Split the AFK slot into two parts:
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import List, Tuple
+from typing import List
 
 import pytest
 

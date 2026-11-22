@@ -7,9 +7,7 @@ These tests WILL catch the bugs where unit tests pass but CLI output is broken.
 """
 
 from datetime import datetime, timedelta, timezone
-from io import StringIO
-import re
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import pytest
 

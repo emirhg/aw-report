@@ -5,8 +5,6 @@ even though they should use the same underlying metrics.
 """
 
 import pytest
-from datetime import datetime, timedelta, timezone, date
-from unittest.mock import Mock, patch
 
 # We need to trace through the calculation to see where divergence occurs
 

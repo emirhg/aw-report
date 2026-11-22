@@ -6,7 +6,7 @@ on connection errors. Uses mocking to avoid requiring a live ActivityWatch serve
 """
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 from aw_report.core.event import Event
@@ -150,31 +150,17 @@ class TestGetEvents:
         call_kwargs = mock_client.get_events.call_args.kwargs
         assert call_kwargs["limit"] == -1
 
-    def test_logging_on_success(self, mock_client, time_range, sample_events, caplog):
-        """Successful fetch should log debug message."""
-        import logging
-
-        start, end = time_range
-        mock_client.get_events.return_value = sample_events
-
-        with caplog.at_level(logging.DEBUG, logger="aw_report.core.events"):
-            get_events(mock_client, "aw-watcher-window_host", start, end)
-
-        assert any("Fetched 2 events" in record.message for record in caplog.records)
-
-    def test_logging_on_error(self, mock_client, time_range, caplog):
-        """Failed fetch should log warning with exc_info."""
-        import logging
-
+    def test_failed_fetch_warns_on_stderr_and_returns_empty(self, mock_client, time_range, capsys):
+        """A failed read is reported on stderr (partial data), without a traceback."""
         start, end = time_range
         mock_client.get_events.side_effect = ConnectionError("Server offline")
 
-        with caplog.at_level(logging.WARNING, logger="aw_report.core.events"):
-            get_events(mock_client, "aw-watcher-window_host", start, end)
+        assert get_events(mock_client, "aw-watcher-window_host", start, end) == []
 
-        assert any("Could not fetch events" in record.message for record in caplog.records)
-        # exc_info=True should have been set
-        assert any(record.exc_info for record in caplog.records)
+        err = capsys.readouterr().err
+        assert "Could not fetch events for bucket 'aw-watcher-window_host'" in err
+        assert "continuing with partial data" in err
+        assert "Traceback" not in err
 
     def test_different_buckets(self, mock_client, time_range, sample_events):
         """Should correctly handle different bucket IDs."""

@@ -6,18 +6,15 @@ error handling and logging. Replaces ad-hoc print-to-stderr patterns with
 typed exceptions and structured logging.
 """
 
-import logging
 import platform
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import TypeVar, overload
 
-from aw_report.core.event import Event
-
 from aw_report.core.aw_http import ActivityWatchClient
+from aw_report.core.event import Event
 from aw_report.exceptions import ActivityWatchConnectionError
-
-logger = logging.getLogger(__name__)
+from aw_report.utils.diagnostics import warn
 
 E = TypeVar("E", bound=Event)
 
@@ -99,7 +96,6 @@ def get_events(
     """
     try:
         events = client.get_events(bucket_id, start=start, end=end, limit=-1)
-        logger.debug(f"Fetched {len(events)} events from bucket '{bucket_id}'")
 
         # Re-wrap events in the specified subclass if provided
         if event_cls is not None and event_cls is not Event:
@@ -119,10 +115,7 @@ def get_events(
             raise ActivityWatchConnectionError(
                 f"Could not fetch events for bucket '{bucket_id}': {e}"
             ) from e
-        logger.warning(
-            f"Could not fetch events for bucket '{bucket_id}': {e} (continuing with partial data)",
-            exc_info=True,
-        )
+        warn(f"Could not fetch events for bucket '{bucket_id}': {e} (continuing with partial data)")
         return []
 
 

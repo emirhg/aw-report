@@ -9,7 +9,6 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 from aw_report.core.event import Event
-
 from aw_report.utils.deprecation import deprecated
 
 if TYPE_CHECKING:

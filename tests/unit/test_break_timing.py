@@ -7,7 +7,7 @@ Feature: Add break time totals and period aggregation
 - Validate: Worked Time + Break Time = Tracked Activity
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from aw_report.pipeline.models import PeriodMetrics
 from aw_report.utils.formatting import format_duration
 

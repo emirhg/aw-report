@@ -5,13 +5,10 @@ Handles all argument parsing, data fetching, processing, and report generation.
 """
 
 import argparse
-import logging
 import sys
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import TypeVar, cast
-
-from aw_report.core.event import Event
 
 from aw_report.cli.args import parse_args, parse_positional_args
 from aw_report.config import load_user_config, resolve_settings
@@ -24,6 +21,7 @@ from aw_report.core.categories import (
     get_category_score,
     load_categories,
 )
+from aw_report.core.event import Event
 from aw_report.core.event_filters import filter_by_value
 from aw_report.core.events import (
     fetch_events,
@@ -71,10 +69,9 @@ from aw_report.pipeline.timesheet_render import (
     print_timesheet_report,
 )
 from aw_report.utils.deprecation import deprecated
+from aw_report.utils.diagnostics import warn
 from aw_report.utils.formatting import get_terminal_width, normalize_title
 from aw_report.utils.profiling import StageProfiler, enable_unbuffered_output
-
-logger = logging.getLogger(__name__)
 
 
 @deprecated("Not called by the CLI; scheduled for removal.")
@@ -651,7 +648,7 @@ def _run(profiler: StageProfiler):
                 groups[key] = event
         deduped = list(groups.values())
         if len(deduped) < len(events):
-            logger.warning(f"Deduplicated {len(events) - len(deduped)} duplicate task events")
+            warn(f"Deduplicated {len(events) - len(deduped)} duplicate task events")
         return deduped
 
     task_events_deduped = _deduplicate_task_events(task_events) if task_events else None

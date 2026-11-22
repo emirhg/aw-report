@@ -5,7 +5,6 @@ from datetime import datetime, timedelta, timezone
 from aw_report.core.event import Event
 
 from aw_report.core.filtering import EventFilter
-from aw_report.core.timeline import TimelineSlot
 from aw_report.core.report_slot import ReportTimelineSlot
 from aw_report.pipeline.processors import (
     _split_by_window_categories,

@@ -16,7 +16,6 @@ from itertools import accumulate
 from typing import Literal
 
 from aw_report.core.event import Event
-
 from aw_report.core.filtering import NO_PROJECT, NO_TASK
 from aw_report.core.period import day_boundary, next_bucket_start
 from aw_report.core.report_slot import ReportTimelineSlot

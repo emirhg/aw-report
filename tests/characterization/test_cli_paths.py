@@ -4,7 +4,6 @@ Drives the real main() through the same deterministic harness as the golden test
 TaskWarrior lookups are stubbed at subprocess.run so no real `task` binary is called.
 """
 
-import logging
 import runpy
 import subprocess
 import sys
@@ -134,7 +133,7 @@ def test_grouping_without_explicit_period_defaults_to_matching_window(
     assert seen and seen[0] == expected_period
 
 
-def test_duplicate_taskwarrior_heartbeats_are_collapsed_with_a_warning(monkeypatch, capsys, caplog):
+def test_duplicate_taskwarrior_heartbeats_are_collapsed_with_a_warning(monkeypatch, capsys):
     # Project-filtered fetches return typed TaskWarriorEvents, whose uuid is readable, so the
     # duplicate heartbeat is collapsed (keeping the longest) and a warning is logged.
     buckets = scenario_buckets()
@@ -144,10 +143,9 @@ def test_duplicate_taskwarrior_heartbeats_are_collapsed_with_a_warning(monkeypat
     longer = make_event(base.timestamp, 90, dict(base.data, uuid=UUID))
     buckets[tasks_key] = [shorter, longer] + buckets[tasks_key][1:]
     client = FakeActivityWatchClient(buckets)
-    with caplog.at_level(logging.WARNING, logger="aw_report.cli.main"):
-        out, code, err = run_cli(monkeypatch, capsys, ["--project", "Climb", DAY], client)
+    out, code, err = run_cli(monkeypatch, capsys, ["--project", "Climb", DAY], client)
     assert code == 0
-    assert any("Deduplicated 1 duplicate task events" in r.getMessage() for r in caplog.records)
+    assert "Deduplicated 1 duplicate task events" in err
 
 
 def test_app_filter_matching_nothing_still_renders(monkeypatch, capsys):
@@ -229,7 +227,7 @@ def test_window_without_app_name_is_ignored_by_app_grouping(monkeypatch, capsys)
     assert code == 0
 
 
-def test_reversed_duplicate_heartbeats_keep_the_longest_event(monkeypatch, capsys, caplog):
+def test_reversed_duplicate_heartbeats_keep_the_longest_event(monkeypatch, capsys):
     buckets = scenario_buckets()
     tasks_key = f"aw-watcher-taskwarrior_{HOST}"
     base = buckets[tasks_key][0]
@@ -237,10 +235,9 @@ def test_reversed_duplicate_heartbeats_keep_the_longest_event(monkeypatch, capsy
     shorter = make_event(base.timestamp, 30, dict(base.data, uuid=UUID))
     buckets[tasks_key] = [longer, shorter] + buckets[tasks_key][1:]
     client = FakeActivityWatchClient(buckets)
-    with caplog.at_level(logging.WARNING, logger="aw_report.cli.main"):
-        out, code, err = run_cli(monkeypatch, capsys, ["--project", "Climb", DAY], client)
+    out, code, err = run_cli(monkeypatch, capsys, ["--project", "Climb", DAY], client)
     assert code == 0
-    assert any("Deduplicated" in r.getMessage() for r in caplog.records)
+    assert "Deduplicated" in err
 
 
 # ---------------------------------------------------------------------------

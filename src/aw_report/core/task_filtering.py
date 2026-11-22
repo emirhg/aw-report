@@ -6,14 +6,11 @@ when only task-level information is needed, and auto-detects task IDs/UUIDs
 in --task filter values, resolving them to task descriptions.
 """
 
-import logging
 from datetime import datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aw_report.core.aw_events import TaskWarriorEvent
-
-logger = logging.getLogger(__name__)
 
 
 def get_events_by_task(
@@ -64,11 +61,6 @@ def get_events_by_task(
         task_name, _ = get_task_info(e)
         if task.lower() in task_name.lower():
             filtered.append(e)
-
-    if filtered:
-        logger.debug(f"Filtered to {len(filtered)} events for task: {task}")
-    else:
-        logger.debug(f"No events found matching task: {task}")
 
     return filtered
 
@@ -172,10 +164,5 @@ def get_events_by_tasks(
         task_name, _ = get_task_info(e)
         if any(t.lower() in task_name.lower() for t in tasks):
             filtered.append(e)
-
-    if filtered:
-        logger.debug(f"Filtered to {len(filtered)} events for {len(tasks)} tasks: {tasks}")
-    else:
-        logger.debug(f"No events found matching tasks: {tasks}")
 
     return filtered

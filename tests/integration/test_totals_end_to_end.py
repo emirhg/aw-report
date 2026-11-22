@@ -8,14 +8,11 @@ Validates that:
 """
 
 from datetime import datetime, timedelta, timezone
-from io import StringIO
-import sys
 
 import pytest
 
 from aw_report.core.event import Event
-from aw_report.pipeline.processors import compute_metrics, build_context
-from aw_report.pipeline.models import ReportContext, ReportMetrics
+from aw_report.pipeline.processors import compute_metrics
 
 
 class TestMetricsCalculationWithRealEvents:

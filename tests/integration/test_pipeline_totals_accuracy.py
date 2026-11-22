@@ -8,7 +8,6 @@ These tests verify the actual CLI pipeline produces correct TOTALS.
 """
 
 from datetime import datetime, timedelta, timezone
-from io import StringIO
 
 import pytest
 

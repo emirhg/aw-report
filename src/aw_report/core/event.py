@@ -12,12 +12,9 @@ keeps the same behaviour without that import:
 """
 
 import json
-import logging
 import numbers
 from datetime import UTC, datetime, timedelta
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 
 def _timestamp_parse(ts_in: datetime | str) -> datetime:
@@ -28,7 +25,6 @@ def _timestamp_parse(ts_in: datetime | str) -> datetime:
         if isinstance(ts_in, str):
             # aw_core parses strings with iso8601, which defaults to UTC without a warning
             return ts.replace(tzinfo=UTC)
-        logger.warning(f"timestamp without timezone found, using UTC: {ts}")
         ts = ts.replace(tzinfo=UTC)
     return ts
 
@@ -45,7 +41,6 @@ class Event(dict):
     ) -> None:
         self.id = id
         if timestamp is None:
-            logger.warning("Event initializer did not receive a timestamp argument, using now")
             self.timestamp = datetime.now(UTC)
         else:
             self.timestamp = _timestamp_parse(timestamp)

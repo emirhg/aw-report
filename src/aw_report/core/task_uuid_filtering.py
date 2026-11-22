@@ -7,15 +7,12 @@ app-level data (window bucket).
 """
 
 import json
-import logging
 import subprocess
 from datetime import datetime
 
 from aw_report.core.event import Event
-
 from aw_report.core.event_filters import filter_by_value
-
-logger = logging.getLogger(__name__)
+from aw_report.utils.diagnostics import warn
 
 
 def _export_task(identifier) -> dict | None:
@@ -45,13 +42,11 @@ def _export_task(identifier) -> dict | None:
         return task_data[0]
 
     except subprocess.CalledProcessError:
-        logger.debug(f"Task {identifier} not found")
         return None
-    except (json.JSONDecodeError, IndexError, KeyError) as e:
-        logger.debug(f"Failed to parse task {identifier} export: {e}")
+    except json.JSONDecodeError, IndexError, KeyError:
         return None
     except Exception as e:
-        logger.warning(f"Unexpected error looking up task {identifier}: {e}")
+        warn(f"Unexpected error looking up task {identifier}: {e}")
         return None
 
 
@@ -77,8 +72,6 @@ def get_task_uuid(task_id: int) -> str | None:
     if not task:
         return None
     uuid = task.get("uuid")
-    if uuid:
-        logger.debug(f"Resolved task {task_id} to UUID: {uuid}")
     return uuid
 
 
@@ -178,8 +171,4 @@ def get_events_by_uuid(
     all_events = get_events(client, bucket_id, start, end)
 
     filtered = filter_by_value(all_events, "uuid", [uuid])
-    if filtered:
-        logger.debug(f"Filtered to {len(filtered)} events for UUID: {uuid}")
-    else:
-        logger.debug(f"No events found matching UUID: {uuid}")
     return filtered

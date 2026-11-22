@@ -18,7 +18,6 @@ from datetime import datetime, timedelta, timezone
 from aw_report.core.report_slot import ReportTimelineSlot
 from aw_report.core.aw_events import TaskWarriorEvent
 from aw_report.pipeline.processors import aggregate_hierarchy_from_slots
-from aw_report.pipeline.timeline_render import split_slots_spanning_days
 
 
 class TestTwoPathConvergence:

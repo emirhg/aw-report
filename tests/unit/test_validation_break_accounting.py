@@ -8,9 +8,7 @@ no time is lost or double-counted in the break timing system.
 """
 
 from datetime import datetime, timedelta, timezone
-from io import StringIO
 import re
-import sys
 
 import pytest
 

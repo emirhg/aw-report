@@ -10,7 +10,7 @@ This test suite cross-references AFK and window buckets to:
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import List, Tuple
+from typing import List
 
 import pytest
 

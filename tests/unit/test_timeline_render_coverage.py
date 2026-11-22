@@ -13,7 +13,6 @@ import pytest
 from aw_report.core.report_slot import ReportTimelineSlot
 from aw_report.pipeline import timeline_render as tr
 from aw_report.pipeline.timeline_render import (
-    _get_displayed_duration,
     compute_afk_offline_totals,
     format_and_print_day_total_displayed,
     print_timeline_report,

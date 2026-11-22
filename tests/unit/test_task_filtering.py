@@ -8,7 +8,6 @@ resolved from task IDs or UUIDs (like --project).
 
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch
-import argparse
 import json
 import subprocess
 

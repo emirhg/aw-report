@@ -8,7 +8,6 @@ All tested functions are pure (no I/O side effects).
 from datetime import timedelta
 from unittest.mock import patch
 
-import pytest
 
 from aw_report.utils.formatting import (
     abbreviate_project_path,

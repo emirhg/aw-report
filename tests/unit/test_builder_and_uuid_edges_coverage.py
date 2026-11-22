@@ -1,9 +1,7 @@
 """Coverage tests for timeslot-builder edge paths and the UUID-filter fallback."""
 
-import sys
 from datetime import datetime, timedelta, timezone
 
-import pytest
 from aw_report.core.event import Event
 
 import aw_report.core.events  # noqa: F401

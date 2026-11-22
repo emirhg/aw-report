@@ -3,7 +3,7 @@
 import pytest
 from datetime import datetime, timedelta, timezone
 from aw_report.core.event import Event
-from typing import Dict, List, Optional
+from typing import Dict
 
 
 # ============================================================================

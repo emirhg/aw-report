@@ -7,9 +7,7 @@ Tests verify that the values shown in the TOTALS section are mathematically corr
 """
 
 from datetime import datetime, timedelta, timezone
-from io import StringIO
 import re
-import sys
 
 import pytest
 

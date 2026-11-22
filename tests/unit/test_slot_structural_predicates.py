@@ -10,7 +10,6 @@ Predicates being validated (field-driven):
 - regular (default/residual) = everything else
 """
 
-import pytest
 from datetime import datetime, timedelta, timezone
 
 from aw_report.core.timeline import TimelineSlot
