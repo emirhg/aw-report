@@ -385,7 +385,7 @@ See "Features in Detail" for the other flags.
 ### Dependencies
 
 - **Python 3.14+** — Stdlib `tomllib` (config), PEP 702 `warnings.deprecated`
-- **ActivityWatch** (standard library only: `http.client` in `aw_report/core/aw_http.py`, event model in `aw_report/core/event.py`) — Event fetching
+- **ActivityWatch** (standard library only: a plain socket HTTP client in `aw_report/core/aw_http.py`, event model in `aw_report/core/event.py`) — Event fetching
 - **Taskwarrior** — Task management (via aw-watcher-taskwarrior)
 - Config file support uses the standard-library `tomllib`
 
